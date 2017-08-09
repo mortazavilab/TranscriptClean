@@ -3,6 +3,7 @@
 from spliceJunction import SpliceJunction
 import pyfasta
 import pybedtools
+import re
 
 class Transcript:
 
@@ -32,6 +33,8 @@ class Transcript:
         self.spliceJunctions = []
         self.isCanonical = True
         self.referenceSeq = self.getReferenceSequence(genome)
+        print self.SEQ
+        print self.referenceSeq
 
         # Only run this section if there are splice junctions
         if "-1" not in self.jM:
@@ -42,20 +45,20 @@ class Transcript:
         # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
         # the mapping, and gets the length of the mapping by summing the numbers in the CIGAR string
 
-        alignTypes, counts = self.splitCIGAR(genome)
+        alignTypes, counts = self.splitCIGAR()
         matchLen = sum(counts)
         seqStart = self.POS - 1 # Convert to 0-based
         seqEnd = seqStart + matchLen
 
         return genome[self.CHROM][seqStart:seqEnd].upper()
 
-    def splitCIGAR(CIGAR):
+    def splitCIGAR(self):
         # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
         # The relative order of the elements is maintained, but the lists are reversed for cases on the '-' strand    
 
-        alignTypes = re.sub('[0-9]', " ", CIGAR).split()
-        counts = re.sub('[A-Z]', " ", CIGAR).split()
-        alignCounts = [int(i) for i in counts]
+        alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
+        counts = re.sub('[A-Z]', " ", self.CIGAR).split()
+        counts = [int(i) for i in counts]
 
         return alignTypes, counts
 
