@@ -2,10 +2,14 @@
 from transcript import Transcript
 from spliceJunction import SpliceJunction
 from optparse import OptionParser
+import pybedtools
+from pyfasta import Fasta
 
 def getOptions():
     parser = OptionParser()
     parser.add_option("--f", dest = "sam", help = "Input file",
+                      metavar = "FILE", type = "string", default = "")
+    parser.add_option("--g", dest = "refGenome", help = "Reference genome fasta file. Should be the same one used to generate the sam file.",
                       metavar = "FILE", type = "string", default = "")
     parser.add_option("--o", dest = "outfile",
                       help = "output file", metavar = "FILE", type = "string", default = "out")
@@ -14,10 +18,14 @@ def getOptions():
 
 def main():
     options = getOptions()
-    
-    header, transcripts = processSAM(options.sam)
+   
+    # Read in the reference genome. Treat coordinates as 0-based 
+    genome = Fasta(options.refGenome)
+    header, transcripts = processSAM(options.sam, genome)
 
-def processSAM(sam):
+    
+
+def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
     # Transcripts are returned in a list. 
     header = ""
@@ -28,7 +36,7 @@ def processSAM(sam):
             if line.startswith("@"):
                 header = header + line + "\n"
                 continue
-            t = Transcript(line)
+            t = Transcript(line, genome)
             transcripts.append(t)
     return header, transcripts
 

@@ -1,10 +1,12 @@
 # This file contains classes for the clean_splice_jns.py program
 
 from spliceJunction import SpliceJunction
+import pyfasta
+import pybedtools
 
 class Transcript:
 
-    def __init__(self, sam):
+    def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
 
         # These attributes are initialized directly from the input SAM entry 
@@ -29,11 +31,33 @@ class Transcript:
         # These attributes are set by parsing functions
         self.spliceJunctions = []
         self.isCanonical = True
+        self.referenceSeq = self.getReferenceSequence(genome)
 
         # Only run this section if there are splice junctions
         if "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions()            
+
+    def getReferenceSequence(self, genome):
+        # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
+        # the mapping, and gets the length of the mapping by summing the numbers in the CIGAR string
+
+        alignTypes, counts = self.splitCIGAR(genome)
+        matchLen = sum(counts)
+        seqStart = self.POS - 1 # Convert to 0-based
+        seqEnd = seqStart + matchLen
+
+        return genome[self.CHROM][seqStart:seqEnd].upper()
+
+    def splitCIGAR(CIGAR):
+        # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
+        # The relative order of the elements is maintained, but the lists are reversed for cases on the '-' strand    
+
+        alignTypes = re.sub('[0-9]', " ", CIGAR).split()
+        counts = re.sub('[A-Z]', " ", CIGAR).split()
+        alignCounts = [int(i) for i in counts]
+
+        return alignTypes, counts
 
 
     def parseSpliceJunctions(self):
