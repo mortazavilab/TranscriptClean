@@ -1,8 +1,10 @@
 # This file contains classes for the clean_splice_jns.py program
 
+import pybedtools
+
 class SpliceJunction:
 
-    def __init__(self, chrom, start, end, jnStr):
+    def __init__(self, chrom, start, end, strand, jnStr):
         
         self.chrom = chrom
         self.start = int(start)
@@ -15,6 +17,11 @@ class SpliceJunction:
     def isCanonical(self):
         return self.isCanonical
 
-    def getBED(self):
-        # Format the splice junction as a BED entry, with 0-based start and end. For now it is just a string, but later I might use an object
-        return "\t".join([ self.chrom, str(self.start - 1), str(self.end) ]) 
+    def getBED(self, mode):
+        # Format the splice junction as a BedTool object, with 0-based start and end. 
+        # If mode == "start", we return a bed for the start position.
+        # If mode == "end", we return a bed for the end position.
+        if mode == "start": pos = self.start
+        if mode == "end": pos = self.end
+        bedstr = "\t".join([ self.CHROM, str(pos - 1), str(pos), ".", 0, self.strand ])
+        return pybedtools.BedTool(bedstr, from_string= True) 

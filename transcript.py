@@ -29,18 +29,21 @@ class Transcript:
         self.jM = samFields[15]
         self.jI = samFields[16]
  
-        # These attributes are set by parsing functions
+        # These attributes are set by parsing the inputs
         self.spliceJunctions = []
         self.isCanonical = True
+        self.strand = "+"
         self.referenceSeq = self.getReferenceSequence(genome)
+        if self.FLAG == 16: self.strand = "-"
 
-        print self.SEQ
-        print self.referenceSeq
+        #print self.SEQ
+        #print self.referenceSeq
 
         # Only run this section if there are splice junctions
         if "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions()            
+
 
     def getReferenceSequence(self, genome):
         # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
@@ -75,7 +78,7 @@ class Transcript:
         for entry in spliceJns:
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
-            sj = SpliceJunction(self.CHROM, start, end, entry)
+            sj = SpliceJunction(self.CHROM, start, end, self.strand, entry)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
