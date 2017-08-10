@@ -33,6 +33,7 @@ class Transcript:
         self.spliceJunctions = []
         self.isCanonical = True
         self.referenceSeq = self.getReferenceSequence(genome)
+
         print self.SEQ
         print self.referenceSeq
 
