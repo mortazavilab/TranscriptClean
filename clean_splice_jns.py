@@ -22,8 +22,11 @@ def main():
     options = getOptions()
    
     # Read in the reference genome. Treat coordinates as 0-based 
+    print "Reading genome .............................."
     genome = Fasta(options.refGenome)
+    print "Processing SAM file ........................."
     header, transcripts = processSAM(options.sam, genome)
+    print "Processing annotated splice junctions ........"
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
 
@@ -47,9 +50,36 @@ def processSpliceAnnotation(annotFile):
     # This function reads in the tab-separated STAR splice junction file and creates a bedtools object
     
     bedstr = ""
-    with open(annotFile, r) as f:
+    o = open("tmp.bed", 'w')
+    with open(annotFile, "r") as f:
         for line in f:
-            line = line.strip()
-        
+            fields = line.strip().split("\t")
+            chrom = fields[0]
+            start = int(fields[1])
+            end = int(fields[2])
+
+            strand = "."
+            if fields[3] == "1": strand = "+"
+            if fields[3] == "2": strand = "-"
+            
+            intronMotif = int(fields[4])
+            annotated = int(fields[5])
+            uniqueReads = fields[6]
+            multiReads = fields[7]
+            maxOverhang = fields[8]
+
+            # Process only canonical splice junctions or annotated noncanonical junctions
+            if (intronMotif != 0) or (intronMotif == 0 and annotated == 1):
+                # Make one bed entry for each end of the junction
+                bed1 = "\t".join([chrom, str(start - 1), str(start), ".", uniqueReads, strand])
+                bed2 = "\t".join([chrom, str(end - 1), str(end), ".", uniqueReads, strand])
+                o.write(bed1 + "\n")
+                o.write(bed2 + "\n")  
+        o.close()
+
+        # Convert bed file into BedTool object
+        bt = pybedtools.BedTool("tmp.bed")
+        bt.head()
+        return 1    
 
 main()
