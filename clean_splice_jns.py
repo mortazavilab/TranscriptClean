@@ -4,6 +4,7 @@ from spliceJunction import SpliceJunction
 from optparse import OptionParser
 import pybedtools
 from pyfasta import Fasta
+import os
 
 def getOptions():
     parser = OptionParser()
@@ -83,28 +84,51 @@ def processSpliceAnnotation(annotFile):
     o.close()
     
     # Convert bed file into BedTool object
-    bt = pybedtools.BedTool("tmp.bed")
+    os.system('sort -k1,1 -k2,2n tmp.bed > tmp2.bed')
+    bt = pybedtools.BedTool("tmp2.bed")
     return bt    
 
 def cleanNoncanonical(transcripts, annotatedJunctions):
     # Iterate over noncanonical transcripts. Determine whether each end is within 5 basepairs of an annotated junction.
     # If it is, run the rescue function on it. If not, discard the transcript.
 
-
+    totalJns = 0
+    noncanonicalJns = 0
+    salvageableNCJns = 0
     cleanTranscripts = []
     for t in transcripts:
         jns = t.spliceJunctions
         for jn in jns:
+            totalJns += 1
             if jn.isCanonical == True:
                 continue
             
+            noncanonicalJns += 1
+
             # Get BedTool object for start of junction
             start = SpliceJunction.getBED(jn, "start")
-            start.head()
+            dStart = closestAnnotatedJn(start, annotatedJunctions)
             
             # Get BedTool object for start of junction
             end = SpliceJunction.getBED(jn, "end")
-            end.head()
+            dEnd = closestAnnotatedJn(end, annotatedJunctions)
+
+            if abs(dStart) <= 5 and abs(dEnd) <=5:
+                salvageableNCJns += 1
+
+    print "Total splice junctions: " + str(totalJns)
+    print "Total noncanonical junctions: " + str(noncanonicalJns)
+    percentSalvageable = round(float(salvageableNCJns)*100/noncanonicalJns, 2)
+    print "Number of salvageable noncanonical junctions: " + str(salvageableNCJns) + " (" + str(percentSalvageable) + "%)"
+
+def closestAnnotatedJn(jn, annotatedJunctions):
+    # This function accepts a noncanonical splice junction BedTool object and finds the closest annotated junction. It also
+    # reports the distance from said junction.
+    
+    closest = str(jn.closest(annotatedJunctions, s=True, D="ref", t="first" )[0]).strip().split()
+    return int(closest[-1])
+    
+    
 
 #def rescueNoncanonicalJunction():
 #    pass    
