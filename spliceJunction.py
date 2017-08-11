@@ -10,11 +10,10 @@ class SpliceJunction:
         self.start = int(start)
         self.end = int(end)
         self.strand = strand
-        if int(jnStr) == 0 or int(jnStr) == 20:
+        if int(jnStr) == 0:
             self.isCanonical = False
         else:
             self.isCanonical = True   
-        print self.isCanonical
 
     def isCanonical(self):
         return self.isCanonical
