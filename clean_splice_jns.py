@@ -28,7 +28,7 @@ def main():
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
     print "Processing annotated splice junctions ........"
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
-
+    
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns)
 
 def processSAM(sam, genome):
@@ -56,7 +56,7 @@ def processSpliceAnnotation(annotFile):
     
     bedstr = ""
     o = open("tmp.bed", 'w')
-    with open(annotFile, "r") as f:
+    with open(annotFile, 'r') as f:
         for line in f:
             fields = line.strip().split("\t")
             chrom = fields[0]
@@ -81,27 +81,32 @@ def processSpliceAnnotation(annotFile):
                 o.write(bed1 + "\n")
                 o.write(bed2 + "\n")  
     o.close()
-
+    
     # Convert bed file into BedTool object
     bt = pybedtools.BedTool("tmp.bed")
-    return 1    
+    return bt    
 
 def cleanNoncanonical(transcripts, annotatedJunctions):
     # Iterate over noncanonical transcripts. Determine whether each end is within 5 basepairs of an annotated junction.
     # If it is, run the rescue function on it. If not, discard the transcript.
 
+
     cleanTranscripts = []
-    for t in transcript:
+    for t in transcripts:
         jns = t.spliceJunctions
         for jn in jns:
             if jn.isCanonical == True:
                 continue
             
             # Get BedTool object for start of junction
-            start = jn.getBed("start")
+            start = SpliceJunction.getBED(jn, "start")
             start.head()
+            
+            # Get BedTool object for start of junction
+            end = SpliceJunction.getBED(jn, "end")
+            end.head()
 
-def rescueNoncanonicalJunction():
-    pass    
+#def rescueNoncanonicalJunction():
+#    pass    
 
 main()
