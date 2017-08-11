@@ -9,6 +9,8 @@ class Transcript:
 
     def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
+        print samFields 
+        print len(samFields)
 
         # These attributes are initialized directly from the input SAM entry 
         self.QNAME = samFields[0]
@@ -22,12 +24,8 @@ class Transcript:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = samFields[10]
-        self.NH = samFields[11]
-        self.HI = samFields[12]
-        self.NM = samFields[13]
-        self.MD = samFields[14]
-        self.jM = samFields[15]
-        self.jI = samFields[16]
+        self.jM = samFields[-2]
+        self.jI = samFields[-1]
  
         # These attributes are set by parsing the inputs
         self.spliceJunctions = []
