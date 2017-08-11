@@ -9,8 +9,6 @@ class Transcript:
 
     def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
-        print samFields 
-        print len(samFields)
 
         # These attributes are initialized directly from the input SAM entry 
         self.QNAME = samFields[0]
@@ -87,7 +85,7 @@ class Transcript:
 
     def printableSAM(self):
         # Returns a SAM-formatted string representation of the transcript
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, self.NM, self.MD, self.jM, self.jI ]
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
     def printSpliceJunctions(self):
