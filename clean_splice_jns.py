@@ -30,6 +30,10 @@ def main():
     print "Processing annotated splice junctions ........"
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
+
+    totalT = len(canTranscripts) +  len(noncanTranscripts)
+    print "Total transcripts: " + str(totalT)
+    print "Total noncanonical transcripts: " + str(len(noncanTranscripts))
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns)
 
 def processSAM(sam, genome):
@@ -37,8 +41,8 @@ def processSAM(sam, genome):
     # Transcripts are returned two separate lists: one canonical and one noncanonical. 
 
     header = ""
-    canTranscripts = []
-    noncanTranscripts = []
+    canTranscripts = {}
+    noncanTranscripts = {} 
     with open(sam, 'r') as f:
         for line in f:
             line = line.strip()
@@ -47,9 +51,9 @@ def processSAM(sam, genome):
                 continue
             t = Transcript(line, genome)
             if t.isCanonical == True:
-                canTranscripts.append(t)
+                canTranscripts[t.QNAME] = t
             else:
-                noncanTranscripts.append(t)
+                noncanTranscripts[t.QNAME] = t
     return header, canTranscripts, noncanTranscripts
 
 def processSpliceAnnotation(annotFile):
@@ -92,34 +96,54 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
     # Iterate over noncanonical transcripts. Determine whether each end is within 5 basepairs of an annotated junction.
     # If it is, run the rescue function on it. If not, discard the transcript.
 
-    totalJns = 0
-    noncanonicalJns = 0
+    o = open("tmp_nc.bed", 'w')
+    #noncanonicalJns = 0
     salvageableNCJns = 0
-    cleanTranscripts = []
-    for t in transcripts:
+    totNC = len(transcripts)
+    for tID in transcripts.keys():
+        t = transcripts[tID]
         jns = t.spliceJunctions
         for jn in jns:
-            totalJns += 1
             if jn.isCanonical == True:
                 continue
             
-            noncanonicalJns += 1
+            #noncanonicalJns += 1
 
             # Get BedTool object for start of junction
             start = SpliceJunction.getBED(jn, "start")
-            dStart = closestAnnotatedJn(start, annotatedJunctions)
-            
+            #d1 = closestAnnotatedJn(start, annotatedJunctions)
+            o.write(start + "\n")            
+
             # Get BedTool object for start of junction
             end = SpliceJunction.getBED(jn, "end")
-            dEnd = closestAnnotatedJn(end, annotatedJunctions)
+            #d2 = closestAnnotatedJn(end, annotatedJunctions)
+            o.write(end + "\n")
 
-            if abs(dStart) <= 5 and abs(dEnd) <=5:
-                salvageableNCJns += 1
+       #     if abs(d1) <= 5 and abs(d2) <=5:
+       #         salvageableNCJns += 1
+       #         SpliceJunction.changeToCanonical(jn)
+       # if Transcript.recheckCanonical(t) == True:
+       #     cleanTranscripts.append(t)
 
-    print "Total splice junctions: " + str(totalJns)
-    print "Total noncanonical junctions: " + str(noncanonicalJns)
-    percentSalvageable = round(float(salvageableNCJns)*100/noncanonicalJns, 2)
-    print "Number of salvageable noncanonical junctions: " + str(salvageableNCJns) + " (" + str(percentSalvageable) + "%)"
+    o.close()
+    os.system('sort -k1,1 -k2,2n tmp_nc.bed > sorted_tmp_nc.bed')
+    nc = pybedtools.BedTool("sorted_tmp_nc.bed")
+    matches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
+    
+    for entry in matches:
+        if len(entry) == 0: continue
+        entry = entry.split('\t')
+        d = int(entry[-1])
+        transcriptID, spliceJnNum, side = entry[3].split("__")
+        if abs(d) > 5:
+            transcripts.pop(transcriptID, None)
+        
+
+    #print "Total noncanonical junctions: " + str(noncanonicalJns)
+    #percentSalvageableJn = round(float(salvageableNCJns)*100/noncanonicalJns, 2)
+    #print "Number of salvageable noncanonical junctions: " + str(salvageableNCJns) + " (" + str(percentSalvageableJn) + "%)"
+    percentSalvageableT = round(float(len(transcripts))*100/totNC, 2)
+    print "Number of salvageable noncanonical transcripts: " + str(len(transcripts)) + " (" + str(percentSalvageableT) + "%)"
 
 def closestAnnotatedJn(jn, annotatedJunctions):
     # This function accepts a noncanonical splice junction BedTool object and finds the closest annotated junction. It also
@@ -130,7 +154,13 @@ def closestAnnotatedJn(jn, annotatedJunctions):
     
     
 
-#def rescueNoncanonicalJunction():
-#    pass    
-
+def rescueNoncanonicalJunction(jn, d):
+    # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
+    # To do this, it is necessary to
+    # (1) Change the sam sequence to the reference
+    # (2) Potentially change the mapping quality? (Not sure how yet)
+    # (3) Change the CIGAR string
+    # (4) Change the splice junction introns
+    # (5) Change the splice junction string   
+    pass
 main()

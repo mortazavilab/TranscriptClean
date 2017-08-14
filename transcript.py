@@ -39,7 +39,14 @@ class Transcript:
         if "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions()            
-
+ 
+    def recheckCanonical(self):
+        for jn in self.spliceJunctions:
+            if jn.isCanonical == False:
+                self.isCanonical = False
+                return False
+        self.isCanonical = True
+        return True
 
     def getReferenceSequence(self, genome):
         # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
@@ -74,7 +81,7 @@ class Transcript:
         for entry in spliceJns:
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
-            sj = SpliceJunction(self.CHROM, start, end, self.strand, entry)
+            sj = SpliceJunction(self.QNAME, count, self.CHROM, start, end, self.strand, entry)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
