@@ -1,6 +1,7 @@
 # This file contains classes for the clean_splice_jns.py program
 
 from spliceJunction import SpliceJunction
+from intronBound import IntronBound
 import pyfasta
 import pybedtools
 import re
@@ -95,9 +96,15 @@ class Transcript:
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
-    def printSpliceJunctions(self):
-        
-        for sj in self.spliceJunctions:
-            print sj.getBED()
 
+    def getAllIntronBounds(self):
+        # Return all intron bound objects belonging to this transcript
+
+        result = []
+        for jn in self.spliceJunctions:
+            b = jn.bounds
+            result.append(b[0])
+            result.append(b[1])
+        return result
+    
  

@@ -1,6 +1,6 @@
 # This file contains classes for the clean_splice_jns.py program
 
-import pybedtools
+from intronBound import IntronBound
 
 class SpliceJunction:
 
@@ -17,31 +17,14 @@ class SpliceJunction:
         else:
             self.isCanonical = True   
 
+        # Create an intronBound object for each end of the junction
+        left = IntronBound(self.transcriptID, self.jnNumber, "0", self.chrom, self.start, self.strand, jnStr)
+        right = IntronBound(self.transcriptID, self.jnNumber, "1", self.chrom, self.end, self.strand, jnStr)
+        self.bounds = [left, right]
+
     def isCanonical(self):
-        return self.isCanonical
-
-    def changeToCanonical(self):
-        # This function is used when there is a canonical splice junction within 5 bp of this noncanonical junction.
-        # It changes the start and end of this splice junction to those of the canonical one.
-        if self.isCanonical == True: return
-        
-        # Convert new start and end to 1-based since they will be coming in as bed
-        #self.start = newStart + 1
-        #self.end = newEnd
-        self.isCanonical = True
-        return
+        # If both intron bounds of the junction are canonical, then so is the splice juntion as a whole.
+                
+        return IntronBound.isCanonical(self.bounds[0]) and IntronBound.isCanonical(self.bounds[1])
 
 
-    def getBED(self, mode):
-        # Format the splice junction as a BedTool object, with 0-based start and end. 
-        # If mode == "start", we return a bed for the start position.
-        # If mode == "end", we return a bed for the end position.
-        if mode == "start": 
-            pos = self.start
-            side = "0"
-        if mode == "end": 
-            pos = self.end
-            side = "1"
-        name = self.transcriptID + "__" + str(self.jnNumber) + "__" + side
-        bedstr = "\t".join([ self.chrom, str(pos - 1), str(pos), name, "0", self.strand ])
-        return bedstr #pybedtools.BedTool(bedstr, from_string= True) 
