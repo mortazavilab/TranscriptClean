@@ -6,6 +6,7 @@ from optparse import OptionParser
 import pybedtools
 from pyfasta import Fasta
 import os
+import re
 
 def getOptions():
     parser = OptionParser()
@@ -134,7 +135,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
         match = match.split('\t')
         d = int(match[-1])
         transcriptID, spliceJnNum, side = match[3].split("__")
- 
+        
         # Only attempt to rescue junction boundaries that are within 5 bp of an annotated junction
         if abs(d) > 5:
             transcripts.pop(transcriptID, None)
@@ -167,9 +168,55 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
     
     seq = transcript.SEQ
     CIGAR = transcript.CIGAR
+    intronBound = int(intronBound.bound)
 
+    print transcript.QNAME
+    print spliceJn.jnNumber
+    print intronBound
+    print d
+
+    # The exon we need to modify depends on which end of the splice junction we are rescuing
+    # If we are rescuing the left side, we will modify the exon with the same number as the intron
+    # If we are rescuing the right, we will modify exon number intron+1
+    targetIntron = int(spliceJn.jnNumber)
+    targetExon = targetIntron + intronBound
+
+    matchTypes, matchCounts = splitCIGAR(CIGAR)
+    exonSeqs = getExonSeqs(seq, CIGAR)
+    newCIGAR = ""
+    currIntron = 0
+    currExon = 0
+    for operation,c in zip(matchTypes, matchCounts):
+        if operation == "M":   
+            if currExon == targetExon:
+                if (intronBound == 0 and d > 0) or (intronBound == 1 and d < 0):
+                    # Under these conditions, the exon length will increase. Adjust the match count accordingly
+                    c = c + abs(d)
+                if (intronBound == 0 and d < 0) or (intronBound == 1 and d > 0):
+                    # Under these conditions, the exon length will decrease. 
+                    c = c - abs(d)
+            currExon += 1
+        if operation == "N": 
+            if currIntron == targetIntron:
+                if (intronBound == 0 and d > 0) or (intronBound == 1 and d < 0):
+                    # Under these conditions, the intron length will decrease. Adjust the match count accordingly
+                    c = c - abs(d)
+                if (intronBound == 0 and d < 0) or (intronBound == 1 and d > 0):
+                    # Under these conditions, the intron length will increase. 
+                    c = c + abs(d)
+            currIntron += 1
+        
+        newCIGAR = newCIGAR + str(c) + operation
+    print newCIGAR
+    exit()
+    return newCIGAR
+
+
+#    print matchTypes
+#    print matchCounts
+#    print subSeqs
     
-def splitCIGAR(CIGAR, strand):
+def splitCIGAR(CIGAR):
     # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
 
     matchTypes = re.sub('[0-9]', " ", CIGAR).split()
@@ -178,16 +225,21 @@ def splitCIGAR(CIGAR, strand):
 
     return matchTypes, matchCounts
 
-def splitSeqByCIGAR(seq, matchCounts):
-    # Given a sequence (from a sam entry) and a list of counts extracted from the CIGAR string, this function splits the sequence into substrings 
-    # corresponding to the size and order of the CIGAR string matches
-    # Example: seq = ATCGATTCA and matchCounts = [ 2, 4, 3 ] would yield [ AT, CGAT, TCA ]
+def getExonSeqs(seq, CIGAR):
+    # Given a sequence (from a sam entry) and a CIGAR string, this function splits the sequence into substrings 
+    # corresponding to the size and order of the CIGAR string M operations. It returns only the exon (M) sequences
+    # Example: seq = ATCGATTCA and CIGAR 2M4N3M:
+    #          Yields matchTypes = [ M, N, M ] and matchCounts = [ 2, 4, 3 ] 
+    #          Result = [ AT, TCA ]
 
+    matchTypes, matchCounts = splitCIGAR(CIGAR)
     result = []
+   
     curr = 0
-    for count in matchCounts:
-        subSeq = seq[curr:curr + count]
-        curr = curr + count
+    for m,c in zip(matchTypes, matchCounts):
+        if m != "M": continue
+        subSeq = seq[curr:curr + c]
+        curr = curr + c
         result.append(subSeq)
     return result
 

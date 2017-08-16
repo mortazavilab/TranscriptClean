@@ -10,6 +10,7 @@ class IntronBound:
         self.ID = "__".join([transcriptID, str(jnNumber), str(ibNumber)])
         self.transcriptID = transcriptID
         self.jnNumber = jnNumber
+        self.bound = ibNumber
         self.chrom = chrom
         self.pos = int(pos)
         self.strand = strand
