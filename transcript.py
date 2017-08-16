@@ -78,16 +78,18 @@ class Transcript:
         intronBounds = ((self.jI).split(":")[-1]).split(",")[1:]
 
         count = 0
+        jnNum = 0
         jnObjects = [] 
         for entry in spliceJns:
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
-            sj = SpliceJunction(self.QNAME, count, self.CHROM, start, end, self.strand, entry)
+            sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, self.strand, entry)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
             if sj.isCanonical == False: self.isCanonical = False
             count += 2
+            jnNum += 1
         
         return jnObjects
 
