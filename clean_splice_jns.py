@@ -116,41 +116,80 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
     o.close()
     os.system('sort -k1,1 -k2,2n tmp_nc.bed > sorted_tmp_nc.bed')
     nc = pybedtools.BedTool("sorted_tmp_nc.bed")
-    matches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
+    jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
    
     os.system("rm tmp_nc.bed")
     os.system("rm sorted_tmp_nc.bed")
     os.system("rm tmp.bed")
     os.system("rm tmp2.bed")
+
+    case1 = 0
+    case2 = 0
+    case3 = 0
+    case4 = 0
+
+    # Iterate over splice junction boundaries and their closest canonical match. 
+    for match in jnMatches:
+        if len(match) == 0: continue
+        match = match.split('\t')
+        d = int(match[-1])
+        transcriptID, spliceJnNum, side = match[3].split("__")
  
-    for entry in matches:
-        if len(entry) == 0: continue
-        entry = entry.split('\t')
-        d = int(entry[-1])
-        transcriptID, spliceJnNum, side = entry[3].split("__")
+        # Only attempt to rescue junction boundaries that are within 5 bp of an annotated junction
         if abs(d) > 5:
             transcripts.pop(transcriptID, None)
+            continue
         
+        currTranscript = transcripts[transcriptID]
+        currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
+        currIntronBound = currJunction.bounds[int(side)]
+        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d)
 
+        if side == "0" and d > 0: case1 += 1
+        if side == "1" and d < 0: case2 += 1
+        if side == "0" and d < 0: case3 += 1
+        if side == "1" and d > 0: case4 += 1
     #percentSalvageableT = round(float(len(transcripts))*100/totNC, 2)
     #print "Number of salvageable noncanonical transcripts: " + str(len(transcripts)) + " (" + str(percentSalvageableT) + "%)"
+    print "Case1: " + str(case1)
+    print "Case2: " + str(case2)
+    print "Case3: " + str(case3)
+    print "Case4: " + str(case4)
 
-def closestAnnotatedJn(jn, annotatedJunctions):
-    # This function accepts a noncanonical splice junction BedTool object and finds the closest annotated junction. It also
-    # reports the distance from said junction.
-    
-    closest = str(jn.closest(annotatedJunctions, s=True, D="ref", t="first" )[0]).strip().split()
-    return int(closest[-1])
-    
-    
-
-def rescueNoncanonicalJunction(jn, d):
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
     # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
     # To do this, it is necessary to
     # (1) Change the sam sequence to the reference
     # (2) Potentially change the mapping quality? (Not sure how yet)
     # (3) Change the CIGAR string
-    # (4) Change the splice junction introns
+    # (4) Change the splice junction intron coordinates
     # (5) Change the splice junction string   
-    pass
+    
+    seq = transcript.SEQ
+    CIGAR = transcript.CIGAR
+
+    
+def splitCIGAR(CIGAR, strand):
+    # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
+
+    matchTypes = re.sub('[0-9]', " ", CIGAR).split()
+    matchCounts = re.sub('[A-Z]', " ", CIGAR).split()
+    matchCounts = [int(i) for i in matchCounts]
+
+    return matchTypes, matchCounts
+
+def splitSeqByCIGAR(seq, matchCounts):
+    # Given a sequence (from a sam entry) and a list of counts extracted from the CIGAR string, this function splits the sequence into substrings 
+    # corresponding to the size and order of the CIGAR string matches
+    # Example: seq = ATCGATTCA and matchCounts = [ 2, 4, 3 ] would yield [ AT, CGAT, TCA ]
+
+    result = []
+    curr = 0
+    for count in matchCounts:
+        subSeq = seq[curr:curr + count]
+        curr = curr + count
+        result.append(subSeq)
+    return result
+
+
 main()
