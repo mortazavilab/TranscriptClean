@@ -152,10 +152,11 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
         if side == "1" and d > 0: case4 += 1
     #percentSalvageableT = round(float(len(transcripts))*100/totNC, 2)
     #print "Number of salvageable noncanonical transcripts: " + str(len(transcripts)) + " (" + str(percentSalvageableT) + "%)"
-    print "Case1: " + str(case1)
-    print "Case2: " + str(case2)
-    print "Case3: " + str(case3)
-    print "Case4: " + str(case4)
+    #print "Case1: " + str(case1)
+    #print "Case2: " + str(case2)
+    #print "Case3: " + str(case3)
+    #print "Case4: " + str(case4)
+    print currTranscript.CIGAR
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
     # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
@@ -167,22 +168,26 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
     # (5) Change the splice junction string   
     
     seq = transcript.SEQ
-    CIGAR = transcript.CIGAR
-    intronBound = int(intronBound.bound)
+  
+    correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
+    #print transcript.QNAME
+    #print spliceJn.jnNumber
+    #print intronBound
+    #print d
 
-    print transcript.QNAME
-    print spliceJn.jnNumber
-    print intronBound
-    print d
+def correctCIGAR(transcript, targetIntron, intronBound, d):
+    # This function modifies the CIGAR string of a transcript to make it reflect the conversion of a particular 
+    # splice junction from noncanonical to canonical
+
+    CIGAR = transcript.CIGAR
 
     # The exon we need to modify depends on which end of the splice junction we are rescuing
     # If we are rescuing the left side, we will modify the exon with the same number as the intron
     # If we are rescuing the right, we will modify exon number intron+1
-    targetIntron = int(spliceJn.jnNumber)
     targetExon = targetIntron + intronBound
 
+    
     matchTypes, matchCounts = splitCIGAR(CIGAR)
-    exonSeqs = getExonSeqs(seq, CIGAR)
     newCIGAR = ""
     currIntron = 0
     currExon = 0
@@ -207,15 +212,10 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
             currIntron += 1
         
         newCIGAR = newCIGAR + str(c) + operation
-    print newCIGAR
-    exit()
-    return newCIGAR
+    # Update the transcript
+    transcript.CIGAR = newCIGAR
+    return 
 
-
-#    print matchTypes
-#    print matchCounts
-#    print subSeqs
-    
 def splitCIGAR(CIGAR):
     # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
 

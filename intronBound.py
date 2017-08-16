@@ -9,8 +9,8 @@ class IntronBound:
         # An ibNumber of 1 indicates the right hand side.
         self.ID = "__".join([transcriptID, str(jnNumber), str(ibNumber)])
         self.transcriptID = transcriptID
-        self.jnNumber = jnNumber
-        self.bound = ibNumber
+        self.jnNumber = int(jnNumber)
+        self.bound = int(ibNumber)
         self.chrom = chrom
         self.pos = int(pos)
         self.strand = strand

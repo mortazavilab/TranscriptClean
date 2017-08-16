@@ -7,7 +7,7 @@ class SpliceJunction:
     def __init__(self, transcriptID, jnNumber, chrom, start, end, strand, jnStr):
         
         self.transcriptID = transcriptID
-        self.jnNumber = jnNumber
+        self.jnNumber = int(jnNumber)
         self.chrom = chrom
         self.start = int(start)
         self.end = int(end)
