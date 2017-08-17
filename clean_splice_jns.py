@@ -32,10 +32,9 @@ def main():
     print "Processing annotated splice junctions ........"
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
-
-    totalT = len(canTranscripts) +  len(noncanTranscripts)
-    print "Total transcripts: " + str(totalT)
-    print "Total noncanonical transcripts: " + str(len(noncanTranscripts))
+    cleanMicroindels(canTranscripts, genome)
+    cleanMicroindels(noncanTranscripts, genome)
+    exit()
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
 def processSAM(sam, genome):
@@ -101,25 +100,35 @@ def cleanMicroindels(transcripts, genome):
     # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
     # ends the match.
  
-    for t in transcripts:
+    for t in transcripts.keys():
+        t = transcripts[t]
+        print t.CIGAR
         if "D" in t.CIGAR:
             newCIGAR = ""
-            matchTypes, matchCounts = splitCIGAR(CIGAR)
+            matchTypes, matchCounts = splitCIGAR(t.CIGAR)
             currMVal = 0
             seqIndex = 0
+            print matchTypes
+            print matchCounts
             for operation, count in zip(matchTypes, matchCounts):
                 if operation == "D" and count <= 5:
-                        #replaceWithReferenceSeq
-                        currMVal += count
-                if operation == "M":
+                    #replaceWithReferenceSeq
                     currMVal += count
-                if currMVal > 0:
-                    newCIGAR = newCIGAR + str(currMVal) + "M"
-                    currMVal = 0
-                newCIGAR + str(count) + operation
-                seqIndex += count
-           
+                    
+                elif operation == "M":
+                    currMVal += count
+                    
+                else:
+	            if currMVal > 0:
+                        newCIGAR = newCIGAR + str(currMVal) + "M"
+                        currMVal = 0
+                    newCIGAR = newCIGAR + str(count) + operation
+                    seqIndex += count
+            # Add in any reamining matches 
+            if currMVal > 0:
+                newCIGAR = newCIGAR + str(currMVal) + "M"
             t.CIGAR = newCIGAR
+        print t.CIGAR
     return
 
 
