@@ -92,7 +92,36 @@ def processSpliceAnnotation(annotFile):
     # Convert bed file into BedTool object
     os.system('sort -k1,1 -k2,2n tmp.bed > tmp2.bed')
     bt = pybedtools.BedTool("tmp2.bed")
-    return bt    
+    return bt
+
+def cleanMicroindels(transcripts, genome):
+    # Iterate over transcripts and look for deletions that are <= 5 bp long. 
+    # Fix these deletions by adding in the missing reference bases and removing the microindel from the CIGAR string.
+    # When removing a deletion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
+    # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
+    # ends the match.
+ 
+    for t in transcripts:
+        if "D" in t.CIGAR:
+            newCIGAR = ""
+            matchTypes, matchCounts = splitCIGAR(CIGAR)
+            currMVal = 0
+            seqIndex = 0
+            for operation, count in zip(matchTypes, matchCounts):
+                if operation == "D" and count <= 5:
+                        #replaceWithReferenceSeq
+                        currMVal += count
+                if operation == "M":
+                    currMVal += count
+                if currMVal > 0:
+                    newCIGAR = newCIGAR + str(currMVal) + "M"
+                    currMVal = 0
+                newCIGAR + str(count) + operation
+                seqIndex += count
+           
+            t.CIGAR = newCIGAR
+    return
+
 
 def cleanNoncanonical(transcripts, annotatedJunctions, genome):
     # Iterate over noncanonical transcripts. Determine whether each end is within 5 basepairs of an annotated junction.
