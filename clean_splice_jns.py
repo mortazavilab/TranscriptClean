@@ -34,6 +34,8 @@ def main():
     
     cleanMicroindels(canTranscripts, genome)
     cleanMicroindels(noncanTranscripts, genome)
+
+    #print noncanTranscripts["PB.38.1|chr1:3737151-3747372(-)|c91489/f1p0/3491"].CIGAR
     exit()
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
@@ -106,15 +108,15 @@ def cleanMicroindels(transcripts, genome):
         if "D" in t.CIGAR:
             newCIGAR = ""
             matchTypes, matchCounts = splitCIGAR(t.CIGAR)
+            print matchCounts
+            print matchTypes
             currMVal = 0
             seqIndex = 0
-            print matchTypes
-            print matchCounts
             for operation, count in zip(matchTypes, matchCounts):
                 if operation == "D" and count <= 5:
-                    #replaceWithReferenceSeq
+                    addSeqFromReference(t, seqIndex, count, genome)
                     currMVal += count
-                    
+                    seqIndex += count
                 elif operation == "M":
                     currMVal += count
                     
@@ -123,12 +125,13 @@ def cleanMicroindels(transcripts, genome):
                         newCIGAR = newCIGAR + str(currMVal) + "M"
                         currMVal = 0
                     newCIGAR = newCIGAR + str(count) + operation
+                if operation in ["M", "S", "I"]:                   
                     seqIndex += count
             # Add in any reamining matches 
             if currMVal > 0:
                 newCIGAR = newCIGAR + str(currMVal) + "M"
             t.CIGAR = newCIGAR
-        print t.CIGAR
+            print seqIndex
     return
 
 
@@ -246,23 +249,20 @@ def splitCIGAR(CIGAR):
 
     return matchTypes, matchCounts
 
-def getExonSeqs(seq, CIGAR):
-    # Given a sequence (from a sam entry) and a CIGAR string, this function splits the sequence into substrings 
-    # corresponding to the size and order of the CIGAR string M operations. It returns only the exon (M) sequences
-    # Example: seq = ATCGATTCA and CIGAR 2M4N3M:
-    #          Yields matchTypes = [ M, N, M ] and matchCounts = [ 2, 4, 3 ] 
-    #          Result = [ AT, TCA ]
 
-    matchTypes, matchCounts = splitCIGAR(CIGAR)
-    result = []
-   
-    curr = 0
-    for m,c in zip(matchTypes, matchCounts):
-        if m != "M": continue
-        subSeq = seq[curr:curr + c]
-        curr = curr + c
-        result.append(subSeq)
-    return result
+def addSeqFromReference(transcript, seqIndex, nBases, genome):
+    # This function inserts n bases into a reference sequence at the point where seqIndex bases have come before in the original sequence.
 
+    seq = transcript.SEQ
+    seqStart = seq[0:seqIndex]
+    seqEnd =  seq[seqIndex:]
 
+    tChrom = transcript.CHROM
+    tStart = transcript.POS
+    refStart = tStart + seqIndex
+    insert = genome.sequence({'chr': tChrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
+
+    newSeq = seqStart + insert + seqEnd
+    transcript.SEQ = newSeq 
+    
 main()
