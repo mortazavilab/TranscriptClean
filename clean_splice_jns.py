@@ -32,11 +32,11 @@ def main():
     print "Processing annotated splice junctions ........"
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
-    cleanMicroindels(canTranscripts, genome)
-    cleanMicroindels(noncanTranscripts, genome)
+    #cleanMicroindels(canTranscripts, genome)
+    #cleanMicroindels(noncanTranscripts, genome)
 
     #print noncanTranscripts["PB.38.1|chr1:3737151-3747372(-)|c91489/f1p0/3491"].CIGAR
-    exit()
+    
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
 def processSAM(sam, genome):
@@ -104,17 +104,14 @@ def cleanMicroindels(transcripts, genome):
  
     for t in transcripts.keys():
         t = transcripts[t]
-        print t.CIGAR
         if "D" in t.CIGAR:
             newCIGAR = ""
             matchTypes, matchCounts = splitCIGAR(t.CIGAR)
-            print matchCounts
-            print matchTypes
             currMVal = 0
             seqIndex = 0
             for operation, count in zip(matchTypes, matchCounts):
                 if operation == "D" and count <= 5:
-                    addSeqFromReference(t, seqIndex, count, genome)
+                    t.SEQ = addSeqFromReference(t, seqIndex, count, genome)
                     currMVal += count
                     seqIndex += count
                 elif operation == "M":
@@ -131,7 +128,6 @@ def cleanMicroindels(transcripts, genome):
             if currMVal > 0:
                 newCIGAR = newCIGAR + str(currMVal) + "M"
             t.CIGAR = newCIGAR
-            print seqIndex
     return
 
 
@@ -179,26 +175,29 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         currTranscript = transcripts[transcriptID]
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
-        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d)
+        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome)
 
-    print transcripts["PB.9671.7|chr20:46118311-46129508(+)|c38618/f3p1/1373"].CIGAR
+    return
 
-def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
     # To do this, it is necessary to
     # (1) Edit the sam sequence using the reference
     # (2) Potentially change the mapping quality? (Not sure how yet)
     # (3) Change the CIGAR string
-    # (4) Change the splice junction intron coordinates
-    # (5) Change the splice junction string   
+    # (4) Change the splice junction intron coordinates (skip for now)
+    # (5) Change the splice junction string (skip for now)
     
     seq = transcript.SEQ
   
     correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
+    correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
     #print transcript.QNAME
     #print spliceJn.jnNumber
     #print intronBound
     #print d
+
+    # Be sure to run something to check whether the transcript is now canonical
 
 def correctCIGAR(transcript, targetIntron, intronBound, d):
     # This function modifies the CIGAR string of a transcript to make it reflect the conversion of a particular 
@@ -240,6 +239,36 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
     transcript.CIGAR = newCIGAR
     return 
 
+def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
+    # Given a transcript, a splice junction location, and the end of the splice junction to edit, this function adds or subtracts d bases (as appropriate),
+    # drawing them from the reference genome
+
+    # Case 1: The exon ended too early. Add d bases to the end of the exon. intronBound = 0 and d > 0
+    if intronBound.bound == 0 and d > 0:
+        exonEnd = intronBound.pos
+        # Figure out which position in the seq string is exonEnd
+        seqIndex = exonEnd - transcript.POS + 1
+        addSeqFromReference(seq, chrom, seqGenomicStart, seqIndex, d, genome)
+        intronBound.pos += d
+        spliceJn.start = intronBound.pos
+
+    # Case 2: The exon started too late. Add d bases to the beginning of the exon. intronBound = 1 and d < 0
+    elif intronBound.bound == 1 and d < 0:
+        exonStart = intronBound.pos 
+        seqIndex = exonStart - transcript.POS + 1
+        addSeqFromReference(transcript, seqIndex, d, genome)
+
+    # Case 3: The exon ended too late. Remove d bases from the end of the exon
+    elif intronBound.bound == 0 and d < 0:
+        exonEnd = intronBound.pos
+        seqIndex = exonEnd - transcript.POS + 1 - d
+        newSeq = seq[0:seqIndex] + seq[seqIndex + 1:]
+
+    # Case 4: The exon started too early. Remove d bases from the beginning of the exon
+    elif intronBound.bound == 1 and d > 0: 
+        exonStart = intronBound.pos
+        newSeq = seq[d - 1:]
+    
 def splitCIGAR(CIGAR):
     # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
 
@@ -250,19 +279,15 @@ def splitCIGAR(CIGAR):
     return matchTypes, matchCounts
 
 
-def addSeqFromReference(transcript, seqIndex, nBases, genome):
-    # This function inserts n bases into a reference sequence at the point where seqIndex bases have come before in the original sequence.
-
-    seq = transcript.SEQ
+def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
+    # This function inserts n reference bases into a transcript sequence at the point where seqIndex bases have come before in the original sequence.
+    # Because Python is zero-based, this means that the bases will be inserted right BEFORE string index == seqIndex
     seqStart = seq[0:seqIndex]
     seqEnd =  seq[seqIndex:]
 
-    tChrom = transcript.CHROM
-    tStart = transcript.POS
     refStart = tStart + seqIndex
-    insert = genome.sequence({'chr': tChrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
-
+    insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
     newSeq = seqStart + insert + seqEnd
-    transcript.SEQ = newSeq 
+    return newSeq 
     
 main()
