@@ -36,7 +36,7 @@ def main():
     totalT = len(canTranscripts) +  len(noncanTranscripts)
     print "Total transcripts: " + str(totalT)
     print "Total noncanonical transcripts: " + str(len(noncanTranscripts))
-    cleanNoncanonical(noncanTranscripts, annotatedSpliceJns)
+    cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -94,12 +94,11 @@ def processSpliceAnnotation(annotFile):
     bt = pybedtools.BedTool("tmp2.bed")
     return bt    
 
-def cleanNoncanonical(transcripts, annotatedJunctions):
+def cleanNoncanonical(transcripts, annotatedJunctions, genome):
     # Iterate over noncanonical transcripts. Determine whether each end is within 5 basepairs of an annotated junction.
     # If it is, run the rescue function on it. If not, discard the transcript.
 
     o = open("tmp_nc.bed", 'w')
-    #noncanonicalJns = 0
     salvageableNCJns = 0
     totNC = len(transcripts)
     for tID in transcripts.keys():
@@ -124,11 +123,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
     os.system("rm tmp.bed")
     os.system("rm tmp2.bed")
 
-    case1 = 0
-    case2 = 0
-    case3 = 0
-    case4 = 0
-
     # Iterate over splice junction boundaries and their closest canonical match. 
     for match in jnMatches:
         if len(match) == 0: continue
@@ -146,22 +140,12 @@ def cleanNoncanonical(transcripts, annotatedJunctions):
         currIntronBound = currJunction.bounds[int(side)]
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d)
 
-        if side == "0" and d > 0: case1 += 1
-        if side == "1" and d < 0: case2 += 1
-        if side == "0" and d < 0: case3 += 1
-        if side == "1" and d > 0: case4 += 1
-    #percentSalvageableT = round(float(len(transcripts))*100/totNC, 2)
-    #print "Number of salvageable noncanonical transcripts: " + str(len(transcripts)) + " (" + str(percentSalvageableT) + "%)"
-    #print "Case1: " + str(case1)
-    #print "Case2: " + str(case2)
-    #print "Case3: " + str(case3)
-    #print "Case4: " + str(case4)
-    print currTranscript.CIGAR
+    print transcripts["PB.9671.7|chr20:46118311-46129508(+)|c38618/f3p1/1373"].CIGAR
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d):
     # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
     # To do this, it is necessary to
-    # (1) Change the sam sequence to the reference
+    # (1) Edit the sam sequence using the reference
     # (2) Potentially change the mapping quality? (Not sure how yet)
     # (3) Change the CIGAR string
     # (4) Change the splice junction intron coordinates
@@ -200,7 +184,6 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
                 if (intronBound == 0 and d < 0) or (intronBound == 1 and d > 0):
                     # Under these conditions, the exon length will decrease. 
                     c = c - abs(d)
-            currExon += 1
         if operation == "N": 
             if currIntron == targetIntron:
                 if (intronBound == 0 and d > 0) or (intronBound == 1 and d < 0):
@@ -210,7 +193,7 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
                     # Under these conditions, the intron length will increase. 
                     c = c + abs(d)
             currIntron += 1
-        
+            currExon += 1 
         newCIGAR = newCIGAR + str(c) + operation
     # Update the transcript
     transcript.CIGAR = newCIGAR
