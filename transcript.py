@@ -39,7 +39,7 @@ class Transcript:
         # Only run this section if there are splice junctions
         if "-1" not in self.jM:
             # Create an object for each splice junction
-            self.spliceJunctions = self.parseSpliceJunctions()            
+            self.spliceJunctions = self.parseSpliceJunctions(genome)            
  
     def recheckCanonical(self):
         for jn in self.spliceJunctions:
@@ -71,7 +71,7 @@ class Transcript:
         return alignTypes, counts
 
 
-    def parseSpliceJunctions(self):
+    def parseSpliceJunctions(self, genome):
         # This function takes the splice junction information from the SAM input and creates a SpliceJunction object for each.
 
         spliceJns = ((self.jM).split(":")[-1]).split(",")[1:]
@@ -83,7 +83,7 @@ class Transcript:
         for entry in spliceJns:
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
-            sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, self.strand, entry)
+            sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, self.strand, entry, genome)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
@@ -93,11 +93,12 @@ class Transcript:
         
         return jnObjects
 
-    def printableSAM(self):
+    def printableSAM(self, genome):
         # Returns a SAM-formatted string representation of the transcript
         if len(self.spliceJunctions) > 0:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.isCanonical]#, self.jM, self.jI ]
+            self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
 
@@ -111,4 +112,10 @@ class Transcript:
             result.append(b[1])
         return result
    
- 
+    def getAllSJMotifs(self, genome):
+    #    # Return all splice junction motifs translated into their numeric STAR codes
+        result = []
+        for jn in self.spliceJunctions:
+            SpliceJunction.recheckJnStr(jn, genome)
+            result.append(jn.jnStr)
+        return result 

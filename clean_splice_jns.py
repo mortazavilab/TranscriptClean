@@ -40,14 +40,14 @@ def main():
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
     o = open(options.outprefix + "_clean.sam", 'w')
     o.write(header)
-    writeTranscriptOutput(canTranscripts, o)
-    writeTranscriptOutput(noncanTranscripts, o) 
+    writeTranscriptOutput(canTranscripts, o, genome)
+    writeTranscriptOutput(noncanTranscripts, o, genome) 
     o.close()
 
-def writeTranscriptOutput(transcripts, out):
+def writeTranscriptOutput(transcripts, out, genome):
     for t in transcripts.keys():
         currTranscript = transcripts[t]
-        out.write(Transcript.printableSAM(currTranscript) + "\n")
+        out.write(Transcript.printableSAM(currTranscript, genome) + "\n")
     return
 
 def processSAM(sam, genome):
