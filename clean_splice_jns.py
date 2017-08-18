@@ -243,32 +243,42 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
     # Given a transcript, a splice junction location, and the end of the splice junction to edit, this function adds or subtracts d bases (as appropriate),
     # drawing them from the reference genome
 
+    seq = transcript.SEQ
     # Case 1: The exon ended too early. Add d bases to the end of the exon. intronBound = 0 and d > 0
     if intronBound.bound == 0 and d > 0:
         exonEnd = intronBound.pos
         # Figure out which position in the seq string is exonEnd
         seqIndex = exonEnd - transcript.POS + 1
-        addSeqFromReference(seq, chrom, seqGenomicStart, seqIndex, d, genome)
+        newSeq = addSeqFromReference(seq, transcript.CHROM, transcript.POS, seqIndex, d, genome)
         intronBound.pos += d
-        spliceJn.start = intronBound.pos
+        spliceJn.end = intronBound.pos
 
     # Case 2: The exon started too late. Add d bases to the beginning of the exon. intronBound = 1 and d < 0
     elif intronBound.bound == 1 and d < 0:
         exonStart = intronBound.pos 
         seqIndex = exonStart - transcript.POS + 1
-        addSeqFromReference(transcript, seqIndex, d, genome)
+        newSeq = addSeqFromReference(seq, transcript.CHROM, transcript.POS, seqIndex, d, genome)
+        intronBound.pos -= d
+        spliceJn.start = intronBound.pos
 
     # Case 3: The exon ended too late. Remove d bases from the end of the exon
     elif intronBound.bound == 0 and d < 0:
         exonEnd = intronBound.pos
         seqIndex = exonEnd - transcript.POS + 1 - d
         newSeq = seq[0:seqIndex] + seq[seqIndex + 1:]
+        intronBound.pos -= d
+        spliceJn.end = intronBound.pos
 
     # Case 4: The exon started too early. Remove d bases from the beginning of the exon
     elif intronBound.bound == 1 and d > 0: 
         exonStart = intronBound.pos
-        newSeq = seq[d - 1:]
-    
+        seqIndex = exonStart - transcript.POS + 1 - d
+        newSeq = seq[0:seqIndex] + seq[seqIndex + 1:]
+        intronBound.pos += d
+        spliceJn.end = intronBound.pos
+    transcript.SEQ = newSeq
+    return
+ 
 def splitCIGAR(CIGAR):
     # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
 
