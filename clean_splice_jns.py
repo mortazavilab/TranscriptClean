@@ -27,8 +27,8 @@ def main():
     # Read in the reference genome. Treat coordinates as 0-based 
     print "Reading genome .............................."
     genome = Fasta(options.refGenome)
-    print genome.sequence({'chr': "chr1", 'start': 12720, 'stop': 12721}, one_based=True)
-    
+    #print genome.sequence({'chr': "chr1", 'start': 12714, 'stop': 12724}, one_based=True)
+    #exit() 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
     print "Processing annotated splice junctions ........"
@@ -39,10 +39,10 @@ def main():
 
     #print noncanTranscripts["NCTest_Case1"].CIGAR
     #print noncanTranscripts["NCTest_Case1"].SEQ
-    
+    #exit()
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
-    print noncanTranscripts["NCTest_Case1"].CIGAR
-    print noncanTranscripts["NCTest_Case1"].SEQ
+    print noncanTranscripts["NCTest_Case3"].CIGAR
+    print noncanTranscripts["NCTest_Case3"].SEQ
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -176,7 +176,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         if abs(d) > 5:
             transcripts.pop(transcriptID, None)
             continue
-        print d
         currTranscript = transcripts[transcriptID]
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
@@ -268,9 +267,9 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
 
     # Case 3: The exon ended too late. Remove d bases from the end of the exon
     elif intronBound.bound == 0 and d < 0:
-        exonEnd = intronBound.pos + 1
-        seqIndex = exonEnd - transcript.POS + 1 - d
-        newSeq = seq[0:seqIndex] + seq[seqIndex + 1:]
+        exonEnd = intronBound.pos - 1
+        seqIndex = exonEnd - transcript.POS + d + 1
+        newSeq = seq[0:seqIndex] + seq[seqIndex + abs(d):]
         intronBound.pos -= d
         spliceJn.end = intronBound.pos
 
@@ -302,10 +301,6 @@ def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
     seqEnd =  seq[seqIndex:]
 
     refStart = tStart + seqIndex
-    print seqIndex
-    print refStart
-    print refStart + nBases - 1
-    print "-----"
     insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
     newSeq = seqStart + insert + seqEnd
     return newSeq 
