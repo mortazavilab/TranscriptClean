@@ -37,12 +37,8 @@ def main():
     cleanMicroindels(canTranscripts, genome)
     cleanMicroindels(noncanTranscripts, genome)
 
-    #print noncanTranscripts["NCTest_Case1"].CIGAR
-    #print noncanTranscripts["NCTest_Case1"].SEQ
-    #exit()
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
-    print noncanTranscripts["NCTest_Case4"].CIGAR
-    #print noncanTranscripts["NCTest_Case2"].SEQ
+    print Transcript.printableSAM(noncanTranscripts["NCTest_Case4"])
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -190,18 +186,16 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     # (1) Edit the sam sequence using the reference
     # (2) Potentially change the mapping quality? (Not sure how yet)
     # (3) Change the CIGAR string
-    # (4) Change the splice junction intron coordinates (skip for now)
+    # (4) Change the splice junction intron coordinates 
     # (5) Change the splice junction string (skip for now)
    
     correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
     correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
-    #correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
-    #print transcript.QNAME
-    #print spliceJn.jnNumber
-    #print intronBound
-    #print d
 
-    # Be sure to run something to check whether the transcript is now canonical
+    # Check whether the transcript is now canonical
+    spliceJn.isCanonical = SpliceJunction.isCanonical(spliceJn)
+    transcript.isCanonical = Transcript.recheckCanonical(transcript)     
+    return 
 
 def correctCIGAR(transcript, targetIntron, intronBound, d):
     # This function modifies the CIGAR string of a transcript to make it reflect the conversion of a particular 
@@ -241,6 +235,7 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
         newCIGAR = newCIGAR + str(c) + operation
     # Update the transcript
     transcript.CIGAR = newCIGAR
+    
     return 
 
 def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
@@ -250,12 +245,7 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
     
     seq = transcript.SEQ
 
-    #targetJn = spliceJn.spliceJnNum
-    #if intronBound.bound == 0: targetExon = targetJn
-    #else: targetExon = targetJn + 1
-
     currExonStr = ""
-    #currGenomePos = transcript.POS
     currSeqIndex = 0
     operations, counts = splitCIGAR(transcript.CIGAR)
     exonSeqs = []
@@ -267,10 +257,6 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
             currExonStr = currExonStr + str(seq[currSeqIndex:currSeqIndex+ct])
             currSeqIndex += ct
     exonSeqs.append(currExonStr)
-    #print seq    
-    print exonSeqs
-    #print len(seq)
-    #print currSeqIndex
 
     targetJn = spliceJn.jnNumber
     if intronBound.bound == 0: 
@@ -302,52 +288,10 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon[d:]
             intronBound.pos += d
             spliceJn.end = intronBound.pos
-    print ''.join(exonSeqs)
-    print intronBound.pos
-    transcript.SEQ = ''.join(exonSeqs)
-
-
-def WRONGcorrectJunctionSequence(transcript, spliceJn, intronBound, d, genome):
-    # Given a transcript, a splice junction location, and the end of the splice junction to edit, this function adds or subtracts d bases (as appropriate),
-    # drawing them from the reference genome
-
-    seq = transcript.SEQ
-    newSeq = seq
-    # Case 1: The exon ended too early. Add d bases to the end of the exon. intronBound = 0 and d > 0
-    if intronBound.bound == 0 and d > 0:
-        exonEnd = intronBound.pos - 1
-        # Figure out which position in the seq string is exonEnd
-        seqIndex = exonEnd - transcript.POS + 1
-        newSeq = addSeqFromReference(seq, transcript.CHROM, transcript.POS, seqIndex, d, genome)
-        intronBound.pos += d
-        spliceJn.end = intronBound.pos
-
-    # Case 2: The exon started too late. Add d bases to the beginning of the exon. intronBound = 1 and d < 0
-    elif intronBound.bound == 1 and d < 0:
-        exonStart = intronBound.pos + 1 
-        seqIndex = exonStart - transcript.POS + 1
-        newSeq = addSeqFromReference(seq, transcript.CHROM, transcript.POS, seqIndex, d, genome)
-        intronBound.pos -= d
-        spliceJn.start = intronBound.pos
-
-    # Case 3: The exon ended too late. Remove d bases from the end of the exon
-    elif intronBound.bound == 0 and d < 0:
-        exonEnd = intronBound.pos - 1
-        seqIndex = exonEnd - transcript.POS + d + 1
-        newSeq = seq[0:seqIndex] + seq[seqIndex + abs(d):]
-        intronBound.pos -= d
-        spliceJn.end = intronBound.pos
-
-    # Case 4: The exon started too early. Remove d bases from the beginning of the exon
-    elif intronBound.bound == 1 and d > 0: 
-        exonStart = intronBound.pos - 1
-        seqIndex = exonStart - transcript.POS + 1 - d
-        newSeq = seq[0:seqIndex] + seq[seqIndex + 1:]
-        intronBound.pos += d
-        spliceJn.end = intronBound.pos
-    transcript.SEQ = newSeq
-    #print intronBound.pos
+    transcript.SEQ = ''.join(exonSeqs) 
+    intronBound.isCanonical = True
     return
+
  
 def splitCIGAR(CIGAR):
     # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases

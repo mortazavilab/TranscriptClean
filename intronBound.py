@@ -14,10 +14,9 @@ class IntronBound:
         self.chrom = chrom
         self.pos = int(pos)
         self.strand = strand
+        self.isCanonical = True
         if int(jnStr) == 0:
             self.isCanonical = False
-        else:
-            self.isCanonical = True   
 
     #def isCanonical(self):
     #    return self.isCanonical

@@ -95,6 +95,8 @@ class Transcript:
 
     def printableSAM(self):
         # Returns a SAM-formatted string representation of the transcript
+        if len(self.spliceJunctions) > 0:
+            self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
@@ -108,5 +110,5 @@ class Transcript:
             result.append(b[0])
             result.append(b[1])
         return result
-    
+   
  
