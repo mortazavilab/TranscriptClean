@@ -16,8 +16,8 @@ def getOptions():
                       metavar = "FILE", type = "string", default = "")
     parser.add_option("--s", dest = "spliceAnnot", help = "Splice junction file obtained by mapping Illumina reads to the genome using STAR. More formats may be supported in the future.",
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--o", dest = "outfile",
-                      help = "output file", metavar = "FILE", type = "string", default = "out")
+    parser.add_option("--o", dest = "outprefix",
+                      help = "output file prefix. '_clean.sam' will be added to the end.", metavar = "FILE", type = "string", default = "out")
     (options, args) = parser.parse_args()
     return options
 
@@ -38,7 +38,17 @@ def main():
     cleanMicroindels(noncanTranscripts, genome)
 
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
-    print Transcript.printableSAM(noncanTranscripts["NCTest_Case4"])
+    o = open(options.outprefix + "_clean.sam", 'w')
+    o.write(header)
+    writeTranscriptOutput(canTranscripts, o)
+    writeTranscriptOutput(noncanTranscripts, o) 
+    o.close()
+
+def writeTranscriptOutput(transcripts, out):
+    for t in transcripts.keys():
+        currTranscript = transcripts[t]
+        out.write(Transcript.printableSAM(currTranscript) + "\n")
+    return
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -170,7 +180,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         
         # Only attempt to rescue junction boundaries that are within 5 bp of an annotated junction
         if abs(d) > 5:
-            transcripts.pop(transcriptID, None)
+            #transcripts.pop(transcriptID, None)
             continue
         
         currTranscript = transcripts[transcriptID]
@@ -277,7 +287,6 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
         targetExon = targetJn + 1
         exon = exonSeqs[targetExon]
         if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
-            print "check"
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript.POS + 1
             refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
