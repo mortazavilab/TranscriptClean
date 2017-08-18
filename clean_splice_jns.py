@@ -276,12 +276,34 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
     if intronBound.bound == 0: 
         targetExon = targetJn
         exon = exonSeqs[targetExon]
+        if d > 0: # Need to add d bases from reference to end of exon. Case 1
+            exonEnd = intronBound.pos - 1
+            seqIndex = exonEnd - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            exonSeqs[targetExon] = exonSeqs[targetExon] + refAdd
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
         if d < 0: # Need to subtract from end of exon sequence. Case 3
-            print exonSeqs[targetExon]
-            exonSeqs[targetExon] =  exon[0:d]
-    #else: targetExon = targetJn + 1
+            exonSeqs[targetExon] = exon[0:d]
+            intronBound.pos -= d
+            spliceJn.start = intronBound.pos
+    else: 
+        targetExon = targetJn + 1
+        exon = exonSeqs[targetExon]
+        if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
+            exonStart = intronBound.pos + 1
+            seqIndex = exonStart - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - d, 'stop': exonStart - 1}, one_based=True)
+            exonSeqs[targetExon] = refAdd + exonSeqs[targetExon]
+            intronBound.pos -= d
+            spliceJn.end = intronBound.pos
+        if d > 0: # Need to subtract from start of exon sequence. Case 4
+            print exonSeqs[targetExon] 
+            exonSeqs[targetExon] = exon[d:]
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
     print ''.join(exonSeqs)
-
+    print intronBound.pos
     exit()
 
 
