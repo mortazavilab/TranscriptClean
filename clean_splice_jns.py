@@ -27,7 +27,7 @@ def main():
     # Read in the reference genome. Treat coordinates as 0-based 
     print "Reading genome .............................."
     genome = Fasta(options.refGenome)
-    #print genome.sequence({'chr': "chr1", 'start': 13221, 'stop': 13224}, one_based=True)
+    #print genome.sequence({'chr': "chr1", 'start': 13219, 'stop': 13220}, one_based=True)
     #exit() 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
@@ -41,7 +41,7 @@ def main():
     #print noncanTranscripts["NCTest_Case1"].SEQ
     #exit()
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
-    #print noncanTranscripts["NCTest_Case2"].CIGAR
+    print noncanTranscripts["NCTest_Case4"].CIGAR
     #print noncanTranscripts["NCTest_Case2"].SEQ
 
 def processSAM(sam, genome):
@@ -194,7 +194,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     # (5) Change the splice junction string (skip for now)
    
     correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
-    #correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
+    correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
     #correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
     #print transcript.QNAME
     #print spliceJn.jnNumber
@@ -280,31 +280,31 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
             exonEnd = intronBound.pos - 1
             seqIndex = exonEnd - transcript.POS + 1
             refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
-            exonSeqs[targetExon] = exonSeqs[targetExon] + refAdd
+            exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
         if d < 0: # Need to subtract from end of exon sequence. Case 3
             exonSeqs[targetExon] = exon[0:d]
-            intronBound.pos -= d
+            intronBound.pos += d
             spliceJn.start = intronBound.pos
     else: 
         targetExon = targetJn + 1
         exon = exonSeqs[targetExon]
         if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
+            print "check"
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - d, 'stop': exonStart - 1}, one_based=True)
-            exonSeqs[targetExon] = refAdd + exonSeqs[targetExon]
-            intronBound.pos -= d
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            exonSeqs[targetExon] = refAdd + exon
+            intronBound.pos += d
             spliceJn.end = intronBound.pos
         if d > 0: # Need to subtract from start of exon sequence. Case 4
-            print exonSeqs[targetExon] 
             exonSeqs[targetExon] = exon[d:]
             intronBound.pos += d
             spliceJn.end = intronBound.pos
     print ''.join(exonSeqs)
     print intronBound.pos
-    exit()
+    transcript.SEQ = ''.join(exonSeqs)
 
 
 def WRONGcorrectJunctionSequence(transcript, spliceJn, intronBound, d, genome):
