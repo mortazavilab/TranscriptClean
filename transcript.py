@@ -23,6 +23,10 @@ class Transcript:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = samFields[10]
+        self.NH = samFields[11]
+        self.HI = samFields[12]
+        self.NM = samFields[13]
+        self.MD = samFields[14]
         self.jM = samFields[-2]
         self.jI = samFields[-1]
  
@@ -40,7 +44,8 @@ class Transcript:
         if "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
- 
+        print self.getNMandMDFlags(genome)
+        exit()
     def recheckCanonical(self):
         for jn in self.spliceJunctions:
             if jn.isCanonical == False:
@@ -62,7 +67,6 @@ class Transcript:
 
     def splitCIGAR(self):
         # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
-        # The relative order of the elements is maintained, but the lists are reversed for cases on the '-' strand    
 
         alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
         counts = re.sub('[A-Z]', " ", self.CIGAR).split()
@@ -98,7 +102,7 @@ class Transcript:
         if len(self.spliceJunctions) > 0:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
             self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.jM, self.jI ]
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, self.NM, self.MD, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
 
@@ -118,4 +122,50 @@ class Transcript:
         for jn in self.spliceJunctions:
             SpliceJunction.recheckJnStr(jn, genome)
             result.append(jn.jnStr)
-        return result 
+        return result
+ 
+    def getNMandMDFlags(self, genome):
+        # This function uses the transcript sequence, its CIGAR string, and the reference genome to create NM and MD sam flags.
+        NM = 0
+        MD = "MD:Z:"
+        MVal = 0
+        seqPos = 0
+        genomePos = self.POS
+
+        operations, counts = self.splitCIGAR()
+        print operations
+        print counts
+        for op, ct in zip(operations, counts):
+            if op == "M":
+                for i in range(0,ct):
+                    currBase = self.SEQ[seqPos]
+                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True).upper() 
+                    if currBase != refBase:
+                        # End any match we have going and add the mismatch
+                        if MVal > 0: MD = MD + str(MVal)
+                        MVal = 0 
+                        MD = MD + refBase 
+                        NM += 1
+                    else:
+                        MVal += 1
+                    seqPos += 1
+                    genomePos += 1
+
+            if op == "D":
+                # End any match we have going and add the missing reference bases
+                if MVal > 0: MD = MD + str(MVal) 
+                MVal = 0
+                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True).upper() 
+                MD = MD + "^" + refBases
+                NM += ct
+                genomePos += ct
+            if op in ["I", "S"]:
+                seqPos += ct
+                if op == "I": NM += ct
+            if op in ["N", "H"]:
+                genomePos += ct
+                
+        if MVal > 0: MD = MD + str(MVal) 
+
+        return NM, MD
+                  
