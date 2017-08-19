@@ -31,13 +31,17 @@ def main():
     #exit() 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
-    print "Processing annotated splice junctions ........"
+    print "Processing annotated splice junctions ......."
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
-    cleanMicroindels(canTranscripts, genome)
-    cleanMicroindels(noncanTranscripts, genome)
-
+    print "Cleaning microindels........................."
+    if len(canTranscripts) > 0: cleanMicroindels(canTranscripts, genome)
+    if len(noncanTranscripts) > 0: cleanMicroindels(noncanTranscripts, genome)
+    exit()
+    print "Rescuing noncanonical junctions............."
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
+
+    print "Writing output to sam file.................."
     o = open(options.outprefix + "_clean.sam", 'w')
     o.write(header)
     writeTranscriptOutput(canTranscripts, o, genome)
@@ -46,6 +50,7 @@ def main():
 
 def writeTranscriptOutput(transcripts, out, genome):
     for t in transcripts.keys():
+        print t
         currTranscript = transcripts[t]
         out.write(Transcript.printableSAM(currTranscript, genome) + "\n")
     return
@@ -64,6 +69,11 @@ def processSAM(sam, genome):
                 header = header + line + "\n"
                 continue
             t = Transcript(line, genome)
+            #print Transcript.getNMandMDFlags(t, genome)
+            
+            # Filter out transcripts that are multimapping
+            if int(t.FLAG) > 16:
+                continue
             if t.isCanonical == True:
                 canTranscripts[t.QNAME] = t
             else:
@@ -107,39 +117,104 @@ def processSpliceAnnotation(annotFile):
     return bt
 
 def cleanMicroindels(transcripts, genome):
+    for t in transcripts.keys():
+        t = transcripts[t]
+        if "D" not in t.CIGAR: continue
+        oldSeq = t.SEQ
+        newCIGAR = ""
+        newSeq = ""
+        MVal = 0
+        seqPos = 0
+        genomePos = t.POS
+
+        #print self.CIGAR
+        #print self.SEQ
+        operations, counts = t.splitCIGAR()
+        for op, ct in zip(operations, counts):
+            if op == "M":
+                newSeq = newSeq + oldSeq[seqPos:seqPos + ct]
+                MVal += ct
+                seqPos += ct
+                genomePos += ct
+            if op == "D":
+                if ct <= 5:
+                    # Add the missing reference bases
+                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True).upper() 
+                    newSeq = newSeq + refBases
+                    genomePos += ct
+                    MVal += ct
+                else:
+                    # End any ongoing match
+                    if MVal > 0:
+                        newCIGAR = newCIGAR + str(MVal) + "M"
+                        MVal = 0
+                    newCIGAR = newCIGAR + str(ct) + op
+                    genomePos += ct    
+            if op in ["I", "S"]:
+                # End any ongoing match
+                if MVal > 0:
+                    newCIGAR = newCIGAR + str(MVal) + "M"
+                    MVal = 0
+          
+                newSeq = newSeq + oldSeq[seqPos:seqPos + ct]
+                newCIGAR = newCIGAR + str(ct) + op
+                seqPos += ct
+            if op in ["N", "H"]:
+                # End any ongoing match
+                if MVal > 0:
+                    newCIGAR = newCIGAR + str(MVal) + "M"
+                    MVal = 0
+                genomePos += ct
+                newCIGAR = newCIGAR + str(ct) + op
+                
+        # End any ongoing match
+        if MVal > 0:
+            newCIGAR = newCIGAR + str(MVal) + "M"
+            MVal = 0
+        t.CIGAR = newCIGAR
+        t.SEQ = newSeq
+            
+    return
+
+#def WRONGcleanMicroindels(transcripts, genome):
     # Iterate over transcripts and look for deletions that are <= 5 bp long. 
     # Fix these deletions by adding in the missing reference bases and removing the microindel from the CIGAR string.
     # When removing a deletion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
     # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
     # ends the match.
  
-    for t in transcripts.keys():
-        t = transcripts[t]
-        if "D" in t.CIGAR:
-            newCIGAR = ""
-            matchTypes, matchCounts = splitCIGAR(t.CIGAR)
-            currMVal = 0
-            seqIndex = 0
-            for operation, count in zip(matchTypes, matchCounts):
-                if operation == "D" and count <= 5:
-                    t.SEQ = addSeqFromReference(t.SEQ, t.CHROM, t.POS, seqIndex, count, genome)
-                    currMVal += count
-                    seqIndex += count
-                elif operation == "M":
-                    currMVal += count
-                    
-                else:
-	            if currMVal > 0:
-                        newCIGAR = newCIGAR + str(currMVal) + "M"
-                        currMVal = 0
-                    newCIGAR = newCIGAR + str(count) + operation
-                if operation in ["M", "S", "I"]:                   
-                    seqIndex += count
-            # Add in any remaining matches 
-            if currMVal > 0:
-                newCIGAR = newCIGAR + str(currMVal) + "M"
-            t.CIGAR = newCIGAR
-    return
+    #for t in transcripts.keys():
+    #    t = transcripts[t]
+    #    if "D" in t.CIGAR:
+    #        newCIGAR = ""
+    #        matchTypes, matchCounts = splitCIGAR(t.CIGAR)
+    #        currMVal = 0
+    #        seqIndex = 0
+    #        genomePos = t.POS
+    #        for operation, count in zip(matchTypes, matchCounts):
+    #            if operation == "D" and count <= 5:
+    #                #print len(addSeqFromReference(t.SEQ, t.CHROM, t.POS, seqIndex, count, genome))
+    #                t.SEQ = t.SEQ[0:seqIndex
+    #                currMVal += count
+    #                seqIndex += count
+    #            elif operation == "M":
+    #                currMVal += count
+    #                
+    #            else:
+ #	            if currMVal > 0:
+  #                      newCIGAR = newCIGAR + str(currMVal) + "M"
+   #                     currMVal = 0
+    #                newCIGAR = newCIGAR + str(count) + operation
+     #           if operation in ["M", "S", "I"]:                   
+      #              seqIndex += count
+       #     # Add in any remaining matches 
+        ##    if currMVal > 0:
+          #      newCIGAR = newCIGAR + str(currMVal) + "M"
+           # t.CIGAR = newCIGAR
+            #print t.CIGAR
+            #print len(t.SEQ)
+            #exit()
+    #return
 
 
 def cleanNoncanonical(transcripts, annotatedJunctions, genome):
