@@ -164,6 +164,5 @@ class Transcript:
                 genomePos += ct
                 
         if MVal > 0: MD = MD + str(MVal) 
-        print MD
         return str(NM), MD
                   

@@ -49,7 +49,6 @@ def main():
 
 def writeTranscriptOutput(transcripts, out, genome):
     for t in transcripts.keys():
-        print t
         currTranscript = transcripts[t]
         out.write(Transcript.printableSAM(currTranscript, genome) + "\n")
     return
@@ -135,9 +134,6 @@ def cleanMicroindels(transcripts, genome):
 
         operations, counts = t.splitCIGAR()
 
-        print len(t.SEQ)
-        print operations
-        print counts
         for op, ct in zip(operations, counts):
             if op == "M":
                 newSeq = newSeq + oldSeq[seqPos:seqPos + ct]
@@ -181,8 +177,6 @@ def cleanMicroindels(transcripts, genome):
             MVal = 0
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
-        print len(t.SEQ)
-        print t.CIGAR    
     return
 
 
@@ -231,13 +225,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome)
-        print d
-        print currJunction.jnNumber
-        print currIntronBound.bound         
-        operations, counts = splitCIGAR(currTranscript.CIGAR)
-        print operations
-        print counts
-        print len(currTranscript.SEQ)
 
     return
 
@@ -251,9 +238,6 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     currExonCIGAR = ""
     currSeqIndex = 0
     operations, counts = splitCIGAR(transcript.CIGAR)
-    print operations
-    print counts
-    #print len(transcript.SEQ)
     exonSeqs = []
     exonCIGARs = []
     intronCIGARs = []
@@ -320,61 +304,6 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
         newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
     newCIGAR = newCIGAR + exonCIGARs[-1]
     transcript.CIGAR = newCIGAR    
-    intronBound.isCanonical = True
-    return
-
-def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
-    # Split up sequence by CIGAR operation, then organize sequence into exon bins accordingly 
-    # Then, modify the section needed to make the junction canonical, and concatenate together the new sequence.
-
-    
-    seq = transcript.SEQ
-
-    currExonStr = ""
-    currSeqIndex = 0
-    operations, counts = splitCIGAR(transcript.CIGAR)
-    exonSeqs = []
-    for op, ct in zip(operations, counts):
-        if op == "N":
-            exonSeqs.append(currExonStr)
-            currExonStr = ""
-        elif op in [ "M", "S", "I"]:
-            currExonStr = currExonStr + str(seq[currSeqIndex:currSeqIndex+ct])
-            currSeqIndex += ct
-    exonSeqs.append(currExonStr)
-
-    targetJn = spliceJn.jnNumber
-    if intronBound.bound == 0: 
-        targetExon = targetJn
-        exon = exonSeqs[targetExon]
-        if d > 0: # Need to add d bases from reference to end of exon. Case 1
-            exonEnd = intronBound.pos - 1
-            seqIndex = exonEnd - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
-            exonSeqs[targetExon] = exon + refAdd
-            intronBound.pos += d
-            spliceJn.end = intronBound.pos
-
-        if d < 0: # Need to subtract from end of exon sequence. Case 3
-            exonSeqs[targetExon] = exon[0:d]
-            intronBound.pos += d
-            spliceJn.start = intronBound.pos
-    else: 
-        targetExon = targetJn + 1
-        exon = exonSeqs[targetExon]
-        if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
-            exonStart = intronBound.pos + 1
-            seqIndex = exonStart - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
-            exonSeqs[targetExon] = refAdd + exon
-            intronBound.pos += d
-            spliceJn.end = intronBound.pos
-        if d > 0: # Need to subtract from start of exon sequence. Case 4
-            exonSeqs[targetExon] = exon[d:]
-            intronBound.pos += d
-            spliceJn.end = intronBound.pos
-
-    transcript.SEQ = ''.join(exonSeqs) 
     intronBound.isCanonical = True
     return
 
