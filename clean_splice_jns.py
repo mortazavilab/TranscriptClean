@@ -37,7 +37,6 @@ def main():
     print "Cleaning microindels........................."
     if len(canTranscripts) > 0: cleanMicroindels(canTranscripts, genome)
     if len(noncanTranscripts) > 0: cleanMicroindels(noncanTranscripts, genome)
-    exit()
     print "Rescuing noncanonical junctions............."
     cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
@@ -117,6 +116,12 @@ def processSpliceAnnotation(annotFile):
     return bt
 
 def cleanMicroindels(transcripts, genome):
+# Iterate over transcripts and look for deletions that are <= 5 bp long. 
+    # Fix these deletions by adding in the missing reference bases and removing the microindel from the CIGAR string.
+    # When removing a deletion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
+    # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
+    # ends the match.
+
     for t in transcripts.keys():
         t = transcripts[t]
         if "D" not in t.CIGAR: continue
@@ -173,48 +178,10 @@ def cleanMicroindels(transcripts, genome):
             MVal = 0
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
+        print t.CIGAR
+        print len(t.SEQ)
             
     return
-
-#def WRONGcleanMicroindels(transcripts, genome):
-    # Iterate over transcripts and look for deletions that are <= 5 bp long. 
-    # Fix these deletions by adding in the missing reference bases and removing the microindel from the CIGAR string.
-    # When removing a deletion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
-    # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
-    # ends the match.
- 
-    #for t in transcripts.keys():
-    #    t = transcripts[t]
-    #    if "D" in t.CIGAR:
-    #        newCIGAR = ""
-    #        matchTypes, matchCounts = splitCIGAR(t.CIGAR)
-    #        currMVal = 0
-    #        seqIndex = 0
-    #        genomePos = t.POS
-    #        for operation, count in zip(matchTypes, matchCounts):
-    #            if operation == "D" and count <= 5:
-    #                #print len(addSeqFromReference(t.SEQ, t.CHROM, t.POS, seqIndex, count, genome))
-    #                t.SEQ = t.SEQ[0:seqIndex
-    #                currMVal += count
-    #                seqIndex += count
-    #            elif operation == "M":
-    #                currMVal += count
-    #                
-    #            else:
- #	            if currMVal > 0:
-  #                      newCIGAR = newCIGAR + str(currMVal) + "M"
-   #                     currMVal = 0
-    #                newCIGAR = newCIGAR + str(count) + operation
-     #           if operation in ["M", "S", "I"]:                   
-      #              seqIndex += count
-       #     # Add in any remaining matches 
-        ##    if currMVal > 0:
-          #      newCIGAR = newCIGAR + str(currMVal) + "M"
-           # t.CIGAR = newCIGAR
-            #print t.CIGAR
-            #print len(t.SEQ)
-            #exit()
-    #return
 
 
 def cleanNoncanonical(transcripts, annotatedJunctions, genome):
@@ -250,6 +217,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
     for match in jnMatches:
         if len(match) == 0: continue
         match = match.split('\t')
+        print match
         d = int(match[-1])
         transcriptID, spliceJnNum, side = match[3].split("__")
         
@@ -262,10 +230,18 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome)
-
+        print currTranscript.CIGAR
+        print len(currTranscript.SEQ)
     return
 
-def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
+#def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
+    
+#    operations, counts = splitCIGAR(transcript.CIGAR)
+#    for op, ct in zip(operations, counts):
+        
+
+
+def OLDrescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
     # To do this, it is necessary to
     # (1) Edit the sam sequence using the reference
@@ -273,9 +249,14 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     # (3) Change the CIGAR string
     # (4) Change the splice junction intron coordinates 
     # (5) Change the splice junction string (skip for now)
-   
-    correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
+
+       
+    print transcript.CIGAR
     correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
+    
+    correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
+    print transcript.CIGAR
+    print len(transcript.SEQ)
 
     # Check whether the transcript is now canonical
     spliceJn.isCanonical = SpliceJunction.isCanonical(spliceJn)
@@ -295,7 +276,6 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
 
     
     matchTypes, matchCounts = splitCIGAR(CIGAR)
-    newCIGAR = ""
     currIntron = 0
     currExon = 0
     for operation,c in zip(matchTypes, matchCounts):
@@ -322,6 +302,82 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
     transcript.CIGAR = newCIGAR
     
     return 
+
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
+
+    oldCIGAR = transcript.CIGAR
+    newCIGAR = ""
+    #oldSeq = transcript.SEQ
+    #newSeq = ""
+    #seqPos = 0
+    #genomePos = transcript.POS
+    #MVal = 0
+    #currExon = 0
+    #targetExon = spliceJn.jnNumber + intronBound.bound
+
+    seq = transcript.SEQ
+
+    currExonStr = ""
+    currExonCIGAR = ""
+    currSeqIndex = 0
+    operations, counts = splitCIGAR(transcript.CIGAR)
+    exonSeqs = []
+    exonCIGARs = []
+    intronCIGARs = []
+
+    # First, use the old CIGAR string to segmnent the sequence by exon
+    # Also, group the CIGAR string by exon
+    for op, ct in zip(operations, counts):
+        if op == "N":
+            exonSeqs.append(currExonStr)
+            intronCIGARs.append(ct)
+            exonCIGARs.append(currExonCIGAR)
+            currExonStr = ""
+            currExonCIGAR = ""
+        elif op in [ "M", "S", "I"]:
+            currExonStr = currExonStr + str(seq[currSeqIndex:currSeqIndex+ct])
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+            currSeqIndex += ct
+        else:
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+    exonSeqs.append(currExonStr)
+    exonCIGARs.append(currExonCIGAR)
+
+    print exonCIGARs
+    targetJn = spliceJn.jnNumber
+    
+    if intronBound.bound == 0:
+        targetExon = targetJn
+        exon = exonSeqs[targetExon]
+        if d > 0: # Need to add d bases from reference to end of exon. Case 1.
+            # For CIGAR string, 
+            exonEnd = intronBound.pos - 1
+            seqIndex = exonEnd - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            exonSeqs[targetExon] = exon + refAdd
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+        if d < 0: # Need to subtract from end of exon sequence. Case 3
+            exonSeqs[targetExon] = exon[0:d]
+            intronBound.pos += d
+            spliceJn.start = intronBound.pos
+    else:
+        targetExon = targetJn + 1
+        exon = exonSeqs[targetExon]
+        if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
+            exonStart = intronBound.pos + 1
+            seqIndex = exonStart - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            exonSeqs[targetExon] = refAdd + exon
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+        if d > 0: # Need to subtract from start of exon sequence. Case 4
+            exonSeqs[targetExon] = exon[d:]
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+    transcript.SEQ = ''.join(exonSeqs)
+    intronBound.isCanonical = True
+    return
 
 def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
     # Split up sequence by CIGAR operation, then organize sequence into exon bins accordingly 
@@ -386,6 +442,45 @@ def splitCIGAR(CIGAR):
 
     return matchTypes, matchCounts
 
+def editExonCIGAR(exon, side, nBases):
+    # Given an exon CIGAR string, this function adds or subtracts bases from the start (side = 0) or end (side = -1)
+    operations, counts = splitCIGAR(exon)
+    if side == -1:
+        operations = operations[::-1]
+        counts = counts[::-1]
+    # If nBases > 0, we have an easy case. Just add the bases.
+    if nBases >= 0:
+        if operations[0] == "M":
+            counts[0] = counts[0] + nBases                      
+        else:
+            counts = [nBases] + counts
+            operations = ["M"] + operations
+    # If nBases < 0, we need to make sure we have room to delete the bases
+    else:    
+        for i in range(0,len(counts)):
+           ct = counts[i]
+           remainder = ct - abs(nBases)
+           if remainder > 0:
+                counts[i] = remainder
+                break
+           elif remainder == 0:
+               counts[i] = ""
+               operations[i] = ""
+               break
+           else:
+               counts[i] = ""
+               operations[i] = ""
+               nBases = remainder
+
+    if side == -1:
+        operations = operations[::-1]
+        counts = counts[::-1]
+
+    result = ""
+    for op, ct in zip(operations, counts):
+        result = result + str(ct) + op
+    return result
+        
 
 def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
     # This function inserts n reference bases into a transcript sequence at the point where seqIndex bases have come before in the original sequence.
@@ -397,5 +492,6 @@ def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
     insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
     newSeq = seqStart + insert + seqEnd
     return newSeq 
+
     
 main()
