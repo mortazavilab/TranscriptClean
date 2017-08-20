@@ -141,7 +141,7 @@ class Transcript:
                     refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True).upper() 
                     if currBase != refBase:
                         # End any match we have going and add the mismatch
-                        if MVal > 0: MD = MD + str(MVal)
+                        MD = MD + str(MVal) #if MVal > 0: 
                         MVal = 0 
                         MD = MD + refBase 
                         NM += 1
@@ -151,7 +151,7 @@ class Transcript:
                     genomePos += 1
             if op == "D":
                 # End any match we have going and add the missing reference bases
-                if MVal > 0: MD = MD + str(MVal) 
+                MD = MD + str(MVal) #if MVal > 0: 
                 MVal = 0
                 refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True).upper() 
                 MD = MD + "^" + refBases
@@ -164,6 +164,6 @@ class Transcript:
                 genomePos += ct
                 
         if MVal > 0: MD = MD + str(MVal) 
-
+        print MD
         return str(NM), MD
                   

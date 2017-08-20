@@ -125,6 +125,7 @@ def cleanMicroindels(transcripts, genome):
     for t in transcripts.keys():
         t = transcripts[t]
         if "D" not in t.CIGAR: continue
+
         oldSeq = t.SEQ
         newCIGAR = ""
         newSeq = ""
@@ -133,6 +134,10 @@ def cleanMicroindels(transcripts, genome):
         genomePos = t.POS
 
         operations, counts = t.splitCIGAR()
+
+        print len(t.SEQ)
+        print operations
+        print counts
         for op, ct in zip(operations, counts):
             if op == "M":
                 newSeq = newSeq + oldSeq[seqPos:seqPos + ct]
@@ -176,7 +181,8 @@ def cleanMicroindels(transcripts, genome):
             MVal = 0
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
-            
+        print len(t.SEQ)
+        print t.CIGAR    
     return
 
 
