@@ -44,8 +44,7 @@ class Transcript:
         if "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
-        print self.getNMandMDFlags(genome)
-        exit()
+        
     def recheckCanonical(self):
         for jn in self.spliceJunctions:
             if jn.isCanonical == False:
@@ -102,7 +101,9 @@ class Transcript:
         if len(self.spliceJunctions) > 0:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
             self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, self.NM, self.MD, self.jM, self.jI ]
+        self.NM, self.MD = self.getNMandMDFlags(genome)        
+
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
 
@@ -133,9 +134,9 @@ class Transcript:
         genomePos = self.POS
 
         operations, counts = self.splitCIGAR()
-        print operations
-        print counts
         for op, ct in zip(operations, counts):
+            print op
+            print seqPos
             if op == "M":
                 for i in range(0,ct):
                     currBase = self.SEQ[seqPos]
@@ -150,7 +151,6 @@ class Transcript:
                         MVal += 1
                     seqPos += 1
                     genomePos += 1
-
             if op == "D":
                 # End any match we have going and add the missing reference bases
                 if MVal > 0: MD = MD + str(MVal) 
@@ -167,5 +167,5 @@ class Transcript:
                 
         if MVal > 0: MD = MD + str(MVal) 
 
-        return NM, MD
+        return str(NM), MD
                   
