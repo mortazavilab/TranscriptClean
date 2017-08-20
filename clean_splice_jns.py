@@ -306,15 +306,6 @@ def correctCIGAR(transcript, targetIntron, intronBound, d):
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
 
     oldCIGAR = transcript.CIGAR
-    newCIGAR = ""
-    #oldSeq = transcript.SEQ
-    #newSeq = ""
-    #seqPos = 0
-    #genomePos = transcript.POS
-    #MVal = 0
-    #currExon = 0
-    #targetExon = spliceJn.jnNumber + intronBound.bound
-
     seq = transcript.SEQ
 
     currExonStr = ""
@@ -361,6 +352,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon[0:d]
             intronBound.pos += d
             spliceJn.start = intronBound.pos
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], -1, d)
     else:
         targetExon = targetJn + 1
         exon = exonSeqs[targetExon]
@@ -375,7 +367,18 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon[d:]
             intronBound.pos += d
             spliceJn.end = intronBound.pos
+        # Modify exon string
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, d)
+
+    intronCIGARs[targetJn] -= d
     transcript.SEQ = ''.join(exonSeqs)
+
+    # Paste together thenew CIGAR string
+    newCIGAR = ""
+    for i in range(0,len(intronCIGARs)):
+        newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
+    newCIGAR = newCIGAR + exonCIGARs[-1]
+    transcript.CIGAR = newCIGAR    
     intronBound.isCanonical = True
     return
 
@@ -410,6 +413,7 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
+
         if d < 0: # Need to subtract from end of exon sequence. Case 3
             exonSeqs[targetExon] = exon[0:d]
             intronBound.pos += d
@@ -428,6 +432,7 @@ def correctJunctionSequence(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon[d:]
             intronBound.pos += d
             spliceJn.end = intronBound.pos
+
     transcript.SEQ = ''.join(exonSeqs) 
     intronBound.isCanonical = True
     return
