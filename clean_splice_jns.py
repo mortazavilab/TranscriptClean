@@ -132,8 +132,6 @@ def cleanMicroindels(transcripts, genome):
         seqPos = 0
         genomePos = t.POS
 
-        #print self.CIGAR
-        #print self.SEQ
         operations, counts = t.splitCIGAR()
         for op, ct in zip(operations, counts):
             if op == "M":
@@ -178,8 +176,6 @@ def cleanMicroindels(transcripts, genome):
             MVal = 0
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
-        print t.CIGAR
-        print len(t.SEQ)
             
     return
 
@@ -217,7 +213,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
     for match in jnMatches:
         if len(match) == 0: continue
         match = match.split('\t')
-        print match
         d = int(match[-1])
         transcriptID, spliceJnNum, side = match[3].split("__")
         
@@ -230,78 +225,16 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome):
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome)
-        print currTranscript.CIGAR
+        print d
+        print currJunction.jnNumber
+        print currIntronBound.bound         
+        operations, counts = splitCIGAR(currTranscript.CIGAR)
+        print operations
+        print counts
         print len(currTranscript.SEQ)
+
     return
 
-#def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
-    
-#    operations, counts = splitCIGAR(transcript.CIGAR)
-#    for op, ct in zip(operations, counts):
-        
-
-
-def OLDrescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
-    # This function converts a noncanonical splice junction to a canonical junction that is <= 5 bp away.
-    # To do this, it is necessary to
-    # (1) Edit the sam sequence using the reference
-    # (2) Potentially change the mapping quality? (Not sure how yet)
-    # (3) Change the CIGAR string
-    # (4) Change the splice junction intron coordinates 
-    # (5) Change the splice junction string (skip for now)
-
-       
-    print transcript.CIGAR
-    correctCIGAR(transcript, spliceJn.jnNumber, intronBound.bound, d)
-    
-    correctJunctionSequence(transcript, spliceJn, intronBound, d, genome)
-    print transcript.CIGAR
-    print len(transcript.SEQ)
-
-    # Check whether the transcript is now canonical
-    spliceJn.isCanonical = SpliceJunction.isCanonical(spliceJn)
-    transcript.isCanonical = Transcript.recheckCanonical(transcript)     
-    return 
-
-def correctCIGAR(transcript, targetIntron, intronBound, d):
-    # This function modifies the CIGAR string of a transcript to make it reflect the conversion of a particular 
-    # splice junction from noncanonical to canonical
-
-    CIGAR = transcript.CIGAR
-
-    # The exon we need to modify depends on which end of the splice junction we are rescuing
-    # If we are rescuing the left side, we will modify the exon with the same number as the intron
-    # If we are rescuing the right, we will modify exon number intron+1
-    targetExon = targetIntron + intronBound
-
-    
-    matchTypes, matchCounts = splitCIGAR(CIGAR)
-    currIntron = 0
-    currExon = 0
-    for operation,c in zip(matchTypes, matchCounts):
-        if operation == "M":   
-            if currExon == targetExon:
-                if (intronBound == 0 and d > 0) or (intronBound == 1 and d < 0):
-                    # Under these conditions, the exon length will increase. Adjust the match count accordingly
-                    c = c + abs(d)
-                if (intronBound == 0 and d < 0) or (intronBound == 1 and d > 0):
-                    # Under these conditions, the exon length will decrease. 
-                    c = c - abs(d)
-        if operation == "N": 
-            if currIntron == targetIntron:
-                if (intronBound == 0 and d > 0) or (intronBound == 1 and d < 0):
-                    # Under these conditions, the intron length will decrease. Adjust the match count accordingly
-                    c = c - abs(d)
-                if (intronBound == 0 and d < 0) or (intronBound == 1 and d > 0):
-                    # Under these conditions, the intron length will increase. 
-                    c = c + abs(d)
-            currIntron += 1
-            currExon += 1 
-        newCIGAR = newCIGAR + str(c) + operation
-    # Update the transcript
-    transcript.CIGAR = newCIGAR
-    
-    return 
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
 
@@ -312,6 +245,9 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     currExonCIGAR = ""
     currSeqIndex = 0
     operations, counts = splitCIGAR(transcript.CIGAR)
+    print operations
+    print counts
+    #print len(transcript.SEQ)
     exonSeqs = []
     exonCIGARs = []
     intronCIGARs = []
@@ -334,7 +270,6 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     exonSeqs.append(currExonStr)
     exonCIGARs.append(currExonCIGAR)
 
-    print exonCIGARs
     targetJn = spliceJn.jnNumber
     
     if intronBound.bound == 0:
@@ -368,7 +303,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             intronBound.pos += d
             spliceJn.end = intronBound.pos
         # Modify exon string
-        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, d)
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
 
     intronCIGARs[targetJn] -= d
     transcript.SEQ = ''.join(exonSeqs)

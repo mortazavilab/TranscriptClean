@@ -135,8 +135,6 @@ class Transcript:
 
         operations, counts = self.splitCIGAR()
         for op, ct in zip(operations, counts):
-            print op
-            print seqPos
             if op == "M":
                 for i in range(0,ct):
                     currBase = self.SEQ[seqPos]
