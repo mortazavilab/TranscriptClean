@@ -27,7 +27,7 @@ def main():
     # Read in the reference genome. Treat coordinates as 0-based 
     print "Reading genome .............................."
     genome = Fasta(options.refGenome)
-    #print genome.sequence({'chr': "chr1", 'start': 13219, 'stop': 13220}, one_based=True)
+    #print genome.sequence({'chr': "chr1", 'start': 13219, 'stop': 13220}, one_based=True).upper()
     #exit() 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
@@ -36,9 +36,10 @@ def main():
     
     print "Cleaning microindels........................."
     if len(canTranscripts) > 0: cleanMicroindels(canTranscripts, genome)
-    if len(noncanTranscripts) > 0: cleanMicroindels(noncanTranscripts, genome)
-    print "Rescuing noncanonical junctions............."
-    cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
+    if len(noncanTranscripts) > 0: 
+        cleanMicroindels(noncanTranscripts, genome)
+        print "Rescuing noncanonical junctions............."
+        cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
     print "Writing output to sam file.................."
     o = open(options.outprefix + "_clean.sam", 'w')
@@ -49,6 +50,7 @@ def main():
 
 def writeTranscriptOutput(transcripts, out, genome):
     for t in transcripts.keys():
+        print t
         currTranscript = transcripts[t]
         out.write(Transcript.printableSAM(currTranscript, genome) + "\n")
     return
@@ -269,7 +271,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             # For CIGAR string, 
             exonEnd = intronBound.pos - 1
             seqIndex = exonEnd - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True).upper()
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
@@ -284,7 +286,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
         if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True).upper()
             exonSeqs[targetExon] = refAdd + exon
             intronBound.pos += d
             spliceJn.end = intronBound.pos
@@ -364,7 +366,7 @@ def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
     seqEnd =  seq[seqIndex:]
 
     refStart = tStart + seqIndex
-    insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
+    insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True).upper()
     newSeq = seqStart + insert + seqEnd
     return newSeq 
 
