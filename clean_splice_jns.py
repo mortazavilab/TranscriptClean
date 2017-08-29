@@ -244,7 +244,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
     exonCIGARs = []
     intronCIGARs = []
 
-    # First, use the old CIGAR string to segmnent the sequence by exon
+    # First, use the old CIGAR string to segment the sequence by exon
     # Also, group the CIGAR string by exon
     for op, ct in zip(operations, counts):
         if op == "N":
@@ -275,10 +275,12 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
+
         if d < 0: # Need to subtract from end of exon sequence. Case 3
             exonSeqs[targetExon] = exon[0:d]
             intronBound.pos += d
             spliceJn.start = intronBound.pos
+        intronCIGARs[targetJn] -= d
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], -1, d)
     else:
         targetExon = targetJn + 1
@@ -296,8 +298,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             spliceJn.end = intronBound.pos
         # Modify exon string
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
-
-    intronCIGARs[targetJn] -= d
+        intronCIGARs[targetJn] += d
     transcript.SEQ = ''.join(exonSeqs)
 
     # Paste together thenew CIGAR string
