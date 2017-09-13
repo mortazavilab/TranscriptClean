@@ -41,18 +41,22 @@ def main():
         print "Rescuing noncanonical junctions............."
         cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome)
 
-    print "Writing output to sam file.................."
-    o = open(options.outprefix + "_clean.sam", 'w')
-    o.write(header)
-    writeTranscriptOutput(canTranscripts, o, genome)
-    writeTranscriptOutput(noncanTranscripts, o, genome) 
-    o.close()
+    print "Writing output to sam file and fasta file.................."
+    oSam = open(options.outprefix + "_clean.sam", 'w')
+    oFa = open(options.outprefix + "_clean.fa", 'w')
+    oSam.write(header)
+    writeTranscriptOutput(canTranscripts, oSam, oFa, genome)
+    writeTranscriptOutput(noncanTranscripts, oSam, oFa, genome) 
+    oSam.close()
+    oFa.close()
 
-def writeTranscriptOutput(transcripts, out, genome):
+def writeTranscriptOutput(transcripts, outSam, outFa, genome):
+
     for t in transcripts.keys():
         print t
         currTranscript = transcripts[t]
-        out.write(Transcript.printableSAM(currTranscript, genome) + "\n")
+        outSam.write(Transcript.printableSAM(currTranscript, genome) + "\n")
+        outFa.write(Transcript.printableFa(currTranscript) + "\n")
     return
 
 def processSAM(sam, genome):

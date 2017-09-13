@@ -106,6 +106,11 @@ class Transcript:
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
+    def printableFa(self):
+        # Returns a fasta-formatted string representation of the transcript
+        fasta1 = ">" + self.QNAME
+        fastaSeq = [self.SEQ[i:i+80] for i in range(0, len(self.SEQ), 80)]
+        return fasta1 + "\n" + "\n".join(fastaSeq)
 
     def getAllIntronBounds(self):
         # Return all intron bound objects belonging to this transcript
