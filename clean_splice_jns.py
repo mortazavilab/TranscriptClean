@@ -30,7 +30,7 @@ def main():
     #print genome.sequence({'chr': "chr1", 'start': 13219, 'stop': 13220}, one_based=True).upper()
     #exit() 
     print "Processing SAM file ........................."
-    header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome)
+    header, canTranscripts, noncanTranscripts, unmodifiedTranscripts = processSAM(options.sam, genome)
     print "Processing annotated splice junctions ......."
     annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
     
@@ -47,6 +47,7 @@ def main():
     oSam.write(header)
     writeTranscriptOutput(canTranscripts, oSam, oFa, genome)
     writeTranscriptOutput(noncanTranscripts, oSam, oFa, genome) 
+    writeTranscriptOutput(unmodifiedTranscripts, oSam, oFa, genome)
     oSam.close()
     oFa.close()
 
@@ -66,6 +67,7 @@ def processSAM(sam, genome):
     header = ""
     canTranscripts = {}
     noncanTranscripts = {} 
+    unmodifiedTranscripts = {} # Place to put transcripts that didn't map or multimapped.
     with open(sam, 'r') as f:
         for line in f:
             line = line.strip()
@@ -77,12 +79,15 @@ def processSAM(sam, genome):
             
             # Filter out transcripts that are multimapping
             if int(t.FLAG) > 16:
+                unmodifiedTranscripts[t.QNAME] = t
+            # Skip unmapped transcripts altogether
+            if t.CHROM == "*":
                 continue
             if t.isCanonical == True:
                 canTranscripts[t.QNAME] = t
             else:
                 noncanTranscripts[t.QNAME] = t
-    return header, canTranscripts, noncanTranscripts
+    return header, canTranscripts, noncanTranscripts, unmodifiedTranscripts
 
 def processSpliceAnnotation(annotFile):
     # This function reads in the tab-separated STAR splice junction file and creates a bedtools object

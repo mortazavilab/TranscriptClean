@@ -11,7 +11,7 @@ class Transcript:
     def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
 
-        # These attributes are initialized directly from the input SAM entry 
+        # These eleven attributes are initialized directly from the input SAM entry and are mandatory 
         self.QNAME = samFields[0]
         self.FLAG = samFields[1]
         self.CHROM = samFields[2]
@@ -23,25 +23,36 @@ class Transcript:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = samFields[10]
-        self.NH = samFields[11]
-        self.HI = samFields[12]
-        self.NM = samFields[13]
-        self.MD = samFields[14]
-        self.jM = samFields[-2]
-        self.jI = samFields[-1]
- 
+
+        # If the sam entry contains additional optional fields, process them here
+        #self.NH = ""
+        #self.HI = ""
+        self.NM = ""
+        self.MD = ""
+        self.jM = ""
+        self.jI = ""        
+        otherFields = []
+        for field in samFields[11:len(samFields)]:
+            #if field.startswith("NH"): self.NH = field
+            #elif field.startswith("HI"): self.HI = field
+            if field.startswith("NM"): self.NM = field
+            elif field.startswith("MD"): self.MD = field
+            elif field.startswith("jM"): self.jM = field 
+            elif field.startswith("jI"): self.jI = field
+            else: otherFields.append(field)
+
+        self.otherFields = "\t".join(otherFields)        
         # These attributes are set by parsing the inputs
         self.spliceJunctions = []
         self.isCanonical = True
-        self.strand = "+"
-        self.referenceSeq = self.getReferenceSequence(genome)
+        self.strand = "+"        
         if self.FLAG == 16: self.strand = "-"
 
         #print self.SEQ
         #print self.referenceSeq
 
         # Only run this section if there are splice junctions
-        if "-1" not in self.jM:
+        if self.jM != "" and "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
         
@@ -53,16 +64,16 @@ class Transcript:
         self.isCanonical = True
         return True
 
-    def getReferenceSequence(self, genome):
+    #def getReferenceSequence(self, genome):
         # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
         # the mapping, and gets the length of the mapping by summing the numbers in the CIGAR string
 
-        alignTypes, counts = self.splitCIGAR()
-        matchLen = sum(counts)
-        seqStart = self.POS - 1 # Convert to 0-based
-        seqEnd = seqStart + matchLen
+    #    alignTypes, counts = self.splitCIGAR()
+    #    matchLen = sum(counts)
+    #    seqStart = self.POS - 1 # Convert to 0-based
+    #    seqEnd = seqStart + matchLen
 
-        return genome[self.CHROM][seqStart:seqEnd].upper()
+    #    return genome[self.CHROM][seqStart:seqEnd].upper()
 
     def splitCIGAR(self):
         # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
@@ -103,7 +114,7 @@ class Transcript:
             self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
         self.NM, self.MD = self.getNMandMDFlags(genome)        
 
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.NH, self.HI, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields])
 
     def printableFa(self):
