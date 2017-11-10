@@ -115,7 +115,7 @@ class Transcript:
         self.NM, self.MD = self.getNMandMDFlags(genome)        
 
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
-        return "\t".join([str(x) for x in fields])
+        return "\t".join([str(x) for x in fields]).strip()
 
     def printableFa(self):
         # Returns a fasta-formatted string representation of the transcript
@@ -173,6 +173,7 @@ class Transcript:
                 MD = MD + "^" + refBases
                 NM += ct
                 genomePos += ct
+            # For insertions and soft clips, we move on without adding to the MD
             if op in ["I", "S"]:
                 seqPos += ct
                 if op == "I": NM += ct
