@@ -128,8 +128,9 @@ def processSpliceAnnotation(annotFile):
 
 def cleanMicroindels(transcripts, genome):
 # Iterate over transcripts and look for deletions that are <= 5 bp long. 
-    # Fix these deletions by adding in the missing reference bases and removing the microindel from the CIGAR string.
-    # When removing a deletion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
+    # Fix deletions by adding in the missing reference bases and removing the deletion from the CIGAR string.
+    # Fix insertions by removing the inserted bases and removing the insertion from the CIGAR string.
+    # When removing a deletion or insertion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
     # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
     # ends the match.
 
@@ -165,8 +166,23 @@ def cleanMicroindels(transcripts, genome):
                         newCIGAR = newCIGAR + str(MVal) + "M"
                         MVal = 0
                     newCIGAR = newCIGAR + str(ct) + op
-                    genomePos += ct    
-            if op in ["I", "S"]:
+                    genomePos += ct   
+            #----- New section 
+            if op == "I":
+                if ct <= 5:
+		    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                    seqPos += ct
+                else:
+                    # End any ongoing match
+                    if MVal > 0:
+                        newCIGAR = newCIGAR + str(MVal) + "M"
+                        MVal = 0
+
+                    newSeq = newSeq + oldSeq[seqPos:seqPos + ct]
+                    newCIGAR = newCIGAR + str(ct) + op
+                    seqPos += ct
+            #-----------------         
+            if op == "S":
                 # End any ongoing match
                 if MVal > 0:
                     newCIGAR = newCIGAR + str(MVal) + "M"
