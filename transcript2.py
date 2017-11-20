@@ -1,12 +1,13 @@
-# This file contains classes for the clean_splice_jns.py program
+# This file contains classes for the TranscriptClean program
 
 from spliceJunction import SpliceJunction
 from intronBound import IntronBound
 import pyfasta
 import pybedtools
 import re
+import itertools
 
-class Transcript:
+class Transcript2:
 
     def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
@@ -25,31 +26,30 @@ class Transcript:
         self.QUAL = samFields[10]
 
         # If the sam entry contains additional optional fields, process them here
-        #self.NH = ""
-        #self.HI = ""
         self.NM = ""
         self.MD = ""
         self.jM = ""
         self.jI = ""        
         otherFields = []
+
         for field in samFields[11:len(samFields)]:
-            #if field.startswith("NH"): self.NH = field
-            #elif field.startswith("HI"): self.HI = field
             if field.startswith("NM"): self.NM = field
             elif field.startswith("MD"): self.MD = field
             elif field.startswith("jM"): self.jM = field 
             elif field.startswith("jI"): self.jI = field
             else: otherFields.append(field)
 
+        # If the NM and MD tags were missing, compute them here.
+        if self.MD == "":
+            self.NM, self.MD = self.getNMandMDFlags(genome)
+
         self.otherFields = "\t".join(otherFields)        
+
         # These attributes are set by parsing the inputs
         self.spliceJunctions = []
         self.isCanonical = True
         self.strand = "+"        
         if self.FLAG == 16: self.strand = "-"
-
-        #print self.SEQ
-        #print self.referenceSeq
 
         # Only run this section if there are splice junctions
         if self.jM != "" and "-1" not in self.jM:
@@ -64,16 +64,6 @@ class Transcript:
         self.isCanonical = True
         return True
 
-    #def getReferenceSequence(self, genome):
-        # This function extracts the reference sequence of the region that the transcript mapped to. It uses POS, the start of 
-        # the mapping, and gets the length of the mapping by summing the numbers in the CIGAR string
-
-    #    alignTypes, counts = self.splitCIGAR()
-    #    matchLen = sum(counts)
-    #    seqStart = self.POS - 1 # Convert to 0-based
-    #    seqEnd = seqStart + matchLen
-
-    #    return genome[self.CHROM][seqStart:seqEnd].upper()
 
     def splitCIGAR(self):
         # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
@@ -83,6 +73,28 @@ class Transcript:
         counts = [int(i) for i in counts]
 
         return alignTypes, counts
+
+    def splitMD(self):
+        # Takes MD tag and splits into individual operations
+
+        MD = self.MD.split(":")[2]
+        operations = []
+
+        # Split MD string where type changes. Digits are separated from base changes. Deletions (with ^) are captured together.
+        mdSplit = ["".join(x) for _, x in itertools.groupby(MD, key=str.isdigit)]
+
+        # Get operations
+        for i in range(0,len(mdSplit)):
+            curr = mdSplit[i]
+            try:
+                mdSplit[i] = int(curr)
+                operations.append("Match")
+            except ValueError:
+                #Handle the exception
+                if curr.startswith("^"): operations.append("Deletion")
+                else: operations.append("MisMatch")
+
+        return operations, mdSplit
 
 
     def parseSpliceJunctions(self, genome):
