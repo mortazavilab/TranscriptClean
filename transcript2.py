@@ -81,20 +81,94 @@ class Transcript2:
         operations = []
 
         # Split MD string where type changes. Digits are separated from base changes. Deletions (with ^) are captured together.
-        mdSplit = ["".join(x) for _, x in itertools.groupby(MD, key=str.isdigit)]
+        counts = ["".join(x) for _, x in itertools.groupby(MD, key=str.isdigit)]
 
         # Get operations
-        for i in range(0,len(mdSplit)):
-            curr = mdSplit[i]
+        for i in range(0,len(counts)):
+            curr = counts[i]
             try:
-                mdSplit[i] = int(curr)
-                operations.append("Match")
+                counts[i] = int(curr)
+                operations.append("M")
             except ValueError:
                 #Handle the exception
-                if curr.startswith("^"): operations.append("Deletion")
-                else: operations.append("MisMatch")
+                if curr.startswith("^"): 
+                    operations.append("D")
+                    counts[i] = len(counts[i]) - 1
+                else: 
+                    operations.append("X")
+                    counts[i] = len(counts[i])
 
-        return operations, mdSplit
+        return operations, counts
+
+    def mergeMDwithCIGAR(self):
+        # This function takes the MD and CIGAR strings, and combines them into a unified structure that encodes all possible operations w.r.t the reference: match, mismatch, deletion, insertion, hard clipping, and soft clipping.
+
+        mergeCts = []
+        mergeOps = []
+    
+        cOp, cCt = self.splitCIGAR()
+        mOp, mCt = self.splitMD()  
+
+        cCt = [31, 1, 17, 1, 37]
+        cOp = ["M", "I", "M", "D", "M"]
+
+        mCt = [6,1,4,1,20,1,1,1,5,1,5,1,1,1,3,1,15,1,1,1,15]
+        mOp = ["M", "X", "M", "X", "M", "X","M", "X","M", "X","M", "X", "M", "D", "M", "X", "M", "X", "M", "X", "M"]
+
+        mIndex = 0
+        cIndex = 0
+        
+        while mIndex < len(mOp) or cIndex < len(cOp):
+            # If the current CIGAR operation is S, H, or I, add that to the output. The MD tag doesn't have these
+            print mIndex
+            print cIndex
+            
+
+            if cOp[cIndex] == "H" or cOp[cIndex] == "S" or cOp[cIndex] == "I":
+                mergeOps.append(cOp[cIndex])
+                mergeCts.append(cCt[cIndex])
+                cIndex += 1
+
+            # Special case: Insertions only occur in CIGAR. If an insertion follows a match, it is necessary to go back one step and shorten the match string.
+            #if cOp[cIndex] == "I":
+            #    print mergeCts[-1]
+            #    exit()
+            #    mergeCts[-1] = mergeCts[-1] - cCt[cIndex]
+            #    mergeOps.append(cOp[cIndex])
+            #    mergeCts.append(cCt[cIndex])
+            #    cIndex += 1
+ 
+ 
+            # Select the "shorter" operation
+            else:
+                if cCt[cIndex] < mCt[mIndex]:
+                # If the CIGAR string lists fewer matched bases than MD, it means the CIGAR has an insertion not listed in MD
+                    mCt[mIndex] = mCt[mIndex] - cCt[cIndex]
+                    mergeOps.append(cOp[cIndex])
+                    mergeCts.append(cCt[cIndex])
+                    cIndex += 1
+
+                if cCt[cIndex] > mCt[mIndex]:
+                # If the CIGAR string lists more matched bases than MD, it means that MD has a mismatch not listed in CIGAR
+                    cCt[cIndex] = cCt[cIndex] - mCt[mIndex]
+                    mergeOps.append(mOp[mIndex])
+                    mergeCts.append(mCt[mIndex])
+                    mIndex += 1
+                    
+
+                if cCt[cIndex] == mCt[mIndex] and cOp[cIndex] == mOp[mIndex]:
+                    mergeOps.append(mOp[mIndex])
+                    mergeCts.append(mCt[mIndex])
+                    mIndex += 1
+                    cIndex += 1
+            #if cCt[cIndex] == 0:
+            #    cIndex += 1
+            #if mCt[mIndex] == 0:
+            #    mIndex += 1
+            print mergeOps
+            print mergeCts
+            print "---------"
+        exit()         
 
 
     def parseSpliceJunctions(self, genome):
