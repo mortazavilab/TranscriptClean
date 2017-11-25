@@ -9,7 +9,7 @@ from optparse import OptionParser
 import pybedtools
 from pyfasta import Fasta
 import os
-#import re
+import re
 
 def getOptions():
     parser = OptionParser()
@@ -22,6 +22,8 @@ def getOptions():
                       help = "VCF formatted file of variants to avoid correcting away in the data (optional).", metavar = "FILE", type = "string", default = None )
     parser.add_option("--maxLenIndel", dest = "maxLenIndel",
                       help = "Maximum size indel to correct (Default: 5 bp)", type = "int", default = 5 )
+    parser.add_option("--maxSJOffset", dest = "maxSJOffset",
+                      help = "Maximum distance from annotated splice junction to correct (Default: 5 bp)", type = "int", default = 5 )
     parser.add_option("--outprefix", dest = "outprefix",
                       help = "output file prefix. '_clean' plus a file extension will be added to the end.", metavar = "FILE", type = "string", default = "out")
     (options, args) = parser.parse_args()
@@ -53,7 +55,34 @@ def main():
 
     print "Correcting mismatches and indels ............"
     correctMismatchesAndIndels(canTranscripts, genome, variants, options.maxLenIndel)
-    correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
+
+    if len(noncanTranscripts) > 0:
+        correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
+        print "Rescuing noncanonical junctions............."
+        cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, options.maxSJOffset)
+
+    print "Writing output to sam file and fasta file.................."
+
+    # Generate the output files
+    oSam = open(options.outprefix + "_clean.sam", 'w')
+    oFa = open(options.outprefix + "_clean.fa", 'w')
+    oSam.write(header)
+    writeTranscriptOutput(canTranscripts, oSam, oFa, genome)
+    writeTranscriptOutput(noncanTranscripts, oSam, oFa, genome)
+
+    oSam.close()
+    oFa.close()
+
+def writeTranscriptOutput(transcripts, outSam, outFa, genome):
+
+    for t in transcripts.keys():
+        print t
+        currTranscript = transcripts[t]
+        outSam.write(Transcript2.printableSAM(currTranscript, genome) + "\n")
+        outFa.write(Transcript2.printableFa(currTranscript) + "\n")
+    return
+
+
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -131,28 +160,270 @@ def correctMismatchesAndIndels(transcripts, genome, variants, maxLen):
 
         origSeq = t.SEQ
         origCIGAR = t.CIGAR
-        origNM = t.NM.split(":")[2]
         origMD = t.MD
         genomePos = t.POS
 
         print origCIGAR
-        print origNM
+        print origMD
+
         # Check for deletions, insertions, and mismatches. If none are present, we can skip this transcript
-        if ("D" not in origCIGAR) and ("I" not in origCIGAR) and any(i in origNM for i in 'ACTGN') == False : continue
-       
+        if ("D" not in origCIGAR) and ("I" not in origCIGAR) and any(i in origMD.upper() for i in 'ACTGN') == False : continue
+      
         newCIGAR = ""
         newSeq = ""
         MVal = 0
         seqPos = 0
         genomePos = t.POS
+       
+        # Merge CIGAR and MD tag information so that we have the locations of all insertions, deletions, and mismatches
+        mergeOperations, mergeCounts = t.mergeMDwithCIGAR()
         
-        cigarOperations, cigarCounts = t.splitCIGAR() 
-        mdOperations, mdCounts = t.splitMD()        
+        # Iterate over operations to sequence and repair mismatches and microindels
+        for op,ct in zip(mergeOperations, mergeCounts):
+            if op == "M":
+                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                 MVal += ct
+                 seqPos += ct
+                 genomePos += ct
+            # This denotes a mismatch
+            if op == "X": 
+                # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
+                # Change sequence base to the reference base at this position
+                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                seqPos += ct # skip the original sequence base
+                genomePos += ct # advance the genome position
+                MVal += ct
+            if op == "D":
+                 # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
+                if ct <= maxLen:
+                    # Add the missing reference bases
+                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    newSeq = newSeq + refBases
+                    genomePos += ct
+                    MVal += ct
+                else:
+                    # End any ongoing match
+                    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                    newCIGAR = newCIGAR + str(ct) + op
+                    genomePos += ct
+            if op == "I":
+            # TODO: check if the insertion is in the optional variant catalog. If yes, don't try to fix it.
+                if ct <= maxLen:
+                    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                    seqPos += ct
+                else:
+                    # End any ongoing match
+                    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                    newCIGAR = newCIGAR + str(ct) + op
+                    seqPos += ct
+            if op == "S":
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                newCIGAR = newCIGAR + str(ct) + op
+                seqPos += ct
+            if op in ["N", "H"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                genomePos += ct
+                newCIGAR = newCIGAR + str(ct) + op
 
-        #for op,ct in zip(cigarOperations, cigarCounts):
+        # End any ongoing match
+        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+        t.CIGAR = newCIGAR
+        t.SEQ = newSeq
+        t.NM, t.MD = t.getNMandMDFlags(genome)
+    return 
+                        
+def endMatch(MVal, newCIGAR):
+    # Function to end an ongoing match during error correction, updating new CIGAR and MD tag strings as needed.
+    # MVal keeps track of how many matched bases we have at the moment so that when errors are fixed, adjoining matches can be combined.
+    # When an intron or unfixable error is encountered, it is necessary to end the match by outputting the current MVal and then setting the variable to zero.
+
+    if MVal > 0:
+        newCIGAR = newCIGAR + str(MVal) + "M"
+        MVal = 0
+
+    return MVal, newCIGAR
+
+def cleanNoncanonical(transcripts, annotatedJunctions, genome, n):
+    # Iterate over noncanonical transcripts. Determine whether each end is within n basepairs of an annotated junction.
+    # If it is, run the rescue function on it. If not, discard the transcript.
+
+    o = open("tmp_nc.bed", 'w')
+    salvageableNCJns = 0
+    totNC = len(transcripts)
+    for tID in transcripts.keys():
+        t = transcripts[tID]
+        bounds = Transcript2.getAllIntronBounds(t)
+
+        for b in bounds:
+            if b.isCanonical == True:
+                continue
+
+            # Get BedTool object for start of junction
+            pos = IntronBound.getBED(b)
+            o.write(pos + "\n")
+
+    o.close()
+    os.system('sort -k1,1 -k2,2n tmp_nc.bed > sorted_tmp_nc.bed')
+    nc = pybedtools.BedTool("sorted_tmp_nc.bed")
+    jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
+
+    os.system("rm tmp_nc.bed")
+    os.system("rm sorted_tmp_nc.bed")
+    os.system("rm tmp.bed")
+    os.system("rm tmp2.bed")
+
+    # Iterate over splice junction boundaries and their closest canonical match. 
+    for match in jnMatches:
+        if len(match) == 0: continue
+        match = match.split('\t')
+        d = int(match[-1])
+        transcriptID, spliceJnNum, side = match[3].split("__")
+
+        # Only attempt to rescue junction boundaries that are within 5 bp of an annotated junction
+        if abs(d) > n:
+            continue
+
+        currTranscript = transcripts[transcriptID]
+        currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
+        currIntronBound = currJunction.bounds[int(side)]
+        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome)
+        #t.NM, t.MD = t.getNMandMDFlags(genome)
+    return
+
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
+
+    oldCIGAR = transcript.CIGAR
+    seq = transcript.SEQ
+
+    currExonStr = ""
+    currExonCIGAR = ""
+    currSeqIndex = 0
+    operations, counts = splitCIGAR(transcript.CIGAR)
+    exonSeqs = []
+    exonCIGARs = []
+    intronCIGARs = []
+
+    # First, use the old CIGAR string to segment the sequence by exon
+    # Also, group the CIGAR string by exon
+    for op, ct in zip(operations, counts):
+        if op == "N":
+            exonSeqs.append(currExonStr)
+            intronCIGARs.append(ct)
+            exonCIGARs.append(currExonCIGAR)
+            currExonStr = ""
+            currExonCIGAR = ""
+        elif op in [ "M", "S", "I"]:
+            currExonStr = currExonStr + str(seq[currSeqIndex:currSeqIndex+ct])
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+            currSeqIndex += ct
+        else:
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+    exonSeqs.append(currExonStr)
+    exonCIGARs.append(currExonCIGAR)
+
+    targetJn = spliceJn.jnNumber
+    
+    if intronBound.bound == 0:
+        targetExon = targetJn
+        exon = exonSeqs[targetExon]
+        if d > 0: # Need to add d bases from reference to end of exon. Case 1.
+            # For CIGAR string, 
+            exonEnd = intronBound.pos - 1
+            seqIndex = exonEnd - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True).upper()
+            exonSeqs[targetExon] = exon + refAdd
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+
+        if d < 0: # Need to subtract from end of exon sequence. Case 3
+            exonSeqs[targetExon] = exon[0:d]
+            intronBound.pos += d
+            spliceJn.start = intronBound.pos
+        intronCIGARs[targetJn] -= d
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], -1, d)
+    else:
+        targetExon = targetJn + 1
+        exon = exonSeqs[targetExon]
+        if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
+            exonStart = intronBound.pos + 1
+            seqIndex = exonStart - transcript.POS + 1
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True).upper()
+            exonSeqs[targetExon] = refAdd + exon
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+        if d > 0: # Need to subtract from start of exon sequence. Case 4
+            exonSeqs[targetExon] = exon[d:]
+            intronBound.pos += d
+            spliceJn.end = intronBound.pos
+        # Modify exon string
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
+        intronCIGARs[targetJn] += d
+    transcript.SEQ = ''.join(exonSeqs)
+
+    # Paste together the new CIGAR string
+    newCIGAR = ""
+    for i in range(0,len(intronCIGARs)):
+        newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
+    newCIGAR = newCIGAR + exonCIGARs[-1]
+    transcript.CIGAR = newCIGAR    
+    intronBound.isCanonical = True
+    return
+
+ 
+def splitCIGAR(CIGAR):
+    # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
+
+    matchTypes = re.sub('[0-9]', " ", CIGAR).split()
+    matchCounts = re.sub('[A-Z]', " ", CIGAR).split()
+    matchCounts = [int(i) for i in matchCounts]
+
+    return matchTypes, matchCounts
+
+def editExonCIGAR(exon, side, nBases):
+    # Given an exon CIGAR string, this function adds or subtracts bases from the start (side = 0) or end (side = -1)
+    operations, counts = splitCIGAR(exon)
+    if side == -1:
+        operations = operations[::-1]
+        counts = counts[::-1]
+    # If nBases > 0, we have an easy case. Just add the bases.
+    if nBases >= 0:
+        if operations[0] == "M":
+            counts[0] = counts[0] + nBases                      
+        else:
+            counts = [nBases] + counts
+            operations = ["M"] + operations
+    # If nBases < 0, we need to make sure we have room to delete the bases
+    else:    
+        for i in range(0,len(counts)):
+           ct = counts[i]
+           remainder = ct - abs(nBases)
+           if remainder > 0:
+                counts[i] = remainder
+                break
+           elif remainder == 0:
+               counts[i] = ""
+               operations[i] = ""
+               break
+           else:
+               counts[i] = ""
+               operations[i] = ""
+               nBases = remainder
+
+    if side == -1:
+        operations = operations[::-1]
+        counts = counts[::-1]
+
+    result = ""
+    for op, ct in zip(operations, counts):
+        result = result + str(ct) + op
+    return result
         
 
 
-        exit()
 
 main()

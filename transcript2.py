@@ -116,6 +116,9 @@ class Transcript2:
 
         mdIndex = 0
         cigarIndex = 0
+
+        #print cigarCount
+        #print cigarOperation
        
         #print mdCount
         #print mdOperation 
@@ -129,14 +132,15 @@ class Transcript2:
             #print "--------" 
             #print mdIndex
             #print cigarIndex
-            while mdCount[mdIndex] == 0:
-                mdIndex += 1
+            #while mdCount[mdIndex] == 0:
+            #    mdIndex += 1
 
             # If the current CIGAR operation is S, H, N, or I, add that to the output. The MD tag doesn't have these
             if cigarOperation[cigarIndex] == "H" or cigarOperation[cigarIndex] == "S" or cigarOperation[cigarIndex] == "I" or cigarOperation[cigarIndex] == "N":
                 mergeOperations.append(cigarOperation[cigarIndex])
                 mergeCounts.append(cigarCount[cigarIndex])
                 cigarIndex += 1
+
             
             # Otherwise, select the "shorter" operation and add it to the results. Subtract away the same number of bases from the competing entry.
             else:
@@ -163,7 +167,6 @@ class Transcript2:
 
         #print mergeOperations
         #print mergeCounts
-        
         return mergeOperations, mergeCounts
 
 
@@ -236,10 +239,10 @@ class Transcript2:
             if op == "M":
                 for i in range(0,ct):
                     currBase = self.SEQ[seqPos]
-                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True).upper() 
-                    if currBase != refBase:
+                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True) 
+                    if currBase.upper() != refBase.upper():
                         # End any match we have going and add the mismatch
-                        MD = MD + str(MVal) #if MVal > 0: 
+                        MD = MD + str(MVal)  
                         MVal = 0 
                         MD = MD + refBase 
                         NM += 1
@@ -249,9 +252,9 @@ class Transcript2:
                     genomePos += 1
             if op == "D":
                 # End any match we have going and add the missing reference bases
-                MD = MD + str(MVal) #if MVal > 0: 
+                MD = MD + str(MVal)  
                 MVal = 0
-                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True).upper() 
+                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                 MD = MD + "^" + refBases
                 NM += ct
                 genomePos += ct
