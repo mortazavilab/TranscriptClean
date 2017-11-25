@@ -103,72 +103,68 @@ class Transcript2:
     def mergeMDwithCIGAR(self):
         # This function takes the MD and CIGAR strings, and combines them into a unified structure that encodes all possible operations w.r.t the reference: match, mismatch, deletion, insertion, hard clipping, and soft clipping.
 
-        mergeCts = []
-        mergeOps = []
+        mergeCounts = []
+        mergeOperations = []
     
-        cOp, cCt = self.splitCIGAR()
-        mOp, mCt = self.splitMD()  
+        cigarOperation, cigarCount = self.splitCIGAR()
+        mdOperation, mdCount = self.splitMD() 
+        #cigarOperation = ["M", "I", "M", "D", "M"] #self.splitCIGAR()
+        #cigarCount = [31, 1, 17, 1, 37]
 
-        cCt = [31, 1, 17, 1, 37]
-        cOp = ["M", "I", "M", "D", "M"]
+        #mdOperation = ["M", "X", "M", "X", "M", "X", "M", "X", "M", "X", "M", "X", "M", "D", "M", "X", "M", "X", "M", "X", "M" ]  #self.splitMD()  
+        #mdCount = [6, 1, 4, 1, 20, 1, 1, 1, 5, 1, 5, 1, 1, 1, 3, 1, 15, 1, 1, 1, 15]
 
-        mCt = [6,1,4,1,20,1,1,1,5,1,5,1,1,1,3,1,15,1,1,1,15]
-        mOp = ["M", "X", "M", "X", "M", "X","M", "X","M", "X","M", "X", "M", "D", "M", "X", "M", "X", "M", "X", "M"]
+        mdIndex = 0
+        cigarIndex = 0
+       
+        #print mdCount
+        #print mdOperation 
+        #print len(mdOperation)
+        #print len(cigarOperation)
+        #print "*********************"
+        while mdIndex < len(mdOperation) or cigarIndex < len(cigarOperation):
+            # Skip zero operations- they are MD placeholders
+            #print mergeCounts 
+            #print mergeOperations
+            #print "--------" 
+            #print mdIndex
+            #print cigarIndex
+            while mdCount[mdIndex] == 0:
+                mdIndex += 1
 
-        mIndex = 0
-        cIndex = 0
-        
-        while mIndex < len(mOp) or cIndex < len(cOp):
-            # If the current CIGAR operation is S, H, or I, add that to the output. The MD tag doesn't have these
-            print mIndex
-            print cIndex
+            # If the current CIGAR operation is S, H, N, or I, add that to the output. The MD tag doesn't have these
+            if cigarOperation[cigarIndex] == "H" or cigarOperation[cigarIndex] == "S" or cigarOperation[cigarIndex] == "I" or cigarOperation[cigarIndex] == "N":
+                mergeOperations.append(cigarOperation[cigarIndex])
+                mergeCounts.append(cigarCount[cigarIndex])
+                cigarIndex += 1
             
-
-            if cOp[cIndex] == "H" or cOp[cIndex] == "S" or cOp[cIndex] == "I":
-                mergeOps.append(cOp[cIndex])
-                mergeCts.append(cCt[cIndex])
-                cIndex += 1
-
-            # Special case: Insertions only occur in CIGAR. If an insertion follows a match, it is necessary to go back one step and shorten the match string.
-            #if cOp[cIndex] == "I":
-            #    print mergeCts[-1]
-            #    exit()
-            #    mergeCts[-1] = mergeCts[-1] - cCt[cIndex]
-            #    mergeOps.append(cOp[cIndex])
-            #    mergeCts.append(cCt[cIndex])
-            #    cIndex += 1
- 
- 
-            # Select the "shorter" operation
+            # Otherwise, select the "shorter" operation and add it to the results. Subtract away the same number of bases from the competing entry.
             else:
-                if cCt[cIndex] < mCt[mIndex]:
+                if cigarCount[cigarIndex] < mdCount[mdIndex]:
                 # If the CIGAR string lists fewer matched bases than MD, it means the CIGAR has an insertion not listed in MD
-                    mCt[mIndex] = mCt[mIndex] - cCt[cIndex]
-                    mergeOps.append(cOp[cIndex])
-                    mergeCts.append(cCt[cIndex])
-                    cIndex += 1
+                    mdCount[mdIndex] = mdCount[mdIndex] - cigarCount[cigarIndex]
+                    mergeOperations.append(cigarOperation[cigarIndex])
+                    mergeCounts.append(cigarCount[cigarIndex])
+                    cigarIndex += 1
 
-                if cCt[cIndex] > mCt[mIndex]:
+                elif cigarCount[cigarIndex] > mdCount[mdIndex]:
                 # If the CIGAR string lists more matched bases than MD, it means that MD has a mismatch not listed in CIGAR
-                    cCt[cIndex] = cCt[cIndex] - mCt[mIndex]
-                    mergeOps.append(mOp[mIndex])
-                    mergeCts.append(mCt[mIndex])
-                    mIndex += 1
+                    cigarCount[cigarIndex] = cigarCount[cigarIndex] - mdCount[mdIndex]
+                    mergeOperations.append(mdOperation[mdIndex])
+                    mergeCounts.append(mdCount[mdIndex])
+                    mdIndex += 1
                     
+                # For cases where both MD and CIGAR specify the same match type, add to the result and advance to next position in lists
+                else: 
+                    mergeOperations.append(mdOperation[mdIndex])
+                    mergeCounts.append(mdCount[mdIndex])
+                    mdIndex += 1
+                    cigarIndex += 1
 
-                if cCt[cIndex] == mCt[mIndex] and cOp[cIndex] == mOp[mIndex]:
-                    mergeOps.append(mOp[mIndex])
-                    mergeCts.append(mCt[mIndex])
-                    mIndex += 1
-                    cIndex += 1
-            #if cCt[cIndex] == 0:
-            #    cIndex += 1
-            #if mCt[mIndex] == 0:
-            #    mIndex += 1
-            print mergeOps
-            print mergeCts
-            print "---------"
-        exit()         
+        #print mergeOperations
+        #print mergeCounts
+        
+        return mergeOperations, mergeCounts
 
 
     def parseSpliceJunctions(self, genome):
