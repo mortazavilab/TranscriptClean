@@ -44,7 +44,7 @@ def main():
 
     if options.variantFile != None:
         print "Processing variant file ................."
-        #variants = processVariants(options.variantFile)
+        SNPs = processVCF(options.variantFile)
     else:
         print "No variant file provided. Transcript correction will not be SNP-aware."
         variants = {}
@@ -54,11 +54,12 @@ def main():
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. This might mean that the sam file lacked the jM tag."
 
     print "Correcting mismatches and indels ............"
-    #correctMismatches(canTranscripts, genome, variants)
+    correctMismatches(canTranscripts, genome, variants)
     correctInsertions(canTranscripts, genome, variants, options.maxLenIndel)
     correctDeletions(canTranscripts, genome, variants, options.maxLenIndel)
 
     if len(noncanTranscripts) > 0:
+        correctMismatches(noncanTranscripts, genome, variants)
         correctInsertions(noncanTranscripts, genome, variants, options.maxLenIndel)
         correctDeletions(noncanTranscripts, genome, variants, options.maxLenIndel)
         #correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
@@ -155,6 +156,31 @@ def processSpliceAnnotation(annotFile):
     os.system('sort -k1,1 -k2,2n TC-tmp.bed > TC-tmp2.bed')
     bt = pybedtools.BedTool("TC-tmp2.bed")
     return bt
+
+def processVCF(vcf):
+    # This function reads in variants from a VCF file and stores them.
+
+    SNPs = {}
+    with open(vcf, 'r') as f:
+        for line in f:
+            line = line.strip()
+    
+            if line.startswith("#"): continue
+
+            fields = line.split("\t")
+            chrom = "chr" + fields[0]
+            pos = fields[1]
+            ref = fields[3]
+            alt = fields[4]
+
+            # For now, remove indels. 
+            if len(ref) > 1: continue
+             
+            ID = chrom + "_" + pos
+            SNPs[ID] = ref + ";" + alt
+
+    return SNPs
+             
 
 def correctInsertions(transcripts, genome, variants, maxLen):
     # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.

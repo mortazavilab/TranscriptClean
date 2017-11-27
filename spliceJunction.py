@@ -31,7 +31,7 @@ class SpliceJunction:
     def recheckJnStr(self, genome):
         # Check the splice junction sequence motif to determine whether the jnStr shouls be changed
 
-        motif = IntronBound.getSpliceMotif(self.bounds[0], genome) + IntronBound.getSpliceMotif(self.bounds[1], genome)
+        motif = IntronBound.getSpliceMotif(self.bounds[0], genome) + IntronBound.getSpliceMotif(self.bounds[1], genome).upper()
 
         if motif == "GTAG":
             self.jnStr = "21"

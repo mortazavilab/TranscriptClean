@@ -30,7 +30,7 @@ class IntronBound:
 
     def getSpliceMotif(self, genome):
         if self.bound == 0:
-            motif = genome.sequence({'chr': self.chrom, 'start': self.pos, 'stop': self.pos + 1}, one_based=True).upper()
+            motif = genome.sequence({'chr': self.chrom, 'start': self.pos, 'stop': self.pos + 1}, one_based=True)
         else:
-            motif = genome.sequence({'chr': self.chrom, 'start': self.pos - 1, 'stop': self.pos}, one_based=True).upper()
+            motif = genome.sequence({'chr': self.chrom, 'start': self.pos - 1, 'stop': self.pos}, one_based=True)
         return motif
