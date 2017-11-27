@@ -299,7 +299,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             # For CIGAR string, 
             exonEnd = intronBound.pos - 1
             seqIndex = exonEnd - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True).upper()
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
@@ -316,7 +316,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
         if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True).upper()
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
             exonSeqs[targetExon] = refAdd + exon
             intronBound.pos += d
             spliceJn.end = intronBound.pos
@@ -395,7 +395,7 @@ def addSeqFromReference(seq, chrom, tStart, seqIndex, nBases, genome):
     seqEnd =  seq[seqIndex:]
 
     refStart = tStart + seqIndex
-    insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True).upper()
+    insert = genome.sequence({'chr': chrom, 'start': refStart, 'stop': refStart + nBases - 1}, one_based=True)
     newSeq = seqStart + insert + seqEnd
     return newSeq 
 
