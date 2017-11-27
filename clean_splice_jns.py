@@ -158,7 +158,7 @@ def cleanMicroindels(transcripts, genome):
             if op == "D":
                 if ct <= 5:
                     # Add the missing reference bases
-                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True).upper() 
+                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True) 
                     newSeq = newSeq + refBases
                     genomePos += ct
                     MVal += ct

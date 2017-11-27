@@ -54,10 +54,14 @@ def main():
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. This might mean that the sam file lacked the jM tag."
 
     print "Correcting mismatches and indels ............"
-    correctMismatchesAndIndels(canTranscripts, genome, variants, options.maxLenIndel)
+    #correctMismatches(canTranscripts, genome, variants)
+    correctInsertions(canTranscripts, genome, variants, options.maxLenIndel)
+    correctDeletions(canTranscripts, genome, variants, options.maxLenIndel)
 
     if len(noncanTranscripts) > 0:
-        correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
+        correctInsertions(noncanTranscripts, genome, variants, options.maxLenIndel)
+        correctDeletions(noncanTranscripts, genome, variants, options.maxLenIndel)
+        #correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
         print "Rescuing noncanonical junctions............."
         cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, options.maxSJOffset)
 
@@ -152,6 +156,199 @@ def processSpliceAnnotation(annotFile):
     bt = pybedtools.BedTool("TC-tmp2.bed")
     return bt
 
+def correctInsertions(transcripts, genome, variants, maxLen):
+    # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
+
+    for t in transcripts.keys():
+        t = transcripts[t]
+
+        origSeq = t.SEQ
+        origCIGAR = t.CIGAR
+         
+        cigarOps,cigarCounts = t.splitCIGAR() 
+
+        # Check for insertions. If none are present, we can skip this transcript
+        if "I" not in origCIGAR : continue
+
+        newCIGAR = ""
+        newSeq = ""
+        MVal = 0
+        seqPos = 0
+
+        # Start at position in the genome where the transcript starts.
+        genomePos = t.POS 
+    
+                # Iterate over operations to sequence and repair mismatches and microindels
+        for op,ct in zip(cigarOps, cigarCounts):
+            if op == "M":
+                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                 MVal += ct
+                 seqPos += ct
+                 genomePos += ct
+             
+            if op == "I":
+            # TODO: check if the insertion is in the optional variant catalog. If yes, don't try to fix it.
+                if ct <= maxLen:
+                    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                    seqPos += ct
+                else:
+                    # End any ongoing match
+                    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                    newCIGAR = newCIGAR + str(ct) + op
+                    seqPos += ct 
+
+            if op == "S":
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                newCIGAR = newCIGAR + str(ct) + op
+                seqPos += ct
+
+            # N, H, and D operations are cases where the transcript sequence is missing bases that are in the reference genome.
+            if op in ["N", "H", "D"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                genomePos += ct
+                newCIGAR = newCIGAR + str(ct) + op
+
+        # End any ongoing match
+        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+        # Update transcript 
+        t.CIGAR = newCIGAR
+        t.SEQ = newSeq
+        t.NM, t.MD = t.getNMandMDFlags(genome) # May not be necessary since MD tag lacks I
+    return    
+
+def correctDeletions(transcripts, genome, variants, maxLen):
+    # This function corrects deletions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
+
+    for t in transcripts.keys():
+        t = transcripts[t]
+
+        origSeq = t.SEQ
+        origCIGAR = t.CIGAR
+
+        cigarOps,cigarCounts = t.splitCIGAR()
+
+        # Check for deletions. If none are present, we can skip this transcript
+        if "D" not in origCIGAR : continue
+
+        newCIGAR = ""
+        newSeq = ""
+        MVal = 0
+        seqPos = 0
+
+        # Start at position in the genome where the transcript starts.
+        genomePos = t.POS
+
+                # Iterate over operations to sequence and repair mismatches and microindels
+        for op,ct in zip(cigarOps, cigarCounts):
+            if op == "M":
+                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                 MVal += ct
+                 seqPos += ct
+                 genomePos += ct
+
+            if op == "D":
+                 # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
+                if ct <= maxLen:
+                    # Add the missing reference bases
+                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    newSeq = newSeq + refBases
+                    genomePos += ct
+                    MVal += ct
+                else:
+                    # End any ongoing match
+                    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                    newCIGAR = newCIGAR + str(ct) + op
+                    genomePos += ct
+            
+            # S and I operations are cases where the transcript sequence contains bases that are not in the reference genome. 
+            if op in ["S", "I"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                newCIGAR = newCIGAR + str(ct) + op
+                seqPos += ct
+
+            # N and H operations are cases where the transcript sequence is missing bases that are in the reference genome. 
+            if op in ["N", "H"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                genomePos += ct
+                newCIGAR = newCIGAR + str(ct) + op
+
+        # End any ongoing match
+        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+        t.CIGAR = newCIGAR
+        t.SEQ = newSeq
+        t.NM, t.MD = t.getNMandMDFlags(genome)
+    return 
+
+def correctMismatches(transcripts, genome, variants):
+    # This function corrects mismatches in the sequences. If a variant file was provided, correction will be SNP-aware.
+   
+    for t in transcripts.keys():
+        t = transcripts[t]
+
+        origSeq = t.SEQ
+        origCIGAR = t.CIGAR
+        origMD = t.MD
+
+        # Check for mismatches. If none are present, we can skip this transcript
+        if any(i in origMD.upper() for i in 'ACTGN') == False : continue
+
+        newCIGAR = ""
+        newSeq = ""
+        MVal = 0
+        seqPos = 0
+        genomePos = t.POS
+
+        # Merge CIGAR and MD tag information so that we have the locations of all insertions, deletions, and mismatches
+        mergeOperations, mergeCounts = t.mergeMDwithCIGAR()
+
+        # Iterate over operations to sequence and repair mismatches and microindels
+        for op,ct in zip(mergeOperations, mergeCounts):
+
+            if op == "M":
+                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                 MVal += ct
+                 seqPos += ct
+                 genomePos += ct
+
+            # This denotes a mismatch
+            if op == "X":
+                # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
+                # Change sequence base to the reference base at this position
+                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                seqPos += ct # skip the original sequence base
+                genomePos += ct # advance the genome position
+                MVal += ct
+
+            if op in ["S", "I"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                newCIGAR = newCIGAR + str(ct) + op
+                seqPos += ct
+
+            if op in ["N", "H", "D"]:
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                genomePos += ct
+                newCIGAR = newCIGAR + str(ct) + op
+
+        # End any ongoing match
+        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+        t.CIGAR = newCIGAR
+        t.SEQ = newSeq
+        t.NM, t.MD = t.getNMandMDFlags(genome)
+    return 
+
 def correctMismatchesAndIndels(transcripts, genome, variants, maxLen):
     # This function corrects mismatches and indels up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
     
@@ -180,22 +377,19 @@ def correctMismatchesAndIndels(transcripts, genome, variants, maxLen):
         
         # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(mergeOperations, mergeCounts):
-            if op == "M" or op == "X":
+            if op == "M":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
                  seqPos += ct
                  genomePos += ct
             # This denotes a mismatch
-            #if op == "X": 
+            if op == "X": 
                 # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
                 # Change sequence base to the reference base at this position
-                # New version 
-                #newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                #seqPos += ct # skip the original sequence base
-                #genomePos += ct # advance the genome position
-                #MVal += ct
-
-                # Test version: handle same as match
+                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                seqPos += ct # skip the original sequence base
+                genomePos += ct # advance the genome position
+                MVal += ct
                
             if op == "D":
                  # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
@@ -278,8 +472,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n):
 
     os.system("rm tmp_nc.bed")
     os.system("rm sorted_tmp_nc.bed")
-    os.system("rm tmp.bed")
-    os.system("rm tmp2.bed")
 
     # Iterate over splice junction boundaries and their closest canonical match. 
     for match in jnMatches:
@@ -339,7 +531,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
             # For CIGAR string, 
             exonEnd = intronBound.pos - 1
             seqIndex = exonEnd - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True).upper()
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
             spliceJn.end = intronBound.pos
@@ -356,7 +548,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome):
         if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript.POS + 1
-            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True).upper()
+            refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
             exonSeqs[targetExon] = refAdd + exon
             intronBound.pos += d
             spliceJn.end = intronBound.pos
