@@ -16,6 +16,8 @@ def getOptions():
                       metavar = "FILE", type = "string", default = "")
     parser.add_option("--s", dest = "spliceAnnot", help = "Splice junction file obtained by mapping Illumina reads to the genome using STAR. More formats may be supported in the future.",
                       metavar = "FILE", type = "string", default = "")
+    parser.add_option("--v", dest = "variantFile",
+                      help = "VCF formatted file of variants to avoid correcting away in the data (optional).", metavar = "FILE", type = "string", default = None )
     parser.add_option("--o", dest = "outprefix",
                       help = "output file prefix. '_clean.sam' will be added to the end.", metavar = "FILE", type = "string", default = "out")
     (options, args) = parser.parse_args()
@@ -133,10 +135,10 @@ def cleanMicroindels(transcripts, genome):
     # When removing a deletion or insertion from the CIGAR string, attention must be paid to merging the surrounding exon pieces (M). 
     # Therefore, we keep a running count of M length that can be added to the CIGAR string when another operation (N, D > 5, I, S, or H)
     # ends the match.
-
+    
     for t in transcripts.keys():
         t = transcripts[t]
-        if "D" not in t.CIGAR: continue
+        if "D" not in t.CIGAR and "I" not in t.CIGAR: continue
 
         oldSeq = t.SEQ
         newCIGAR = ""
