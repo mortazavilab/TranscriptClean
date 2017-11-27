@@ -180,19 +180,23 @@ def correctMismatchesAndIndels(transcripts, genome, variants, maxLen):
         
         # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(mergeOperations, mergeCounts):
-            if op == "M":
+            if op == "M" or op == "X":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
                  seqPos += ct
                  genomePos += ct
             # This denotes a mismatch
-            if op == "X": 
+            #if op == "X": 
                 # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
                 # Change sequence base to the reference base at this position
-                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                seqPos += ct # skip the original sequence base
-                genomePos += ct # advance the genome position
-                MVal += ct
+                # New version 
+                #newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                #seqPos += ct # skip the original sequence base
+                #genomePos += ct # advance the genome position
+                #MVal += ct
+
+                # Test version: handle same as match
+               
             if op == "D":
                  # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
                 if ct <= maxLen:
