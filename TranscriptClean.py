@@ -2,6 +2,10 @@
 # Dana Wyman, 11/20/2017
 # In this version of TranscriptClean, mismatches and microindels in long reads are corrected in a SNP-aware fashion using the reference genome and a VCF file of whitelisted variants. Noncanonical splice junctions can also be corrected using a file of reference splice sites as long as the provided SAM file is splice aware.
 
+## TODO: Add a line to the sam header that explains which input options TranscriptClean was run with
+## TODO: Add data structure/system to track transcript changes
+## TODO: Add options input arguments to run only certain parts of TranscriptClean
+
 from transcript2 import Transcript2
 from spliceJunction import SpliceJunction
 from intronBound import IntronBound
@@ -44,25 +48,25 @@ def main():
 
     if options.variantFile != None:
         print "Processing variant file ................."
-        SNPs = processVCF(options.variantFile)
+        snps = processVCF(options.variantFile)
     else:
         print "No variant file provided. Transcript correction will not be SNP-aware."
-        variants = {}
+        snps = {}
 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome) 
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. This might mean that the sam file lacked the jM tag."
 
     print "Correcting mismatches and indels ............"
-    correctMismatches(canTranscripts, genome, variants)
-    correctInsertions(canTranscripts, genome, variants, options.maxLenIndel)
-    correctDeletions(canTranscripts, genome, variants, options.maxLenIndel)
+    correctMismatches(canTranscripts, genome, snps)
+    correctInsertions(canTranscripts, genome, snps, options.maxLenIndel)
+    correctDeletions(canTranscripts, genome, snps, options.maxLenIndel)
 
     if len(noncanTranscripts) > 0:
-        correctMismatches(noncanTranscripts, genome, variants)
-        correctInsertions(noncanTranscripts, genome, variants, options.maxLenIndel)
-        correctDeletions(noncanTranscripts, genome, variants, options.maxLenIndel)
-        #correctMismatchesAndIndels(noncanTranscripts, genome, variants, options.maxLenIndel)
+        correctMismatches(noncanTranscripts, genome, snps)
+        correctInsertions(noncanTranscripts, genome, snps, options.maxLenIndel)
+        correctDeletions(noncanTranscripts, genome, snps, options.maxLenIndel)
+
         print "Rescuing noncanonical junctions............."
         cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, options.maxSJOffset)
 
@@ -86,8 +90,6 @@ def writeTranscriptOutput(transcripts, outSam, outFa, genome):
         outSam.write(Transcript2.printableSAM(currTranscript, genome) + "\n")
         outFa.write(Transcript2.printableFa(currTranscript) + "\n")
     return
-
-
 
 def processSAM(sam, genome):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
@@ -166,8 +168,8 @@ def processVCF(vcf):
             line = line.strip()
     
             if line.startswith("#"): continue
-
-            fields = line.split("\t")
+            fields = line.split()
+            
             chrom = "chr" + fields[0]
             pos = fields[1]
             ref = fields[3]
@@ -178,7 +180,7 @@ def processVCF(vcf):
              
             ID = chrom + "_" + pos
             SNPs[ID] = ref + ";" + alt
-
+    
     return SNPs
              
 
@@ -347,12 +349,19 @@ def correctMismatches(transcripts, genome, variants):
 
             # This denotes a mismatch
             if op == "X":
-                # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
-                # Change sequence base to the reference base at this position
-                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                seqPos += ct # skip the original sequence base
-                genomePos += ct # advance the genome position
-                MVal += ct
+                # Check if the position is in the optional variant catalog. If yes, don't try to fix it.
+                if (t.CHROM + "_" + str(genomePos)) in variants:
+                    print genomePos
+                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                    MVal += ct
+                    seqPos += ct
+                    genomePos += ct
+                else:
+                    # Change sequence base to the reference base at this position
+                    newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    seqPos += ct # skip the original sequence base
+                    genomePos += ct # advance the genome position
+                    MVal += ct
 
             if op in ["S", "I"]:
                 # End any ongoing match
