@@ -179,7 +179,7 @@ def processVCF(vcf):
             if len(ref) > 1: continue
              
             ID = chrom + "_" + pos
-            SNPs[ID] = ref + ";" + alt
+            SNPs[ID] = alt.split(",")
     
     return SNPs
              
@@ -340,7 +340,7 @@ def correctMismatches(transcripts, genome, variants):
 
         # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(mergeOperations, mergeCounts):
-
+ 
             if op == "M":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
@@ -349,14 +349,20 @@ def correctMismatches(transcripts, genome, variants):
 
             # This denotes a mismatch
             if op == "X":
-                # Check if the position is in the optional variant catalog. If yes, don't try to fix it.
-                if (t.CHROM + "_" + str(genomePos)) in variants:
-                    print genomePos
-                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                    MVal += ct
-                    seqPos += ct
-                    genomePos += ct
-                else:
+                # Check if the position matches a vairant in the optional variant catalog. If yes, don't try to fix it.
+                isSNP = False
+                try:
+                    currBase = origSeq[seqPos]
+                    if currBase in variants[(t.CHROM + "_" + str(genomePos))]: 
+                        isSNP = True
+                        print genomePos
+                        newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                        MVal += ct
+                        seqPos += ct
+                        genomePos += ct
+                    else: isSNP = False
+                except: pass
+                if isSNP == False:
                     # Change sequence base to the reference base at this position
                     newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                     seqPos += ct # skip the original sequence base
