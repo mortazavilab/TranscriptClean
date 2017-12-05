@@ -36,7 +36,7 @@ def getOptions():
 def main():
     options = getOptions()
     
-    # Read in the reference genome. Treat coordinates as 0-based 
+    # Read in the reference genome. 
     print "Reading genome .............................."
     genome = Fasta(options.refGenome)
 
@@ -178,7 +178,7 @@ def processVCF(vcf):
             fields = line.split()
             
             chrom = "chr" + fields[0]
-            pos = fields[1]
+            pos = int(fields[1])
             ref = fields[3]
             alt = fields[4].split(",")
  
@@ -190,7 +190,7 @@ def processVCF(vcf):
                 
                 # SNP case
                 if refLen == altLen == 1:
-                    ID = chrom + "_" + pos
+                    ID = chrom + "_" + str(pos)
                     if ID not in SNPs:
                         SNPs[ID] = [allele]
                     else:
@@ -199,6 +199,9 @@ def processVCF(vcf):
                 # Deletion
                 if refLen > altLen:
                     delSize = refLen - altLen
+                    # VCF files are one-based. However, we don't need to subtract 1 from the start position when converting to 0-based BED here
+                    # for the simple reason that in VCFs, inserton/deletion sequences always start with the preceding normal reference base.
+                    # This principle holds for both insertions and deletions. 
                     deletionFile.write("\t".join([ chrom, str(pos), str(pos + delSize), ".", "+", "."]) + "\n")
                     
                 # Insertion
@@ -214,15 +217,41 @@ def processVCF(vcf):
     insertions = pybedtools.BedTool("sorted_tmp_vcf_insertions.bed")
     deletions = pybedtools.BedTool("sorted_tmp_vcf_deletions.bed")
     return SNPs, insertions, deletions
-             
+
+def intersectWithVariants(transcriptIndels, variants):
+    # This function intersects all transcript insertions or deletions with the variant set to look for the closest overlap. It returns a dictionary where each key chrom_start_end points to the extent of overlap.
+
+    result = {}
+    intersection = str(transcriptIndels.intersect(variants, wao = True)).split("\n")
+    for line in intersection:
+        info = line.split()
+        if len(info) == 0: continue
+        if info[-1] == "0": continue
+        
+        print line
+        chrom = info[0]
+        start = str(int(info[1]) + 1) #(convert back to 1-based)
+        end = info[2]
+        trID = info[3]
+        overlap = int(info[-1])
+        ID = "_".join([chrom, start, end, trID])
+
+        # Add the ID to the result, along with the amount of overlap. Only keep the match with the largest overlap if there is more than one for a transcript.
+        if ID not in result:
+            result[ID] = overlap
+        else:
+            if overlap > result[ID]:
+                result[ID] = overlap
+
+    return result                
 
 def correctInsertions(transcripts, genome, variants, maxLen):
     # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
 
     # If variants are provided, get all transcript insertions and intersect them with the variant catalog
-    transcriptInsertions = createIndelBedtool(transcripts, "I", maxLen)
-    # TODO: write a bedtools intersect command here
-
+    if len(variants) > 0:
+        transcriptInsertions = createIndelBedtool(transcripts, "I", maxLen)
+        varDict = intersectWithVariants(transcriptInsertions, variants)
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -243,8 +272,11 @@ def correctInsertions(transcripts, genome, variants, maxLen):
         # Start at position in the genome where the transcript starts.
         genomePos = t.POS 
     
-                # Iterate over operations to sequence and repair mismatches and microindels
+        # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(cigarOps, cigarCounts):
+ 
+            currPos = t.CHROM + ":" + str(genomePos) + "-" + str(genomePos + ct - 1)          
+  
             if op == "M":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
@@ -252,15 +284,40 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                  genomePos += ct
              
             if op == "I":
-            # TODO: check if the insertion is in the optional variant catalog. If yes, don't try to fix it.
+                # Only insertions of a given size are corrected
                 if ct <= maxLen:
-                    # Add comment to log indicating that we made a change to the transcript
-                    comment = "Corrected_" + str(ct) + "bp_insertion"
-                    Transcript2.updateLog(t, comment)
-                    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
-                    seqPos += ct
-                else:
-                    # End any ongoing match
+                    # Variant-aware mode
+                    if len(variants) > 0:
+
+                        # Check if the insertion is in the optional variant catalog.
+                        ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1), t.QNAME])
+                        if ID in varDict:
+                            # If yes, check if the overlap with a known insertion is complete or partial
+                            match = varDict[ID]
+                            if match == ct: 
+                                # Do not correct the insertion if the match
+                                comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
+                                Transcript2.updateLog(t, comment)
+
+                            else: # Overlap found but not a complete match. Correct insertion
+                                # Add comment to log indicating that we made a change to the transcript
+                                comment = "Corrected_insertion_at_" + currPos + "_overlapFoundButNoVariantMatch"
+                                Transcript2.updateLog(t, comment)
+                                # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                                seqPos += ct
+                        else: # Correct insertion
+                            # Add comment to log indicating that we made a change to the transcript
+                            comment = "Corrected_insertion_at_" + currPos + "_NoVariantMatch"
+                            Transcript2.updateLog(t, comment)
+                            # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                            seqPos += ct
+                    else: # Correct insertion
+                        # Add comment to log indicating that we made a change to the transcript
+                        comment = "Corrected_" + str(ct) + "_NoVariantMatch"
+                        Transcript2.updateLog(t, comment)
+                        # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                        seqPos += ct
+                else: # Move on without correcting insertion because it is too big
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                     newCIGAR = newCIGAR + str(ct) + op
@@ -292,6 +349,11 @@ def correctInsertions(transcripts, genome, variants, maxLen):
 def correctDeletions(transcripts, genome, variants, maxLen):
     # This function corrects deletions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
 
+    # If variants are provided, get all transcript insertions and intersect them with the variant catalog
+    if len(variants) > 0:
+        transcriptDeletions = createIndelBedtool(transcripts, "D", maxLen)
+        varDict = intersectWithVariants(transcriptDeletions, variants)
+
     for t in transcripts.keys():
         t = transcripts[t]
 
@@ -311,8 +373,11 @@ def correctDeletions(transcripts, genome, variants, maxLen):
         # Start at position in the genome where the transcript starts.
         genomePos = t.POS
 
-                # Iterate over operations to sequence and repair mismatches and microindels
+        # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(cigarOps, cigarCounts):
+ 
+            currPos = t.CHROM + ":" + str(genomePos) + "-" + str(genomePos + ct - 1) 
+
             if op == "M":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
@@ -322,15 +387,47 @@ def correctDeletions(transcripts, genome, variants, maxLen):
             if op == "D":
                  # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
                 if ct <= maxLen:
-                    # Add comment to log indicating that we made a change to the transcript
-                    comment = "Corrected_" + str(ct) + "bp_deletion"
-                    Transcript2.updateLog(t, comment)
+                    # Variant-aware mode
+                    if len(variants) > 0:
 
-                    # Add the missing reference bases
-                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                    newSeq = newSeq + refBases
-                    genomePos += ct
-                    MVal += ct
+                        # Check if the insertion is in the optional variant catalog.
+                        ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1), t.QNAME])
+                        if ID in varDict:
+                            # If yes, check if the overlap with a known deletion is complete or partial
+                            match = varDict[ID]
+                            if match == ct:
+                                # Do not correct the deletion if the match is complete
+                                comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
+                                Transcript2.updateLog(t, comment)
+
+                            else: # Overlap found but not a complete match. Correct deletion
+                                # Add comment to log indicating that we made a change to the transcript
+                                comment = "Corrected_deletion_at_" + currPos + "_overlapFoundButNoVariantMatch"
+                                Transcript2.updateLog(t, comment)
+                                # Add the missing reference bases
+                                refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                                newSeq = newSeq + refBases
+                                genomePos += ct
+                                MVal += ct
+                        else: # Correct deletion
+                            # Add comment to log indicating that we made a change to the transcript
+                            comment = "Corrected_deletion_at_" + currPos + "_NoVariantMatch"
+                            Transcript2.updateLog(t, comment)
+                            # Add the missing reference bases
+                            refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                            newSeq = newSeq + refBases
+                            genomePos += ct
+                            MVal += ct
+                    else: # Correct deletion if we're not in variant-aware mode
+                        # Add comment to log indicating that we made a change to the transcript
+                        comment = "Corrected_" + str(ct) + "_NoVariantMatch"
+                        Transcript2.updateLog(t, comment)
+                        # Add the missing reference bases
+                        refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                        newSeq = newSeq + refBases
+                        genomePos += ct
+                        MVal += ct
+                # Deletion is too big to fix
                 else:
                     # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -373,7 +470,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
         if operation not in t.CIGAR : continue
 
         # Start at position in the genome where the transcript starts.
-        genomePos = t.POS
+        genomePos = t.POS - 1 # Make it zero-based since we're making a bed file
 
         # Iterate over CIGAR operations to find positions of the operations that we care about
         for op,ct in zip(cigarOps, cigarCounts):
@@ -381,7 +478,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
             if op == "D":
                 if ct <= maxLen and operation == "D":
                     bedChrom = t.CHROM
-                    bedStart = genomePos - 1
+                    bedStart = genomePos
                     bedEnd = bedStart + ct
                     bedName = tID
                     bedStrand = t.strand
@@ -390,7 +487,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
             if op == "I":
                 if ct <= maxLen and operation == "I":
                     bedChrom = t.CHROM
-                    bedStart = genomePos - 1
+                    bedStart = genomePos
                     bedEnd = bedStart + ct
                     bedName = tID
                     bedStrand = t.strand
@@ -439,12 +536,12 @@ def correctMismatches(transcripts, genome, variants):
 
             # This denotes a mismatch
             if op == "X":
-                # Check if the position matches a vairant in the optional variant catalog. If yes, don't try to fix it.
+                # Check if the position matches a variant in the optional variant catalog. If yes, don't try to fix it.
                 isSNP = False
                 try:
                     currBase = origSeq[seqPos]
                     if currBase in variants[(t.CHROM + "_" + str(genomePos))]: 
-                        # Add comment to log indicating that we  declined to change the transcript
+                        # Add comment to log indicating that we declined to change the transcript
                         comment = "DidNotCorrect_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                         Transcript2.updateLog(t, comment)
                         # Keep the base as-is
