@@ -30,12 +30,19 @@ def getOptions():
                       help = "Maximum distance from annotated splice junction to correct (Default: 5 bp)", type = "int", default = 5 )
     parser.add_option("--outprefix", dest = "outprefix",
                       help = "output file prefix. '_clean' plus a file extension will be added to the end.", metavar = "FILE", type = "string", default = "out")
+    # Options that control which sections to run
+    parser.add_option("--correctMismatches", dest = "correctMismatches",
+                      help = "If set to false, TranscriptClean will skip mismatch correction. Default: True", type = "string", default = "true" )
+    parser.add_option("--correctIndels", dest = "correctIndels",
+                      help = "If set to false, TranscriptClean will skip indel correction. Default: True", type = "string", default = "true")
+    
+
     (options, args) = parser.parse_args()
     return options
 
 def main():
     options = getOptions()
-    
+
     # Read in the reference genome. 
     print "Reading genome .............................."
     genome = Fasta(options.refGenome)
@@ -48,24 +55,36 @@ def main():
 
     if options.variantFile != None:
         print "Processing variant file ................."
-        snps, insertions, deletions = processVCF(options.variantFile)
+        snps, insertions, deletions = processVCF(options.variantFile, options.maxLenIndel)
     else:
         print "No variant file provided. Transcript correction will not be SNP-aware."
         snps = {}
+        insertions = {}
+        deletions = {}
 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome) 
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. If this is unexpected, check whether the sam file lacks the jM tag."
-
-    print "Correcting mismatches and indels ............"
-    correctMismatches(canTranscripts, genome, snps)
-    correctInsertions(canTranscripts, genome, insertions, options.maxLenIndel)
-    correctDeletions(canTranscripts, genome, deletions, options.maxLenIndel)
+     
+    if options.correctMismatches.lower() == "true":
+        print "Correcting mismatches (canonical transcripts)............"
+        correctMismatches(canTranscripts, genome, snps)
+     
+    if options.correctIndels.lower() == "true":
+        print "Correcting insertions (canonical transcripts)............"
+        correctInsertions(canTranscripts, genome, insertions, options.maxLenIndel)
+        print "Correcting deletions (canonical transcripts)............"
+        correctDeletions(canTranscripts, genome, deletions, options.maxLenIndel)
 
     if len(noncanTranscripts) > 0:
-        correctMismatches(noncanTranscripts, genome, snps)
-        correctInsertions(noncanTranscripts, genome, snps, options.maxLenIndel)
-        correctDeletions(noncanTranscripts, genome, snps, options.maxLenIndel)
+        if options.correctMismatches.lower() == "true":
+            print "Correcting mismatches (noncanonical transcripts)............"
+            correctMismatches(noncanTranscripts, genome, snps)
+        if options.correctIndels.lower() == "true":
+            print "Correcting insertions (noncanonical transcripts)............"
+            correctInsertions(noncanTranscripts, genome, snps, options.maxLenIndel)
+            print "Correcting deletions (noncanonical transcripts)............"
+            correctDeletions(noncanTranscripts, genome, snps, options.maxLenIndel)
 
         print "Rescuing noncanonical junctions............."
         cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, options.maxSJOffset)
@@ -161,14 +180,15 @@ def processSpliceAnnotation(annotFile):
     bt = pybedtools.BedTool("TC-tmp2.bed")
     return bt
 
-def processVCF(vcf):
+def processVCF(vcf, maxLen):
     # This function reads in variants from a VCF file and stores them.
     # SNPs are simple- they get stored in a dictionary by position.
     # Insertions get placed in a temporary bed file, as do deletions.
     SNPs = {}
-
-    insertionFile = open("tmp_vcf_insertions.bed", 'w')
-    deletionFile = open("tmp_vcf_deletions.bed", 'w')
+    insertions = {}
+    deletions = {}
+    #insertionFile = open("tmp_vcf_insertions.bed", 'w')
+    #deletionFile = open("tmp_vcf_deletions.bed", 'w')
 
     with open(vcf, 'r') as f:
         for line in f:
@@ -195,27 +215,42 @@ def processVCF(vcf):
                         SNPs[ID] = [allele]
                     else:
                         SNPs[ID] = SNPs[ID].append(allele)
-
                 # Deletion
                 if refLen > altLen:
                     delSize = refLen - altLen
-                    # VCF files are one-based. However, we don't need to subtract 1 from the start position when converting to 0-based BED here
-                    # for the simple reason that in VCFs, inserton/deletion sequences always start with the preceding normal reference base.
-                    # This principle holds for both insertions and deletions. 
-                    deletionFile.write("\t".join([ chrom, str(pos), str(pos + delSize), ".", "+", "."]) + "\n")
-                    
+                    if delSize > maxLen: continue
+                    # VCF files are one-based. Inserton/deletion sequences always start with the preceding normal reference base, so we need to add one to pos
+                    # This principle holds for both insertions and deletions.
+                    pos = pos + 1
+                    ID = "_".join([ chrom, str(pos), str(pos + delSize - 1)])
+                    deletions[ID] = [allele] 
                 # Insertion
                 if refLen < altLen:
                     inSize = altLen - refLen
-                    insertionFile.write("\t".join([ chrom, str(pos), str(pos + inSize), ".", "+", "."]) + "\n")
+                    if inSize > maxLen: continue
+                    pos = pos + 1
+                    ID = "_".join([ chrom, str(pos), str(pos + inSize - 1)])
+                    insertions[ID] = [allele]
+                # Deletion
+                #if refLen > altLen:
+                #    delSize = refLen - altLen
+                    # VCF files are one-based. However, we don't need to subtract 1 from the start position when converting to 0-based BED here
+                    # for the simple reason that in VCFs, inserton/deletion sequences always start with the preceding normal reference base.
+                    # This principle holds for both insertions and deletions. 
+                #    deletionFile.write("\t".join([ chrom, str(pos), str(pos + delSize), ".", "+", "."]) + "\n")
+                    
+                # Insertion
+                #if refLen < altLen:
+                #    inSize = altLen - refLen
+                #    insertionFile.write("\t".join([ chrom, str(pos), str(pos + inSize), ".", "+", "."]) + "\n")
 
-    insertionFile.close()
-    deletionFile.close()
+    #insertionFile.close()
+    #deletionFile.close()
 
-    os.system('sort -k1,1 -k2,2n tmp_vcf_insertions.bed > sorted_tmp_vcf_insertions.bed')
-    os.system('sort -k1,1 -k2,2n tmp_vcf_deletions.bed > sorted_tmp_vcf_deletions.bed')
-    insertions = pybedtools.BedTool("sorted_tmp_vcf_insertions.bed")
-    deletions = pybedtools.BedTool("sorted_tmp_vcf_deletions.bed")
+    #os.system('sort -k1,1 -k2,2n tmp_vcf_insertions.bed > sorted_tmp_vcf_insertions.bed')
+    #os.system('sort -k1,1 -k2,2n tmp_vcf_deletions.bed > sorted_tmp_vcf_deletions.bed')
+    #insertions = pybedtools.BedTool("sorted_tmp_vcf_insertions.bed")
+    #deletions = pybedtools.BedTool("sorted_tmp_vcf_deletions.bed")
     return SNPs, insertions, deletions
 
 def intersectWithVariants(transcriptIndels, variants):
@@ -249,9 +284,9 @@ def correctInsertions(transcripts, genome, variants, maxLen):
     # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
 
     # If variants are provided, get all transcript insertions and intersect them with the variant catalog
-    if len(variants) > 0:
-        transcriptInsertions = createIndelBedtool(transcripts, "I", maxLen)
-        varDict = intersectWithVariants(transcriptInsertions, variants)
+    #if len(variants) > 0:
+    #    transcriptInsertions = createIndelBedtool(transcripts, "I", maxLen)
+    #    varDict = intersectWithVariants(transcriptInsertions, variants)
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -284,36 +319,22 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                  genomePos += ct
              
             if op == "I":
+                ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1)])
                 # Only insertions of a given size are corrected
                 if ct <= maxLen:
                     # Variant-aware mode
                     if len(variants) > 0:
 
                         # Check if the insertion is in the optional variant catalog.
-                        ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1), t.QNAME])
-                        if ID in varDict:
-                            # If yes, check if the overlap with a known insertion is complete or partial
-                            match = varDict[ID]
-                            if match == ct: 
-                                # Do not correct the insertion if the match
-                                comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
-                                Transcript2.updateLog(t, comment)
-
-                            else: # Overlap found but not a complete match. Correct insertion
-                                # Add comment to log indicating that we made a change to the transcript
-                                comment = "Corrected_insertion_at_" + currPos + "_overlapFoundButNoVariantMatch"
-                                Transcript2.updateLog(t, comment)
-                                # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
-                                seqPos += ct
-                        else: # Correct insertion
-                            # Add comment to log indicating that we made a change to the transcript
-                            comment = "Corrected_insertion_at_" + currPos + "_NoVariantMatch"
+                        if ID in variants:
+                            # The insertion perfectly matches a variant. Do not correct it.
+                            comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
-                            # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
-                            seqPos += ct
+                            continue
+
                     else: # Correct insertion
                         # Add comment to log indicating that we made a change to the transcript
-                        comment = "Corrected_" + str(ct) + "_NoVariantMatch"
+                        comment = "Corrected_deletion_at_" + ID
                         Transcript2.updateLog(t, comment)
                         # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
                         seqPos += ct
@@ -343,16 +364,16 @@ def correctInsertions(transcripts, genome, variants, maxLen):
         # Update transcript 
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
-        t.NM, t.MD = t.getNMandMDFlags(genome) # May not be necessary since MD tag lacks I
+        #t.NM, t.MD = t.getNMandMDFlags(genome) # May not be necessary since MD tag lacks I
     return    
 
 def correctDeletions(transcripts, genome, variants, maxLen):
     # This function corrects deletions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
 
     # If variants are provided, get all transcript insertions and intersect them with the variant catalog
-    if len(variants) > 0:
-        transcriptDeletions = createIndelBedtool(transcripts, "D", maxLen)
-        varDict = intersectWithVariants(transcriptDeletions, variants)
+    #if len(variants) > 0:
+    #    transcriptDeletions = createIndelBedtool(transcripts, "D", maxLen)
+    #    varDict = intersectWithVariants(transcriptDeletions, variants)
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -385,42 +406,20 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                  genomePos += ct
 
             if op == "D":
-                 # TODO: check if the deletion is in the optional variant catalog. If yes, don't try to fix it.
                 if ct <= maxLen:
+                    ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1)])
                     # Variant-aware mode
                     if len(variants) > 0:
 
-                        # Check if the insertion is in the optional variant catalog.
-                        ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1), t.QNAME])
-                        if ID in varDict:
-                            # If yes, check if the overlap with a known deletion is complete or partial
-                            match = varDict[ID]
-                            if match == ct:
-                                # Do not correct the deletion if the match is complete
-                                comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
-                                Transcript2.updateLog(t, comment)
-
-                            else: # Overlap found but not a complete match. Correct deletion
-                                # Add comment to log indicating that we made a change to the transcript
-                                comment = "Corrected_deletion_at_" + currPos + "_overlapFoundButNoVariantMatch"
-                                Transcript2.updateLog(t, comment)
-                                # Add the missing reference bases
-                                refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                                newSeq = newSeq + refBases
-                                genomePos += ct
-                                MVal += ct
-                        else: # Correct deletion
-                            # Add comment to log indicating that we made a change to the transcript
-                            comment = "Corrected_deletion_at_" + currPos + "_NoVariantMatch"
+                        # Check if the deletion is in the optional variant catalog.
+                        if ID in variants:
+                            # The deletion perfectly matches a variant. Do not correct it.
+                            comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
-                            # Add the missing reference bases
-                            refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                            newSeq = newSeq + refBases
-                            genomePos += ct
-                            MVal += ct
+                            continue
                     else: # Correct deletion if we're not in variant-aware mode
                         # Add comment to log indicating that we made a change to the transcript
-                        comment = "Corrected_" + str(ct) + "_NoVariantMatch"
+                        comment = "Corrected_deletion_at_" + ID
                         Transcript2.updateLog(t, comment)
                         # Add the missing reference bases
                         refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
