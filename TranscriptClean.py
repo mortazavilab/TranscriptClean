@@ -42,6 +42,8 @@ def getOptions():
 
 def main():
     options = getOptions()
+    maxLenIndel = int(options.maxLenIndel)
+    maxSJOffset = int(options.maxSJOffset)
 
     # Read in the reference genome. 
     print "Reading genome .............................."
@@ -55,26 +57,28 @@ def main():
 
     if options.variantFile != None:
         print "Processing variant file ................."
-        snps, insertions, deletions = processVCF(options.variantFile, options.maxLenIndel)
+        snps, indels = processVCF(options.variantFile, maxLenIndel)
     else:
         print "No variant file provided. Transcript correction will not be SNP-aware."
         snps = {}
-        insertions = {}
-        deletions = {}
+        indels = {}
 
     print "Processing SAM file ........................."
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome) 
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. If this is unexpected, check whether the sam file lacks the jM tag."
-     
+  
+    #createIndelBedtool(canTranscripts, "I", maxLenIndel)
+    #exit()
+   
     if options.correctMismatches.lower() == "true":
         print "Correcting mismatches (canonical transcripts)............"
         correctMismatches(canTranscripts, genome, snps)
      
     if options.correctIndels.lower() == "true":
         print "Correcting insertions (canonical transcripts)............"
-        correctInsertions(canTranscripts, genome, insertions, options.maxLenIndel)
+        correctInsertions(canTranscripts, genome, indels, maxLenIndel)
         print "Correcting deletions (canonical transcripts)............"
-        correctDeletions(canTranscripts, genome, deletions, options.maxLenIndel)
+        correctDeletions(canTranscripts, genome, indels, maxLenIndel)
 
     if len(noncanTranscripts) > 0:
         if options.correctMismatches.lower() == "true":
@@ -82,12 +86,12 @@ def main():
             correctMismatches(noncanTranscripts, genome, snps)
         if options.correctIndels.lower() == "true":
             print "Correcting insertions (noncanonical transcripts)............"
-            correctInsertions(noncanTranscripts, genome, snps, options.maxLenIndel)
+            correctInsertions(noncanTranscripts, genome, indels, maxLenIndel)
             print "Correcting deletions (noncanonical transcripts)............"
-            correctDeletions(noncanTranscripts, genome, snps, options.maxLenIndel)
+            correctDeletions(noncanTranscripts, genome, indels, maxLenIndel)
 
         print "Rescuing noncanonical junctions............."
-        cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, options.maxSJOffset)
+        cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset)
 
     print "Writing output to sam file and fasta file.................."
 
@@ -176,7 +180,8 @@ def processSpliceAnnotation(annotFile):
     o.close()
 
     # Convert bed file into BedTool object
-    os.system('sort -k1,1 -k2,2n TC-tmp.bed > TC-tmp2.bed')
+    os.system('bedtools sort -i TC-tmp.bed > TC-tmp2.bed')
+    #os.system('sort -k1,1 -k2,2n TC-tmp.bed > TC-tmp2.bed')
     bt = pybedtools.BedTool("TC-tmp2.bed")
     return bt
 
@@ -185,8 +190,8 @@ def processVCF(vcf, maxLen):
     # SNPs are simple- they get stored in a dictionary by position.
     # Insertions get placed in a temporary bed file, as do deletions.
     SNPs = {}
-    insertions = {}
-    deletions = {}
+    indels = {}
+    #deletions = {}
     #insertionFile = open("tmp_vcf_insertions.bed", 'w')
     #deletionFile = open("tmp_vcf_deletions.bed", 'w')
 
@@ -197,17 +202,17 @@ def processVCF(vcf, maxLen):
             if line.startswith("#"): continue
             fields = line.split()
             
-            chrom = "chr" + fields[0]
+            chrom = fields[0]
+            if not chrom.startswith("chr"): chrom = "chr" + chrom
             pos = int(fields[1])
             ref = fields[3]
             alt = fields[4].split(",")
  
             refLen = len(ref)
-
             # It is possible for a single position to have more than one type of alternate allele (ie mismatch or indel). So it is necessary to treat each alternate allele separately.
             for allele in alt:
                 altLen = len(allele)
-                
+
                 # SNP case
                 if refLen == altLen == 1:
                     ID = chrom + "_" + str(pos)
@@ -215,22 +220,24 @@ def processVCF(vcf, maxLen):
                         SNPs[ID] = [allele]
                     else:
                         SNPs[ID] = SNPs[ID].append(allele)
-                # Deletion
-                if refLen > altLen:
-                    delSize = refLen - altLen
-                    if delSize > maxLen: continue
+                # Insertion/Deletion
+                else:
+                    size = abs(refLen - altLen)
+                    if size > maxLen: continue
                     # VCF files are one-based. Inserton/deletion sequences always start with the preceding normal reference base, so we need to add one to pos
                     # This principle holds for both insertions and deletions.
                     pos = pos + 1
-                    ID = "_".join([ chrom, str(pos), str(pos + delSize - 1)])
-                    deletions[ID] = [allele] 
+                    ID = "_".join([ chrom, str(pos), str(pos + size - 1)])
+                    indels[ID] = [allele]
+                    
                 # Insertion
-                if refLen < altLen:
-                    inSize = altLen - refLen
-                    if inSize > maxLen: continue
-                    pos = pos + 1
-                    ID = "_".join([ chrom, str(pos), str(pos + inSize - 1)])
-                    insertions[ID] = [allele]
+                #if refLen < altLen:
+                #    inSize = altLen - refLen
+                #    if inSize > maxLen: continue
+                     
+                #    pos = pos + 1
+                #    ID = "_".join([ chrom, str(pos), str(pos + inSize - 1)])
+                #    insertions[ID] = [allele]
                 # Deletion
                 #if refLen > altLen:
                 #    delSize = refLen - altLen
@@ -251,7 +258,7 @@ def processVCF(vcf, maxLen):
     #os.system('sort -k1,1 -k2,2n tmp_vcf_deletions.bed > sorted_tmp_vcf_deletions.bed')
     #insertions = pybedtools.BedTool("sorted_tmp_vcf_insertions.bed")
     #deletions = pybedtools.BedTool("sorted_tmp_vcf_deletions.bed")
-    return SNPs, insertions, deletions
+    return SNPs, indels
 
 def intersectWithVariants(transcriptIndels, variants):
     # This function intersects all transcript insertions or deletions with the variant set to look for the closest overlap. It returns a dictionary where each key chrom_start_end points to the extent of overlap.
@@ -324,7 +331,6 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                 if ct <= maxLen:
                     # Variant-aware mode
                     if len(variants) > 0:
-
                         # Check if the insertion is in the optional variant catalog.
                         if ID in variants:
                             # The insertion perfectly matches a variant. Do not correct it.
@@ -332,12 +338,12 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                             Transcript2.updateLog(t, comment)
                             continue
 
-                    else: # Correct insertion
-                        # Add comment to log indicating that we made a change to the transcript
-                        comment = "Corrected_deletion_at_" + ID
-                        Transcript2.updateLog(t, comment)
-                        # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
-                        seqPos += ct
+                    # Correct insertion
+                    # Add comment to log indicating that we made a change to the transcript
+                    comment = "Corrected_insertion_at_" + ID
+                    Transcript2.updateLog(t, comment)
+                    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                    seqPos += ct
                 else: # Move on without correcting insertion because it is too big
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -417,15 +423,15 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                             comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
                             continue
-                    else: # Correct deletion if we're not in variant-aware mode
-                        # Add comment to log indicating that we made a change to the transcript
-                        comment = "Corrected_deletion_at_" + ID
-                        Transcript2.updateLog(t, comment)
-                        # Add the missing reference bases
-                        refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                        newSeq = newSeq + refBases
-                        genomePos += ct
-                        MVal += ct
+                    # Correct deletion if we're not in variant-aware mode
+                    # Add comment to log indicating that we made a change to the transcript
+                    comment = "Corrected_deletion_at_" + ID
+                    Transcript2.updateLog(t, comment)
+                    # Add the missing reference bases
+                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    newSeq = newSeq + refBases
+                    genomePos += ct
+                    MVal += ct
                 # Deletion is too big to fix
                 else:
                     # End any ongoing match
@@ -469,7 +475,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
         if operation not in t.CIGAR : continue
 
         # Start at position in the genome where the transcript starts.
-        genomePos = t.POS - 1 # Make it zero-based since we're making a bed file
+        genomePos = t.POS
 
         # Iterate over CIGAR operations to find positions of the operations that we care about
         for op,ct in zip(cigarOps, cigarCounts):
@@ -477,7 +483,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
             if op == "D":
                 if ct <= maxLen and operation == "D":
                     bedChrom = t.CHROM
-                    bedStart = genomePos
+                    bedStart = genomePos - 1
                     bedEnd = bedStart + ct
                     bedName = tID
                     bedStrand = t.strand
@@ -486,7 +492,7 @@ def createIndelBedtool(transcripts, operation, maxLen):
             if op == "I":
                 if ct <= maxLen and operation == "I":
                     bedChrom = t.CHROM
-                    bedStart = genomePos
+                    bedStart = genomePos - 1
                     bedEnd = bedStart + ct
                     bedName = tID
                     bedStrand = t.strand
@@ -495,12 +501,13 @@ def createIndelBedtool(transcripts, operation, maxLen):
                 genomePos += ct
 
     o.close()
-    os.system('sort -k1,1 -k2,2n tmp_indel.bed > sorted_tmp_indel.bed')
-    indel = pybedtools.BedTool("sorted_tmp_indel.bed")
-    os.system('rm tmp_indel.bed')
+    os.system('bedtools sort -i tmp_indel.bed > sorted_tmp_indel.bed')
+    #os.system('sort -k1,1 -k2,2n tmp_indel.bed > sorted_tmp_indel.bed')
+    #indel = pybedtools.BedTool("sorted_tmp_indel.bed")
+    #os.system('rm tmp_indel.bed')
     #os.system('rm sorted_tmp_indel.bed')
 
-    return indel
+    return
 
 def correctMismatches(transcripts, genome, variants):
     # This function corrects mismatches in the sequences. If a variant file was provided, correction will be SNP-aware.
@@ -514,7 +521,6 @@ def correctMismatches(transcripts, genome, variants):
 
         # Check for mismatches. If none are present, we can skip this transcript
         if any(i in origMD.upper() for i in 'ACTGN') == False : continue
-
         newCIGAR = ""
         newSeq = ""
         MVal = 0
@@ -526,7 +532,6 @@ def correctMismatches(transcripts, genome, variants):
 
         # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(mergeOperations, mergeCounts):
- 
             if op == "M":
                  newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                  MVal += ct
@@ -700,7 +705,8 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n):
             o.write(pos + "\n")
 
     o.close()
-    os.system('sort -k1,1 -k2,2n tmp_nc.bed > sorted_tmp_nc.bed')
+    os.system('bedtools sort -i tmp_nc.bed > sorted_tmp_nc.bed')
+    #os.system('sort -k1,1 -k2,2n tmp_nc.bed > sorted_tmp_nc.bed')
     nc = pybedtools.BedTool("sorted_tmp_nc.bed")
     jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
 
