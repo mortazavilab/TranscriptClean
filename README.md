@@ -10,4 +10,6 @@ TranscriptClean is designed to be run with Python version 2.7. In addition, Tran
 
 
 ## Usage 
+TranscriptClean is run from the command line as follows:
 
+`python TranscriptClean.py`
