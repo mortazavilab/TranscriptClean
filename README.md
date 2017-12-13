@@ -28,5 +28,12 @@ TranscriptClean is run from the command line as follows:
 |-------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------
 | --correctMismatches | -m        | If set to false, TranscriptClean will skip mismatch correction. Default = True.
 | --correctIndels     | -i        | If set to false, TranscriptClean will skip indel correction. Default = True.
-| --variants          | -v        | Optional: VCF-formatted file of variants to avoid correcting (This enables variant-aware correction). Irrelevant if correctMismatches is set to false. 
+| --variants          | -v        | Optional: VCF-formatted file of variants to avoid correcting (this enables variant-aware correction). Irrelevant if correctMismatches is set to false. 
+| --spliceJns         | -j        | High-confidence splice junction file obtained by mapping Illumina short reads to the genome using STAR. More formats may be supported in the future. This file is necessary if you want to correct noncanonical splice junctions.
+| --maxLenIndel       | n/a       | Maximum size indel to correct. Default = 5 bp.
+| --maxSJOffset       | n/a       | Maximum distance from annotated splice junction to correct. Default = 5 bp.         
+
+
+
+
 
