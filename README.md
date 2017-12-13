@@ -14,11 +14,11 @@ TranscriptClean is run from the command line as follows:
 
 `python TranscriptClean.py --sam transcripts.sam --genome hg38.fa --outprefix /my/path/outfile`
 
-| Option        | Shortcut      | Description
-|-------------- | ------------- | ------------- 
-| --help        | -h            | Print a list of the input options with descriptions
-| --sam 	| -s            | Input sam file (mandatory). The aligner used to create it must be splice aware if you want to correct splice junctions.
-| --genome      | -g            | Reference genome fasta file (mandatory). Should be the same one used during alignment to generate the sam file.
-| --outprefix   | -o            | Prefix for the output files. Default = "out".
+| Option            | Shortcut  | Description
+|------------------ | --------- | ------------- 
+| --help            | -h        | Print a list of the input options with descriptions
+| --sam 	    | -s        | Input sam file (mandatory). The aligner used to create it must be splice aware if you want to correct splice junctions.
+| --genome          | -g        | Reference genome fasta file (mandatory). Should be the same one used during alignment to generate the sam file.
+| --outprefix       | -o        | Prefix for the output files. Default = "out".
 
 
