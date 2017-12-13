@@ -2,12 +2,13 @@
 TranscriptClean is a Python program that corrects mismatches, microindels, and noncanonical splice junctions in long reads that have been mapped to the genome. It is designed for use with sam files from the PacBio Iso-seq and Oxford Nanopore transcriptome sequencing technologies. A variant-aware mode is available for users who want to avoid correcting away SNPs in their data.
 
 ## Installation
-TranscriptClean is designed to be run with Python version 2.7. In addition, TranscriptClean requires Bedtools to be installed, as well as Python modules pybedtools, pyfasta, and re (regular expressions). These can be found at the links listed below:
-* Bedtools: http://bedtools.readthedocs.io/en/latest/content/installation.html
-* pybedtools: https://daler.github.io/pybedtools/
-* pyfasta: 
-* re: https://pypi.python.org/pypi/re2/
+TranscriptClean is designed to be run with Python version 2.7. It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
+* Bedtools (v2.25.0): http://bedtools.readthedocs.io/en/latest/content/installation.html
+* pybedtools (v0.7.8): https://daler.github.io/pybedtools/
+* pyfasta (v0.5.2): https://pypi.python.org/pypi/pyfasta/
 
+
+To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. The TranscriptClean script can now be run directly from the command line- just include the path. 
 
 ## Usage 
 TranscriptClean is run from the command line as follows:
