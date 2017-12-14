@@ -8,9 +8,11 @@ import re
 import itertools
 
 class Transcript2:
-
     def __init__(self, sam, genome):
         samFields = sam.strip().split('\t')
+
+        # Keep track of changes for log file
+        self.log = []
 
         # These eleven attributes are initialized directly from the input SAM entry and are mandatory 
         self.QNAME = samFields[0]
@@ -43,6 +45,10 @@ class Transcript2:
         if self.MD == "":
             self.NM, self.MD = self.getNMandMDFlags(genome)
 
+        # If the jM and jI fields are missing, compute them here.
+        if self.jM == self.jI == "":
+            self.jM, self.jI = self.getjMandjITags(genome)
+
         self.otherFields = "\t".join(otherFields)        
 
         # These attributes are set by parsing the inputs
@@ -55,7 +61,14 @@ class Transcript2:
         if self.jM != "" and "-1" not in self.jM:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
-        
+
+    def updateLog(self, newEntry):
+    # This function adds a change to the log
+        log = self.log
+        log.append(newEntry)
+        self.log = log
+        return    
+
     def recheckCanonical(self):
         for jn in self.spliceJunctions:
             if jn.isCanonical == False:
@@ -117,23 +130,7 @@ class Transcript2:
         mdIndex = 0
         cigarIndex = 0
 
-        #print cigarCount
-        #print cigarOperation
-       
-        #print mdCount
-        #print mdOperation 
-        #print len(mdOperation)
-        #print len(cigarOperation)
-        #print "*********************"
         while mdIndex < len(mdOperation) or cigarIndex < len(cigarOperation):
-            # Skip zero operations- they are MD placeholders
-            #print mergeCounts 
-            #print mergeOperations
-            #print "--------" 
-            #print mdIndex
-            #print cigarIndex
-            #while mdCount[mdIndex] == 0:
-            #    mdIndex += 1
 
             # If the current CIGAR operation is S, H, N, or I, add that to the output. The MD tag doesn't have these
             if cigarOperation[cigarIndex] == "H" or cigarOperation[cigarIndex] == "S" or cigarOperation[cigarIndex] == "I" or cigarOperation[cigarIndex] == "N":
@@ -141,7 +138,6 @@ class Transcript2:
                 mergeCounts.append(cigarCount[cigarIndex])
                 cigarIndex += 1
 
-            
             # Otherwise, select the "shorter" operation and add it to the results. Subtract away the same number of bases from the competing entry.
             else:
                 if cigarCount[cigarIndex] < mdCount[mdIndex]:
@@ -165,8 +161,6 @@ class Transcript2:
                     mdIndex += 1
                     cigarIndex += 1
 
-        #print mergeOperations
-        #print mergeCounts
         return mergeOperations, mergeCounts
 
 
@@ -267,4 +261,65 @@ class Transcript2:
                 
         if MVal > 0: MD = MD + str(MVal) 
         return str(NM), MD
+
+    def getjMandjITags(self, genome):
+        # If the input sam file doesn't have the custom STARlong-derived jM and jI tags, we need to compute them.
+        # This is done by stepping through the CIGAR string and sequence. When an intron (N) is encountered, we check the 
+        # first two bases and last two bases of the intron in the genome sequence to detemine whether they are canonical. 
+        # We also record the start and end position of the intron.
+        # TODO: STARlong has separate designations for annotated/non-annotated junctions. How do I do that here?
+       
+        seq = self.SEQ
+        operations, counts = self.splitCIGAR()
+
+        jM = ["jM:B:c"] 
+        jI = ["jI:B:i"]
+        
+        genomePos = self.POS
+
+        # Iterate over operations
+        for op,ct in zip(operations, counts):
+            if op == "N":
+                # This is an intron
+                intronStart = genomePos
+                startBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + 1}, one_based=True)
+                intronEnd = genomePos + ct - 1
+                endBases = genome.sequence({'chr': self.CHROM, 'start': intronEnd - 1, 'stop': intronEnd}, one_based=True)
+             
+                jM.append(getSJMotifCode(startBases, endBases))
+                jI.append(str(intronStart))
+                jI.append(str(intronEnd))
+
+            if op not in ["S", "I"]:
+                 genomePos += ct
+
+        jMstr = ",".join(jM)
+        jIstr = ",".join(jI)
+
+        print jMstr
+        print jIstr
+        return jMstr, jIstr
+
+def getSJMotifCode(startBases, endBases):
+    # Determines which STAR-style splice junction code applies to a splice motif        
+
+    motif = (startBases + endBases).upper()
+
+    if motif == "GTAG":
+        return "21"
+    elif motif == "CTAC":
+        return "22"
+    elif motif == "GCAG":
+        return "23"
+    elif motif == "CTGC":
+        return "24"
+    elif motif == "ATAC":
+        return "25"
+    elif motif == "GTAT":
+        return "26"
+    else:
+        return "0"
+        
+
+ 
                   
