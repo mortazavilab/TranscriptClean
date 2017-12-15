@@ -293,11 +293,14 @@ class Transcript2:
             if op not in ["S", "I"]:
                  genomePos += ct
 
+        # If the transcript has no introns, we need to add -1 to the tags
+        if len(jM) == len(jI) == 1:
+            jM.append("-1")
+            jI.append("-1")
+
         jMstr = ",".join(jM)
         jIstr = ",".join(jI)
 
-        print jMstr
-        print jIstr
         return jMstr, jIstr
 
 def getSJMotifCode(startBases, endBases):

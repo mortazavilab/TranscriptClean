@@ -3,8 +3,6 @@
 # In this version of TranscriptClean, mismatches and microindels in long reads are corrected in a SNP-aware fashion using the reference genome and a VCF file of whitelisted variants. Noncanonical splice junctions can also be corrected using a file of reference splice sites as long as the provided SAM file is splice aware.
 
 ## TODO: Add a line to the sam header that explains which input options TranscriptClean was run with
-## TODO: Add data structure/system to track transcript changes
-## TODO: Add options input arguments to run only certain parts of TranscriptClean
 
 from transcript2 import Transcript2
 from spliceJunction import SpliceJunction
@@ -17,23 +15,23 @@ import re
 
 def getOptions():
     parser = OptionParser()
-    parser.add_option("--sam", dest = "sam", help = "Input file",
+    parser.add_option("--sam", "-s", dest = "sam", help = "Input file",
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--genome", dest = "refGenome", help = "Reference genome fasta file. Should be the same one used during mapping to generate the sam file.",
+    parser.add_option("--genome", "-g", dest = "refGenome", help = "Reference genome fasta file. Should be the same one used during mapping to generate the sam file.",
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--spliceJns", dest = "spliceAnnot", help = "Splice junction file obtained by mapping Illumina reads to the genome using STAR. More formats may be supported in the future. (Optional, but necessary for splice junction correction).", metavar = "FILE", type = "string", default = None)
-    parser.add_option("--variants", dest = "variantFile",
+    parser.add_option("--spliceJns", "-j", dest = "spliceAnnot", help = "Splice junction file obtained by mapping Illumina reads to the genome using STAR. More formats may be supported in the future. (Optional, but necessary for splice junction correction).", metavar = "FILE", type = "string", default = None)
+    parser.add_option("--variants", "-v", dest = "variantFile",
                       help = "VCF formatted file of variants to avoid correcting away in the data (optional).", metavar = "FILE", type = "string", default = None )
     parser.add_option("--maxLenIndel", dest = "maxLenIndel",
                       help = "Maximum size indel to correct (Default: 5 bp)", type = "int", default = 5 )
     parser.add_option("--maxSJOffset", dest = "maxSJOffset",
                       help = "Maximum distance from annotated splice junction to correct (Default: 5 bp)", type = "int", default = 5 )
-    parser.add_option("--outprefix", dest = "outprefix",
+    parser.add_option("--outprefix", "-o", dest = "outprefix",
                       help = "output file prefix. '_clean' plus a file extension will be added to the end.", metavar = "FILE", type = "string", default = "out")
     # Options that control which sections to run
-    parser.add_option("--correctMismatches", dest = "correctMismatches",
+    parser.add_option("--correctMismatches", "-m", dest = "correctMismatches",
                       help = "If set to false, TranscriptClean will skip mismatch correction. Default: True", type = "string", default = "true" )
-    parser.add_option("--correctIndels", dest = "correctIndels",
+    parser.add_option("--correctIndels", "-i", dest = "correctIndels",
                       help = "If set to false, TranscriptClean will skip indel correction. Default: True", type = "string", default = "true")
     
 
@@ -67,8 +65,7 @@ def main():
     header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome) 
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. If this is unexpected, check whether the sam file lacks the jM tag."
   
-    #createIndelBedtool(canTranscripts, "I", maxLenIndel)
-    #exit()
+    #createIndelBedtool(noncanTranscripts, "I", maxLenIndel)
    
     if options.correctMismatches.lower() == "true":
         print "Correcting mismatches (canonical transcripts)............"
@@ -89,9 +86,9 @@ def main():
             correctInsertions(noncanTranscripts, genome, indels, maxLenIndel)
             print "Correcting deletions (noncanonical transcripts)............"
             correctDeletions(noncanTranscripts, genome, indels, maxLenIndel)
-
-        print "Rescuing noncanonical junctions............."
-        cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset)
+        if options.spliceAnnot != None:
+            print "Rescuing noncanonical junctions............."
+            cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset)
 
     print "Writing output to sam file and fasta file.................."
 
