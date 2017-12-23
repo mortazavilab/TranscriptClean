@@ -18,41 +18,47 @@ def main():
     genome = "reference_files/chr1.fa"
     spliceJunctionFile = "reference_files/GM12878_SJs_chr1.tab"
     variantFile = "reference_files/GM12878_chr1.vcf"
+    basicSamFile1 = "sam_files/perfectReferenceMatch_noIntrons.sam"
+    basicSamFile2 = "sam_files/perfectReferenceMatch_twoIntrons.sam"
+    basicSamFile1_noTags = "sam_files/perfectReferenceMatch_noIntrons_noExtraTags.sam"
+    basicSamFile2_noTags = "sam_files/perfectReferenceMatch_twoIntrons_noExtraTags.sam"
 
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
+    # Correct action is to make no changes
     print "--------------------Part 1: Perfect Reference Match------------------------------------------------------"
     print "Section A: Perfect reference match with no introns"
     print "---------------------------------------------------------------------------------------------------------"
     print "Test 1: TranscriptClean Basic Mode"
-    basicSamFile = "sam_files/perfectReferenceMatch_noIntrons.sam"
-    test_perfectMatch_basic(basicSamFile, genome)
+    test_perfectMatch_basic(basicSamFile1, genome)
 
     print "Test 2: TranscriptClean Intermediate Mode (Indel/Mismatch/SJ)"
-    test_perfectMatch_intermediate(basicSamFile, genome, spliceJunctionFile)
+    test_perfectMatch_intermediate(basicSamFile1, genome, spliceJunctionFile)
 
     print "Test 3: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ)"
-    test_perfectMatch_variantAware(basicSamFile, genome, spliceJunctionFile, variantFile)
+    test_perfectMatch_variantAware(basicSamFile1, genome, spliceJunctionFile, variantFile)
  
     # A transcript comprised of three exons and two introns that perfectly matches the reference genome sequence
+    # Correct action is to make no changes
     print "---------------------------------------------------------------------------------------------------------"
     print "Section B: Perfect reference match with introns"
     print "---------------------------------------------------------------------------------------------------------"
     print "Test 1: TranscriptClean Basic Mode"
-    basicSamFile = "sam_files/perfectReferenceMatch_twoIntrons.sam"
-    test_perfectMatch_basic(basicSamFile, genome)
+    test_perfectMatch_basic(basicSamFile2, genome)
 
     print "Test 2: TranscriptClean Intermediate Mode (Indel/Mismatch/SJ)"
-    test_perfectMatch_intermediate(basicSamFile, genome, spliceJunctionFile)
+    test_perfectMatch_intermediate(basicSamFile2, genome, spliceJunctionFile)
 
     print "Test 3: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ)"
-    test_perfectMatch_variantAware(basicSamFile, genome, spliceJunctionFile, variantFile)
+    test_perfectMatch_variantAware(basicSamFile2, genome, spliceJunctionFile, variantFile)
     print "---------------------------------------------------------------------------------------------------------"
-    #print "--------------------------------------------------------------------------"
-    #print "Running Test 2......."
-    #basicSamFile = "sam_files/perfectReferenceMatch_twoIntrons.sam"
-    #runBasic(basicSamFile, "test_out/perfectReferenceMatch_twoIntrons")
-    #print "Test N successful."
 
+    # Test that the code can correctly generate all extra tags (ie MD, NM, jI, jM) with and without introns
+    print "--------------------Part 2: MD, NM, and jI/jM generation-------------------------------------------------"
+    print "Test 1: Perfect reference match with no introns"
+    test_perfectMatch_generateTags(basicSamFile1_noTags, genome, basicSamFile1)
+
+    print "Test 2: Perfect reference match with introns"
+    test_perfectMatch_generateTags(basicSamFile2_noTags, genome, basicSamFile2)
 
 def test_perfectMatch_basic(sam, genome):
     # Test input: A transcript comprised of a single exon that perfectly matches the reference genome sequence
@@ -118,12 +124,47 @@ def test_perfectMatch_variantAware(sam, genome, sj, variants):
             deleteTmpFiles('test_out/perfectMatch_variantAware')
             print "\t**Test successful**"
             return
-    except:
-        pass
+    except: pass
 
     print "\tERROR: Output is supposed to exactly match input, but this is not the case."
     return
 
+def test_perfectMatch_generateTags(sam, genome, completeSam):
+    # Test whether TranscriptClean generates the correct MD, NM, jI, and jM tags when these are missing from the data.
+    # Correctness is checked by comparing to completeSam
+
+    prefix = "test_out/perfectMatch_tags"
+    runBasic(sam, genome, prefix)
+
+    # Check that each tag matches the corresponding value in completeSam
+    try:
+        with open(prefix + "_clean.sam", 'r') as f:
+            samNew = f.readline().strip().split("\t")
+        with open(completeSam, 'r') as f:
+            samCorrect = f.readline().strip().split("\t")
+
+        if samNew[13] == samCorrect[13]:
+            print "\tNM tag: successful"
+        else:
+            print "\tNM tag: INCORRECT"
+
+        if samNew[14] == samCorrect[14]:
+            print "\tMD tag: successful"
+        else:
+            print "\tMD tag: INCORRECT"
+
+        if samNew[15] == samCorrect[15]:
+            print "\tjM tag: successful"
+        else:
+            print "\tjM tag: INCORRECT"
+
+        if samNew[16] == samCorrect[16]:
+            print "\tjI tag: successful"
+        else:
+            print "\tjI tag: INCORRECT"
+
+    except: pass   
+    return
 
 def deleteTmpFiles(prefix):
     for filename in glob.glob(prefix + "*"):
@@ -164,6 +205,7 @@ def runVariantAware(sam, genome, sj, variants, outprefix):
         print "\tERROR: Intermediate TranscriptClean run failed."
     return
 
+deleteTmpFiles("test_out/")
 print "\n"
 main()
 print "\n"

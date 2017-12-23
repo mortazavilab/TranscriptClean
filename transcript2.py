@@ -192,8 +192,10 @@ class Transcript2:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
             self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
         self.NM, self.MD = self.getNMandMDFlags(genome)        
-
-        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
+        if self.otherFields == "":
+            fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
+        else:
+            fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
         return "\t".join([str(x) for x in fields]).strip()
 
     def printableFa(self):
