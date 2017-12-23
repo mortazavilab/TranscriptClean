@@ -22,6 +22,8 @@ def main():
     basicSamFile2 = "sam_files/perfectReferenceMatch_twoIntrons.sam"
     basicSamFile1_noTags = "sam_files/perfectReferenceMatch_noIntrons_noExtraTags.sam"
     basicSamFile2_noTags = "sam_files/perfectReferenceMatch_twoIntrons_noExtraTags.sam"
+    sam_DIM = "sam_files/deletion_insertion_mismatch.sam"
+    sam_DIM_noTags = "sam_files/deletion_insertion_mismatch_noExtraTags.sam"
 
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
@@ -55,10 +57,14 @@ def main():
     # Test that the code can correctly generate all extra tags (ie MD, NM, jI, jM) with and without introns
     print "--------------------Part 2: MD, NM, and jI/jM generation-------------------------------------------------"
     print "Test 1: Perfect reference match with no introns"
-    test_perfectMatch_generateTags(basicSamFile1_noTags, genome, basicSamFile1)
+    test_generateTags(basicSamFile1_noTags, genome, spliceJunctionFile, basicSamFile1)
 
     print "Test 2: Perfect reference match with introns"
-    test_perfectMatch_generateTags(basicSamFile2_noTags, genome, basicSamFile2)
+    test_generateTags(basicSamFile2_noTags, genome, spliceJunctionFile, basicSamFile2)
+
+    print "Test 3: Transcript with introns that has an insertion, deletion, and mismatch"
+    test_generateTags(sam_DIM_noTags, genome, spliceJunctionFile, sam_DIM)
+
 
 def test_perfectMatch_basic(sam, genome):
     # Test input: A transcript comprised of a single exon that perfectly matches the reference genome sequence
@@ -129,12 +135,12 @@ def test_perfectMatch_variantAware(sam, genome, sj, variants):
     print "\tERROR: Output is supposed to exactly match input, but this is not the case."
     return
 
-def test_perfectMatch_generateTags(sam, genome, completeSam):
+def test_generateTags(sam, genome, sj, completeSam):
     # Test whether TranscriptClean generates the correct MD, NM, jI, and jM tags when these are missing from the data.
     # Correctness is checked by comparing to completeSam
 
     prefix = "test_out/perfectMatch_tags"
-    runBasic(sam, genome, prefix)
+    dryRun(sam, genome, sj, prefix)
 
     # Check that each tag matches the corresponding value in completeSam
     try:
@@ -174,6 +180,16 @@ def deleteTmpFiles(prefix):
 ############################################
 # Different TranscriptClean modes          #
 ############################################
+
+def dryRun(sam, genome, sj, outprefix):
+    # Run TranscriptClean without making corrections.
+    
+    command = "python ../TranscriptClean.py --sam " + sam + " --genome " + genome + " --spliceJns " + sj + "  --correctMismatches False --correctIndels False --outprefix " + outprefix + " > /dev/null"
+    try:
+        os.system(command)
+    except:
+        print "\tERROR: TranscriptClean dry run failed."
+    return 
 
 def runBasic(sam, genome, outprefix):
     # Run TranscriptClean with the most basic settings: Correct microindels but nothing else.
