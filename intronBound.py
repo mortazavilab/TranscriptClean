@@ -18,9 +18,6 @@ class IntronBound:
         if int(jnStr) == 0:
             self.isCanonical = False
 
-    #def isCanonical(self):
-    #    return self.isCanonical
-
     def getBED(self):
         # Format the intron boundary with 0-based start and end. 
         # If mode == "start", we return a bed for the start position.
@@ -29,6 +26,7 @@ class IntronBound:
         return bedstr 
 
     def getSpliceMotif(self, genome):
+        # The splice motif consists of the first two or last two bases of the intron (first two if bound == 0 and last two if bound == 1) 
         if self.bound == 0:
             motif = genome.sequence({'chr': self.chrom, 'start': self.pos, 'stop': self.pos + 1}, one_based=True)
         else:

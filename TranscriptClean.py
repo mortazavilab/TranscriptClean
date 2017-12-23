@@ -5,7 +5,7 @@
 ## TODO: Add a line to the sam header that explains which input options TranscriptClean was run with
 
 from transcript2 import Transcript2
-from spliceJunction import SpliceJunction
+from spliceJunction import *
 from intronBound import IntronBound
 from optparse import OptionParser
 import pybedtools
@@ -49,9 +49,10 @@ def main():
 
     if options.spliceAnnot != None:
         print "Processing annotated splice junctions ..."
-        annotatedSpliceJns = processSpliceAnnotation(options.spliceAnnot)
+        annotatedSpliceJns, sjDict = processSpliceAnnotation(options.spliceAnnot)
     else:
         print "No splice annotation provided. Will skip splice junction correction."
+        sjDict = {}
 
     if options.variantFile != None:
         print "Processing variant file ................."
@@ -62,11 +63,9 @@ def main():
         indels = {}
 
     print "Processing SAM file ........................."
-    header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome) 
+    header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome, sjDict) 
     if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. If this is unexpected, check whether the sam file lacks the jM tag."
   
-    #createIndelBedtool(noncanTranscripts, "I", maxLenIndel)
-   
     if options.correctMismatches.lower() == "true":
         print "Correcting mismatches (canonical transcripts)............"
         correctMismatches(canTranscripts, genome, snps)
@@ -97,23 +96,23 @@ def main():
     oFa = open(options.outprefix + "_clean.fa", 'w')
     oLog = open(options.outprefix + "_clean.log", 'w')
     oSam.write(header)
-    writeTranscriptOutput(canTranscripts, oSam, oFa, oLog, genome)
-    writeTranscriptOutput(noncanTranscripts, oSam, oFa, oLog, genome)
+    writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, oLog, genome)
+    writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oLog, genome)
 
     oSam.close()
     oFa.close()
 
-def writeTranscriptOutput(transcripts, outSam, outFa, outLog, genome):
+def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outLog, genome):
 
     for t in transcripts.keys():
         print t
         currTranscript = transcripts[t]
-        outSam.write(Transcript2.printableSAM(currTranscript, genome) + "\n")
+        outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
         outFa.write(Transcript2.printableFa(currTranscript) + "\n")
         outLog.write(t + "\t" + ";".join(currTranscript.log) + "\n")
     return
 
-def processSAM(sam, genome):
+def processSAM(sam, genome, spliceAnnot):
     # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
     # Transcripts are returned two separate lists: one canonical and one noncanonical. 
 
@@ -127,7 +126,7 @@ def processSAM(sam, genome):
             if line.startswith("@"):
                 header = header + line + "\n"
                 continue
-            t = Transcript2(line, genome)
+            t = Transcript2(line, genome, spliceAnnot)
 
             # Filter out transcripts that are multimapping. The primary alignment will still be kept because its flag is <= 16
             if int(t.FLAG) > 16:
@@ -147,8 +146,10 @@ def processSAM(sam, genome):
 
 def processSpliceAnnotation(annotFile):
     # This function reads in the tab-separated STAR splice junction file and creates a bedtools object
+    # Also creates a dict to allow easy lookup to find out if a splice junction is annotated or not
 
     bedstr = ""
+    annot = {}
     o = open("TC-tmp.bed", 'w')
     with open(annotFile, 'r') as f:
         for line in f:
@@ -174,13 +175,16 @@ def processSpliceAnnotation(annotFile):
                 bed2 = "\t".join([chrom, str(end - 1), str(end), ".", uniqueReads, strand])
                 o.write(bed1 + "\n")
                 o.write(bed2 + "\n")
+
+                annot["_".join([chrom, str(start)])] = 1
+                annot["_".join([chrom, str(end)])] = 1
     o.close()
 
     # Convert bed file into BedTool object
     os.system('bedtools sort -i TC-tmp.bed > TC-tmp2.bed')
     #os.system('sort -k1,1 -k2,2n TC-tmp.bed > TC-tmp2.bed')
     bt = pybedtools.BedTool("TC-tmp2.bed")
-    return bt
+    return bt, annot
 
 def processVCF(vcf, maxLen):
     # This function reads in variants from a VCF file and stores them.

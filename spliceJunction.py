@@ -28,25 +28,36 @@ class SpliceJunction:
                 
         return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
-    def recheckJnStr(self, genome):
-        # Check the splice junction sequence motif to determine whether the jnStr shouls be changed
+    def recheckJnStr(self, genome, spliceAnnot):
+        # Check the splice junction sequence motif to determine whether the jnStr should be changed
 
-        motif = IntronBound.getSpliceMotif(self.bounds[0], genome) + IntronBound.getSpliceMotif(self.bounds[1], genome).upper()
+        startBases = IntronBound.getSpliceMotif(self.bounds[0], genome) 
+        endBases = IntronBound.getSpliceMotif(self.bounds[1], genome).upper()        
 
-        if motif == "GTAG":
-            self.jnStr = "21"
-        elif motif == "CTAC":
-            self.jnStr = "22"
-        elif motif == "GCAG":
-            self.jnStr = "23"
-        elif motif == "CTGC":
-            self.jnStr = "24"
-        elif motif == "ATAC":
-            self.jnStr = "25"
-        elif motif == "GTAT":
-            self.jnStr = "26"
-        else:
-            self.jnStr = "0"
+        if (self.chrom + "_" + str(self.start)) in spliceAnnot and (self.chrom + "_" + str(self.end)) in spliceAnnot:
+            motifCode = 20 
+        else: motifCode = 0
+
+        motifCode += getSJMotifCode(startBases, endBases)
+        self.jnStr = str(motifCode)
         return        
         
+def getSJMotifCode(startBases, endBases):
+    # Determines which STAR-style splice junction code applies to a splice motif        
 
+    motif = (startBases + endBases).upper()
+
+    if motif == "GTAG":
+        return 1
+    elif motif == "CTAC":
+        return 2
+    elif motif == "GCAG":
+        return 3
+    elif motif == "CTGC":
+        return 4
+    elif motif == "ATAC":
+        return 5
+    elif motif == "GTAT":
+        return 6
+    else:
+        return 0

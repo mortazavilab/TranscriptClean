@@ -8,7 +8,7 @@ import re
 import itertools
 
 class Transcript2:
-    def __init__(self, sam, genome):
+    def __init__(self, sam, genome, spliceAnnot):
         samFields = sam.strip().split('\t')
 
         # Keep track of changes for log file
@@ -47,7 +47,7 @@ class Transcript2:
 
         # If the jM and jI fields are missing, compute them here.
         if self.jM == self.jI == "":
-            self.jM, self.jI = self.getjMandjITags(genome)
+            self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
 
         self.otherFields = "\t".join(otherFields)        
 
@@ -186,11 +186,11 @@ class Transcript2:
         
         return jnObjects
 
-    def printableSAM(self, genome):
+    def printableSAM(self, genome, spliceAnnot):
         # Returns a SAM-formatted string representation of the transcript
         if len(self.spliceJunctions) > 0:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
-            self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome))
+            self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome, spliceAnnot))
         self.NM, self.MD = self.getNMandMDFlags(genome)        
         if self.otherFields == "":
             fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
@@ -214,11 +214,11 @@ class Transcript2:
             result.append(b[1])
         return result
    
-    def getAllSJMotifs(self, genome):
+    def getAllSJMotifs(self, genome, spliceAnnot):
     #    # Return all splice junction motifs translated into their numeric STAR codes
         result = []
         for jn in self.spliceJunctions:
-            SpliceJunction.recheckJnStr(jn, genome)
+            SpliceJunction.recheckJnStr(jn, genome, spliceAnnot)
             result.append(jn.jnStr)
         return result
  
@@ -240,7 +240,7 @@ class Transcript2:
                         # End any match we have going and add the mismatch
                         MD = MD + str(MVal)  
                         MVal = 0 
-                        MD = MD + refBase 
+                        MD = MD + str(refBase) 
                         NM += 1
                     else:
                         MVal += 1
@@ -251,7 +251,7 @@ class Transcript2:
                 MD = MD + str(MVal)  
                 MVal = 0
                 refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                MD = MD + "^" + refBases
+                MD = MD + "^" + str(refBases)
                 NM += ct
                 genomePos += ct
             # For insertions and soft clips, we move on without adding to the MD
@@ -264,12 +264,11 @@ class Transcript2:
         if MVal > 0: MD = MD + str(MVal) 
         return str(NM), MD
 
-    def getjMandjITags(self, genome):
+    def getjMandjITags(self, genome, spliceAnnot):
         # If the input sam file doesn't have the custom STARlong-derived jM and jI tags, we need to compute them.
         # This is done by stepping through the CIGAR string and sequence. When an intron (N) is encountered, we check the 
         # first two bases and last two bases of the intron in the genome sequence to detemine whether they are canonical. 
         # We also record the start and end position of the intron.
-        # TODO: STARlong has separate designations for annotated/non-annotated junctions. How do I do that here?
        
         seq = self.SEQ
         operations, counts = self.splitCIGAR()
@@ -288,7 +287,12 @@ class Transcript2:
                 intronEnd = genomePos + ct - 1
                 endBases = genome.sequence({'chr': self.CHROM, 'start': intronEnd - 1, 'stop': intronEnd}, one_based=True)
              
-                jM.append(getSJMotifCode(startBases, endBases))
+                # Check if junction is annotated
+                if (self.CHROM + "_" + str(intronStart)) in spliceAnnot and (self.CHROM + "_" + str(intronEnd)) in spliceAnnot:
+                    motifCode = 20 + getSJMotifCode(startBases, endBases)
+                else: motifCode = getSJMotifCode(startBases, endBases)
+ 
+                jM.append(str(motifCode))
                 jI.append(str(intronStart))
                 jI.append(str(intronEnd))
 
@@ -311,19 +315,19 @@ def getSJMotifCode(startBases, endBases):
     motif = (startBases + endBases).upper()
 
     if motif == "GTAG":
-        return "21"
+        return 1
     elif motif == "CTAC":
-        return "22"
+        return 2
     elif motif == "GCAG":
-        return "23"
+        return 3
     elif motif == "CTGC":
-        return "24"
+        return 4
     elif motif == "ATAC":
-        return "25"
+        return 5
     elif motif == "GTAT":
-        return "26"
+        return 6
     else:
-        return "0"
+        return 0
         
 
  
