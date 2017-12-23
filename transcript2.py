@@ -290,7 +290,8 @@ class Transcript2:
                 # Check if junction is annotated
                 if (self.CHROM + "_" + str(intronStart)) in spliceAnnot and (self.CHROM + "_" + str(intronEnd)) in spliceAnnot:
                     motifCode = 20 + getSJMotifCode(startBases, endBases)
-                else: motifCode = getSJMotifCode(startBases, endBases)
+                else: 
+                    motifCode = getSJMotifCode(startBases, endBases)
  
                 jM.append(str(motifCode))
                 jI.append(str(intronStart))

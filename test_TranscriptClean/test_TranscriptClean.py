@@ -15,7 +15,7 @@ def main():
     #    - a mismatch that does not overlap a known SNP
     #    - a noncanonical splice junction within 5 bp of a known junction
 
-    genome = "reference_files/chr1.fa"
+    genome = "/bio/dwyman/pacbio_f2016/data/STAR_hg38_ENCODE/hg38.fa" #"reference_files/chr1.fa"
     spliceJunctionFile = "reference_files/GM12878_SJs_chr1.tab"
     variantFile = "reference_files/GM12878_chr1.vcf"
     basicSamFile1 = "sam_files/perfectReferenceMatch_noIntrons.sam"
@@ -24,6 +24,9 @@ def main():
     basicSamFile2_noTags = "sam_files/perfectReferenceMatch_twoIntrons_noExtraTags.sam"
     sam_DIM = "sam_files/deletion_insertion_mismatch.sam"
     sam_DIM_noTags = "sam_files/deletion_insertion_mismatch_noExtraTags.sam"
+    sam_DIM_nc = "sam_files/deletion_insertion_mismatch_nc.sam"
+    sam_DIM_nc_noTags = "sam_files/deletion_insertion_mismatch_nc_noExtraTags.sam"
+
 
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
@@ -64,6 +67,9 @@ def main():
 
     print "Test 3: Transcript with introns that has an insertion, deletion, and mismatch"
     test_generateTags(sam_DIM_noTags, genome, spliceJunctionFile, sam_DIM)
+
+    print "Test 4: Transcript with introns that has an insertion, deletion, mismatch, and a noncanonical splice junction"
+    test_generateTags(sam_DIM_nc_noTags, genome, spliceJunctionFile, sam_DIM_nc)
 
 
 def test_perfectMatch_basic(sam, genome):
@@ -185,6 +191,7 @@ def dryRun(sam, genome, sj, outprefix):
     # Run TranscriptClean without making corrections.
     
     command = "python ../TranscriptClean.py --sam " + sam + " --genome " + genome + " --spliceJns " + sj + "  --correctMismatches False --correctIndels False --correctSJs False --outprefix " + outprefix + " > /dev/null"
+    print command
     try:
         os.system(command)
     except:
