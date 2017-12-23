@@ -139,7 +139,7 @@ def test_generateTags(sam, genome, sj, completeSam):
     # Test whether TranscriptClean generates the correct MD, NM, jI, and jM tags when these are missing from the data.
     # Correctness is checked by comparing to completeSam
 
-    prefix = "test_out/perfectMatch_tags"
+    prefix = "test_out/tags"
     dryRun(sam, genome, sj, prefix)
 
     # Check that each tag matches the corresponding value in completeSam
@@ -184,7 +184,7 @@ def deleteTmpFiles(prefix):
 def dryRun(sam, genome, sj, outprefix):
     # Run TranscriptClean without making corrections.
     
-    command = "python ../TranscriptClean.py --sam " + sam + " --genome " + genome + " --spliceJns " + sj + "  --correctMismatches False --correctIndels False --outprefix " + outprefix + " > /dev/null"
+    command = "python ../TranscriptClean.py --sam " + sam + " --genome " + genome + " --spliceJns " + sj + "  --correctMismatches False --correctIndels False --correctSJs False --outprefix " + outprefix + " > /dev/null"
     try:
         os.system(command)
     except:

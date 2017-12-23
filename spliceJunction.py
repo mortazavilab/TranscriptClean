@@ -40,6 +40,7 @@ class SpliceJunction:
 
         motifCode += getSJMotifCode(startBases, endBases)
         self.jnStr = str(motifCode)
+        self.isCanonical = self.bounds[0].isCanonical and self.bounds[1].isCanonical
         return        
         
 def getSJMotifCode(startBases, endBases):
