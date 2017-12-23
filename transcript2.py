@@ -218,7 +218,7 @@ class Transcript2:
     #    # Return all splice junction motifs translated into their numeric STAR codes
         result = []
         for jn in self.spliceJunctions:
-            SpliceJunction.recheckJnStr(jn, genome, spliceAnnot)
+            #SpliceJunction.recheckJnStr(jn, genome, spliceAnnot)
             result.append(jn.jnStr)
         return result
  
