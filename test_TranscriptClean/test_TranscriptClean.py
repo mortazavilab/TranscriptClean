@@ -6,31 +6,36 @@ import glob
 
 def main():
 
-    # This sam file contains a single transcript entry. The transcript has the following errors/characteristics:
-    #    - a microdeletion
-    #    - a microinsertion
-    #    - a deletion over 5 bp
-    #    - an insertion over 5 bp
-    #    - a mismatch to reference that is in the same position as a SNP
-    #    - a mismatch that does not overlap a known SNP
-    #    - a noncanonical splice junction within 5 bp of a known junction
-
+    # Files used in the course of testing
     genome = "/bio/dwyman/pacbio_f2016/data/STAR_hg38_ENCODE/hg38.fa" #"reference_files/chr1.fa"
     spliceJunctionFile = "reference_files/GM12878_SJs_chr1.tab"
     variantFile = "reference_files/GM12878_chr1.vcf"
+
     basicSamFile1 = "sam_files/perfectReferenceMatch_noIntrons.sam"
     basicSamFile2 = "sam_files/perfectReferenceMatch_twoIntrons.sam"
     basicSamFile1_noTags = "sam_files/perfectReferenceMatch_noIntrons_noExtraTags.sam"
     basicSamFile2_noTags = "sam_files/perfectReferenceMatch_twoIntrons_noExtraTags.sam"
-    sam_DIM = "sam_files/deletion_insertion_mismatch.sam"
-    sam_DIM_noTags = "sam_files/deletion_insertion_mismatch_noExtraTags.sam"
-    sam_DIM_nc = "sam_files/deletion_insertion_mismatch_nc.sam"
-    sam_DIM_nc_noTags = "sam_files/deletion_insertion_mismatch_nc_noExtraTags.sam"
 
+    sam_D = "sam_files/deletion_input.sam"
+    sam_D_answer = "sam_files/deletion_correctAnswer.sam"
+
+    sam_I = "sam_files/insertion_input.sam"
+    sam_I_answer = "sam_files/insertion_correctAnswer.sam"
+
+    sam_M = "sam_files/mismatch_input.sam"
+    sam_M_answer = "sam_files/mismatch_correctAnswer.sam"
+
+    sam_DIM = "sam_files/deletion_insertion_mismatch.sam"
+    sam_DIM_answer = "sam_files/deletion_insertion_mismatch_correctAnswer.sam"
+    sam_DIM_noTags = "sam_files/deletion_insertion_mismatch_noExtraTags.sam"
+
+    sam_DIM_nc = "sam_files/deletion_insertion_mismatch_nc.sam"
+    sam_DIM_nc_answer = "sam_files/deletion_insertion_mismatch_nc_correctAnswer.sam"
+    sam_DIM_nc_noTags = "sam_files/deletion_insertion_mismatch_nc_noExtraTags.sam"
 
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
-    print "--------------------Part 1: Perfect Reference Match------------------------------------------------------"
+    print "--------------------Part 1: Sanity check with perfect reference matches----------------------------------"
     print "Section A: Perfect reference match with no introns"
     print "Test input is a transcript comprised of a single exon that perfectly matches the reference genome sequence. Because the transcript does not contain any errors, the output should be identical to the original sam file in all three tests."
     print "---------------------------------------------------------------------------------------------------------"
@@ -75,14 +80,28 @@ def main():
     test_generateTags(sam_DIM_nc_noTags, genome, spliceJunctionFile, sam_DIM_nc, "test_out/tags_2.4")
 
     # Test that insertions, deletions, and mismatches are corrected properly on a limited example set.
-  
+    print "--------------------Part 3: Deletion, insertion, and mismatch correction--------------------------------"  
+    print "Test 1: TranscriptClean on transcript with single deletion"
+    test_basic(sam_D, genome, sam_D_answer, "test_out/deletion_basic_3.0.1")
+    
+    print "Test 2: TranscriptClean on transcript with single insertion"
+    test_basic(sam_I, genome, sam_I_answer, "test_out/insertion_basic_3.0.2")
+
+    print "Test 3: TranscriptClean on transcript with single mismatch"
+    test_intermediate(sam_M, genome, spliceJunctionFile, sam_M_answer, "test_out/insertion_basic_3.0.3")
+
+    print "Test 4: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with insertions, deletions, mismatches, and variants but canonical junctions only"
+    test_variantAware(sam_DIM, genome, spliceJunctionFile, variantFile, sam_DIM_answer, "test_out/DIM_variantAware_3.0.4")
+
+    print "Test 5: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with insertions, deletions, mismatches, and variants as well as a noncanonical splice junction"
+    test_variantAware(sam_DIM_nc, genome, spliceJunctionFile, variantFile, sam_DIM_nc_answer, "test_out/DIM_nc_variantAware_3.0.5")
 
 def test_basic(sam, genome, answer, prefix):
     # Runs TranscriptClean in basic mode, then compares the output to the answer sam file using diff. If these two files are identical, the test is considered successful 
     runBasic(sam, genome, prefix)
     
     # Check whether the output matches the input
-    command = "diff " + answer + " " + prefix + "_clean.sam > " + prefix + "_diff"
+    command = "diff -b " + answer + " " + prefix + "_clean.sam > " + prefix + "_diff"
     try:
         os.system(command)
         num_lines = sum(1 for line in open(prefix + "_diff"))
@@ -94,7 +113,8 @@ def test_basic(sam, genome, answer, prefix):
     except:
         pass
 
-    print "\tERROR: Output is supposed to exactly match input, but this is not the case."
+    print "\tERROR: Output is supposed to exactly match provided file, but this is not the case."
+    print command
     return
 
 def test_intermediate(sam, genome, sj, answer, prefix):
@@ -102,7 +122,7 @@ def test_intermediate(sam, genome, sj, answer, prefix):
     runIntermediate(sam, genome, sj, prefix)
 
     # Check whether the output matches the input
-    command = "diff " + sam + " " + prefix + "_clean.sam > " + prefix + "_diff"
+    command = "diff -b " + answer + " " + prefix + "_clean.sam > " + prefix + "_diff"
     try:
         os.system(command)
         num_lines = sum(1 for line in open(prefix + "_diff"))
@@ -114,7 +134,8 @@ def test_intermediate(sam, genome, sj, answer, prefix):
     except:
         pass
 
-    print "\tERROR: Output is supposed to exactly match input, but this is not the case."
+    print "\tERROR: Output is supposed to exactly match provided file, but this is not the case."
+    print command
     return
 
 def test_variantAware(sam, genome, sj, variants, answer, prefix):
@@ -122,7 +143,7 @@ def test_variantAware(sam, genome, sj, variants, answer, prefix):
     runVariantAware(sam, genome, sj, variants, prefix)
 
     # Check whether the output matches the input
-    command = "diff " + sam + " " + prefix + "_clean.sam > " + prefix + "_diff"
+    command = "diff -b " + answer + " " + prefix + "_clean.sam > " + prefix + "_diff"
     try:
         os.system(command)
         num_lines = sum(1 for line in open(prefix + "_diff"))
@@ -133,7 +154,8 @@ def test_variantAware(sam, genome, sj, variants, answer, prefix):
             return
     except: pass
 
-    print "\tERROR: Output is supposed to exactly match input, but this is not the case."
+    print "\tERROR: Output is supposed to exactly match provided file, but this is not the case."
+    print command
     return
 
 def test_generateTags(sam, genome, sj, completeSam, prefix):
@@ -153,21 +175,25 @@ def test_generateTags(sam, genome, sj, completeSam, prefix):
             print "\tNM tag: successful"
         else:
             print "\tNM tag: INCORRECT"
+            print "Should be: " + samCorrect[13] + ", is: " + samNew[13]
 
         if samNew[14] == samCorrect[14]:
             print "\tMD tag: successful"
         else:
             print "\tMD tag: INCORRECT"
+            print "Should be: " + samCorrect[14] + ", is: " + samNew[14]
 
         if samNew[15] == samCorrect[15]:
             print "\tjM tag: successful"
         else:
             print "\tjM tag: INCORRECT"
+            print "Should be: " + samCorrect[15] + ", is: " + samNew[15]
 
         if samNew[16] == samCorrect[16]:
             print "\tjI tag: successful"
         else:
             print "\tjI tag: INCORRECT"
+            print "Should be: " + samCorrect[16] + ", is: " + samNew[16]
 
     except: pass   
     return
