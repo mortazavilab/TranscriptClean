@@ -33,6 +33,15 @@ def main():
     sam_DIM_nc_answer = "sam_files/deletion_insertion_mismatch_nc_correctAnswer.sam"
     sam_DIM_nc_noTags = "sam_files/deletion_insertion_mismatch_nc_noExtraTags.sam"
 
+    sam_nc_case1 = "sam_files/nc_case1.sam"
+    sam_nc_case1_answer = "sam_files/nc_case1_correctAnswer.sam"
+    sam_nc_case2 = "sam_files/nc_case2.sam"
+    sam_nc_case2_answer = "sam_files/nc_case2_correctAnswer.sam"
+    sam_nc_case3 = "sam_files/nc_case3.sam"
+    sam_nc_case3_answer = "sam_files/nc_case3_correctAnswer.sam"
+    sam_nc_case4 = "sam_files/nc_case4.sam"
+    sam_nc_case4_answer = "sam_files/nc_case4_correctAnswer.sam"
+
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
     print "--------------------Part 1: Sanity check with perfect reference matches----------------------------------"
@@ -95,6 +104,21 @@ def main():
 
     print "Test 5: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with insertions, deletions, mismatches, and variants as well as a noncanonical splice junction"
     test_variantAware(sam_DIM_nc, genome, spliceJunctionFile, variantFile, sam_DIM_nc_answer, "test_out/DIM_nc_variantAware_3.0.5")
+
+    print "--------------------Part 4: Noncanonical Splice Junction Correction-------------------------------------"
+    print "TranscriptClean corrects each end of the splice junction separately. There are four different cases, each defined by the side under correction and the direction in which the correction is made (ie bases are added or subtracted. It is important to test each case."
+    print "--------------------------------------------------------------------------------------------------------"
+    print "Test 1: Bases need to be added to exon end (the exon ended early)."
+    test_variantAware(sam_nc_case1, genome, spliceJunctionFile, variantFile, sam_nc_case1_answer, "test_out/nc_case1_4.0.1")
+
+    print "Test 2: Bases need to be added to exon start (the exon started late)."
+    test_variantAware(sam_nc_case2, genome, spliceJunctionFile, variantFile, sam_nc_case2_answer, "test_out/nc_case2_4.0.2")
+
+    print "Test 3: Bases need to be subtracted from exon end (the exon ended late)."
+    test_variantAware(sam_nc_case3, genome, spliceJunctionFile, variantFile, sam_nc_case3_answer, "test_out/nc_case3_4.0.3")
+
+    print "Test 4: Bases need to be subtracted from exon start (the exon started early)."
+    test_variantAware(sam_nc_case4, genome, spliceJunctionFile, variantFile, sam_nc_case4_answer, "test_out/nc_case4_4.0.4")
 
 def test_basic(sam, genome, answer, prefix):
     # Runs TranscriptClean in basic mode, then compares the output to the answer sam file using diff. If these two files are identical, the test is considered successful 
