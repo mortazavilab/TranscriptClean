@@ -28,6 +28,11 @@ class SpliceJunction:
                 
         return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
+    def recheckPosition(self):
+        # Get start and end position from its intron bounds
+        self.start = self.bounds[0].pos
+        self.end = self.bounds[1].pos
+
     def recheckJnStr(self, genome, spliceAnnot):
         # Check the splice junction sequence motif to determine whether the jnStr should be changed
 

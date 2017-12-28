@@ -660,12 +660,14 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
             refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
-            spliceJn.end = intronBound.pos
-
+            #spliceJn.end = intronBound.pos
+            #print transcript.QNAME
+            #print "Case 1"
+            #exit()
         if d < 0: # Need to subtract from end of exon sequence. Case 3
             exonSeqs[targetExon] = exon[0:d]
             intronBound.pos += d
-            spliceJn.start = intronBound.pos
+            #spliceJn.start = intronBound.pos
         intronCIGARs[targetJn] -= d
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], -1, d)
     else:
@@ -677,11 +679,11 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
             refAdd = genome.sequence({'chr': transcript.CHROM, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
             exonSeqs[targetExon] = refAdd + exon
             intronBound.pos += d
-            spliceJn.end = intronBound.pos
+            #spliceJn.end = intronBound.pos
         if d > 0: # Need to subtract from start of exon sequence. Case 4
             exonSeqs[targetExon] = exon[d:]
             intronBound.pos += d
-            spliceJn.end = intronBound.pos
+            #spliceJn.end = intronBound.pos
         # Modify exon string
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
         intronCIGARs[targetJn] += d
@@ -694,6 +696,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
     newCIGAR = newCIGAR + exonCIGARs[-1]
     transcript.CIGAR = newCIGAR    
     intronBound.isCanonical = True
+    SpliceJunction.recheckPosition(spliceJn)
     SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot) 
     return
 
