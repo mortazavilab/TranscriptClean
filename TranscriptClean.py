@@ -314,6 +314,12 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                         if currSeq in variants[ID]:
                             comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
+
+                            # Leave insertion in 
+                            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                            newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                            newCIGAR = newCIGAR + str(ct) + op
+                            seqPos += ct
                             continue
 
                     # Correct insertion
@@ -390,11 +396,16 @@ def correctDeletions(transcripts, genome, variants, maxLen):
 
                     # Check if the deletion is in the optional variant catalog.
                     if ID in variants:
-                        # The deletion perfectly matches a variant position. Leave the sequence alone if it matches an allele sequence.
+                        # The deletion perfectly matches a variant position. Leave the deletion in there if it matches an allele sequence.
                         currSeq = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                         if currSeq in variants[ID]:
                             comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
+
+                            # Leave deletion in
+                            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                            genomePos += ct
+                            newCIGAR = newCIGAR + str(ct) + op
                             continue
 
                     # Correct deletion if we're not in variant-aware mode
@@ -510,32 +521,31 @@ def correctMismatches(transcripts, genome, variants):
 
             # This denotes a mismatch
             if op == "X":
-                # Check if the position matches a variant in the optional variant catalog. If yes, don't try to fix it.
-                isSNP = False
-                try:
+                # Check if the position matches a variant in the optional variant catalog. 
+                ID = t.CHROM + "_" + str(genomePos)
+                if ID in variants:
+                # Mismatch position matches a known variant. If the base matches an alternative allele, do not correct it.
                     currBase = origSeq[seqPos]
-                    if currBase in variants[(t.CHROM + "_" + str(genomePos))]: 
+                    if currBase in variants[ID]: 
                         # Add comment to log indicating that we declined to change the transcript
                         comment = "DidNotCorrect_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                         Transcript2.updateLog(t, comment)
                         # Keep the base as-is
-                        isSNP = True
                         newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                         MVal += ct
                         seqPos += ct
                         genomePos += ct
-                    else: isSNP = False
-                except: pass
-                if isSNP == False:
-                    # Add comment to log indicating that we made a change to the transcript
-                    comment = "Corrected_mismatch_at_" + t.CHROM + ":" + str(genomePos)
-                    Transcript2.updateLog(t, comment)
+                        continue
+                # Otherwise, correct the mismatch to reference base
+                # Add comment to log indicating that we made a change to the transcript
+                comment = "Corrected_mismatch_at_" + t.CHROM + ":" + str(genomePos)
+                Transcript2.updateLog(t, comment)
 
-                    # Change sequence base to the reference base at this position
-                    newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                    seqPos += ct # skip the original sequence base
-                    genomePos += ct # advance the genome position
-                    MVal += ct
+                # Change sequence base to the reference base at this position
+                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                seqPos += ct # skip the original sequence base
+                genomePos += ct # advance the genome position
+                MVal += ct
 
             if op in ["S", "I"]:
                 # End any ongoing match
