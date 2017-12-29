@@ -236,10 +236,8 @@ def processVCF(vcf, maxLen):
                         else:
                             insertions[ID].append(allele)
                     elif refLen - altLen > 0: # Deletion
-                        if ID not in deletions:
-                            deletions[ID] = [allele]
-                        else:
-                            deletions[ID].append(allele)
+                        deletions[ID] = 1
+
     return SNPs, insertions, deletions
 
 def intersectWithVariants(transcriptIndels, variants):
@@ -354,7 +352,7 @@ def correctInsertions(transcripts, genome, variants, maxLen):
         # Update transcript 
         t.CIGAR = newCIGAR
         t.SEQ = newSeq
-        #t.NM, t.MD = t.getNMandMDFlags(genome) # May not be necessary since MD tag lacks I
+        
     return    
 
 def correctDeletions(transcripts, genome, variants, maxLen):
@@ -396,17 +394,16 @@ def correctDeletions(transcripts, genome, variants, maxLen):
 
                     # Check if the deletion is in the optional variant catalog.
                     if ID in variants:
-                        # The deletion perfectly matches a variant position. Leave the deletion in there if it matches an allele sequence.
+                        # The deletion perfectly matches a deletion variant. Leave the deletion in.
                         currSeq = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                        if currSeq in variants[ID]:
-                            comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
-                            Transcript2.updateLog(t, comment)
+                        comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
+                        Transcript2.updateLog(t, comment)
 
-                            # Leave deletion in
-                            MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                            genomePos += ct
-                            newCIGAR = newCIGAR + str(ct) + op
-                            continue
+                        # Leave deletion in
+                        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                        genomePos += ct
+                        newCIGAR = newCIGAR + str(ct) + op
+                        continue
 
                     # Correct deletion if we're not in variant-aware mode
                     # Add comment to log indicating that we made a change to the transcript

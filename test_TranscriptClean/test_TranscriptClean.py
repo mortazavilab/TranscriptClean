@@ -43,6 +43,8 @@ def main():
     sam_nc_case4_answer = "sam_files/nc_case4_correctAnswer.sam"
 
     sam_I_var = "sam_files/insertion_variant.sam"
+    sam_D_var = "sam_files/deletion_variant.sam"
+    sam_D_var_answer = "sam_files/deletion_variant_correctAnswer.sam"
 
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
@@ -109,6 +111,9 @@ def main():
 
     print "Test 6: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with an insertion that exactly matches a variant. Correct action is to keep the transcript as-is."
     test_variantAware(sam_I_var, genome, spliceJunctionFile, variantFile, sam_I_var, "test_out/I_variantAware_3.0.6")
+
+    print "Test 7: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with an deletion that exactly matches a variant. Correct action is to avoid correcting this deletion."
+    test_variantAware(sam_D_var, genome, spliceJunctionFile, variantFile, sam_D_var_answer, "test_out/D_variantAware_3.0.7")
 
     print "--------------------Part 4: Noncanonical Splice Junction Correction-------------------------------------"
     print "TranscriptClean corrects each end of the splice junction separately. There are four different cases, each defined by the side under correction and the direction in which the correction is made (ie bases are added or subtracted. It is important to test each case."
