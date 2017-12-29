@@ -219,27 +219,27 @@ def processVCF(vcf, maxLen):
                     if ID not in SNPs:
                         SNPs[ID] = [allele]
                     else:
-                        SNPs[ID] = SNPs[ID].append(allele)
+                        SNPs[ID].append(allele)
                 # Insertion/Deletion
                 else:
                     size = abs(refLen - altLen)
                     if size > maxLen: continue # Only store indels of correctable size
                     # Positions in VCF files are one-based. Inserton/deletion sequences always start with the preceding normal reference base, so we need to add one to pos in order to match with transcript positions
                     # This principle holds for both insertions and deletions.
-                    pos = pos + 1
+                    actPos = pos + 1
                     allele = allele[1:]
-                    ID = "_".join([ chrom, str(pos), str(pos + size - 1)])
+                    ID = "_".join([ chrom, str(actPos), str(actPos + size - 1)])
 
                     if refLen - altLen < 0: # Insertion
                         if ID not in insertions:
                             insertions[ID] = [allele]
                         else:
-                            insertions[ID] = insertions[ID].append(allele)
+                            insertions[ID].append(allele)
                     elif refLen - altLen > 0: # Deletion
                         if ID not in deletions:
                             deletions[ID] = [allele]
                         else:
-                            deletions[ID] = deletions[ID].append(allele)
+                            deletions[ID].append(allele)
     return SNPs, insertions, deletions
 
 def intersectWithVariants(transcriptIndels, variants):

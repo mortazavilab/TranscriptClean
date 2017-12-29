@@ -42,6 +42,8 @@ def main():
     sam_nc_case4 = "sam_files/nc_case4.sam"
     sam_nc_case4_answer = "sam_files/nc_case4_correctAnswer.sam"
 
+    sam_I_var = "sam_files/insertion_variant.sam"
+
     # A transcript comprised of a single exon (no introns) that perfectly matches the reference genome sequence
     # Correct action is to make no changes
     print "--------------------Part 1: Sanity check with perfect reference matches----------------------------------"
@@ -104,6 +106,9 @@ def main():
 
     print "Test 5: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with insertions, deletions, mismatches, and variants as well as a noncanonical splice junction"
     test_variantAware(sam_DIM_nc, genome, spliceJunctionFile, variantFile, sam_DIM_nc_answer, "test_out/DIM_nc_variantAware_3.0.5")
+
+    print "Test 6: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with an insertion that exactly matches a variant. Correct action is to keep the transcript as-is."
+    test_variantAware(sam_I_var, genome, spliceJunctionFile, variantFile, sam_I_var, "test_out/I_variantAware_3.0.6")
 
     print "--------------------Part 4: Noncanonical Splice Junction Correction-------------------------------------"
     print "TranscriptClean corrects each end of the splice junction separately. There are four different cases, each defined by the side under correction and the direction in which the correction is made (ie bases are added or subtracted. It is important to test each case."
