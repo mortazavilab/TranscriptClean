@@ -2,7 +2,6 @@
 # Dana Wyman, 11/20/2017
 # In this version of TranscriptClean, mismatches and microindels in long reads are corrected in a SNP-aware fashion using the reference genome and a VCF file of whitelisted variants. Noncanonical splice junctions can also be corrected using a file of reference splice sites as long as the provided SAM file is splice aware.
 
-## TODO: Add a line to the sam header that explains which input options TranscriptClean was run with
 
 from transcript2 import Transcript2
 from spliceJunction import *
@@ -28,6 +27,7 @@ def getOptions():
                       help = "Maximum distance from annotated splice junction to correct (Default: 5 bp)", type = "int", default = 5 )
     parser.add_option("--outprefix", "-o", dest = "outprefix",
                       help = "output file prefix. '_clean' plus a file extension will be added to the end.", metavar = "FILE", type = "string", default = "out")
+
     # Options that control which sections to run
     parser.add_option("--correctMismatches", "-m", dest = "correctMismatches",
                       help = "If set to false, TranscriptClean will skip mismatch correction. Default: True", type = "string", default = "true" )
@@ -107,11 +107,11 @@ def main():
 def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outLog, genome):
 
     for t in transcripts.keys():
-        print t
         currTranscript = transcripts[t]
         outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
         outFa.write(Transcript2.printableFa(currTranscript) + "\n")
         outLog.write(t + "\t" + ";".join(currTranscript.log) + "\n")
+
     return
 
 def processSAM(sam, genome, spliceAnnot):
@@ -239,33 +239,6 @@ def processVCF(vcf, maxLen):
                         deletions[ID] = 1
 
     return SNPs, insertions, deletions
-
-def intersectWithVariants(transcriptIndels, variants):
-    # This function intersects all transcript insertions or deletions with the variant set to look for the closest overlap. It returns a dictionary where each key chrom_start_end points to the extent of overlap.
-
-    result = {}
-    intersection = str(transcriptIndels.intersect(variants, wao = True)).split("\n")
-    for line in intersection:
-        info = line.split()
-        if len(info) == 0: continue
-        if info[-1] == "0": continue
-        
-        print line
-        chrom = info[0]
-        start = str(int(info[1]) + 1) #(convert back to 1-based)
-        end = info[2]
-        trID = info[3]
-        overlap = int(info[-1])
-        ID = "_".join([chrom, start, end, trID])
-
-        # Add the ID to the result, along with the amount of overlap. Only keep the match with the largest overlap if there is more than one for a transcript.
-        if ID not in result:
-            result[ID] = overlap
-        else:
-            if overlap > result[ID]:
-                result[ID] = overlap
-
-    return result                
 
 def correctInsertions(transcripts, genome, variants, maxLen):
     # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
@@ -444,48 +417,6 @@ def correctDeletions(transcripts, genome, variants, maxLen):
         t.NM, t.MD = t.getNMandMDFlags(genome)
     return 
 
-def createIndelBedtool(transcripts, operation, maxLen):
-    # This function iterates through the transcripts and creates a BedTool object containing each insertion or deletion (depending on whether "I" or "D" is specified in the operation variable).
-    # The purpose is to create a data structure that can be intersected with a VCF file of variants.
-
-    o = open("tmp_indel.bed", 'w')
-    for tID in transcripts.keys():
-        t = transcripts[tID]
-        cigarOps,cigarCounts = t.splitCIGAR()
-    
-        # Check for operation. If none are present, we can skip this transcript
-        if operation not in t.CIGAR : continue
-
-        # Start at position in the genome where the transcript starts.
-        genomePos = t.POS
-
-        # Iterate over CIGAR operations to find positions of the operations that we care about
-        for op,ct in zip(cigarOps, cigarCounts):
-
-            if op == "D":
-                if ct <= maxLen and operation == "D":
-                    bedChrom = t.CHROM
-                    bedStart = genomePos - 1
-                    bedEnd = bedStart + ct
-                    bedName = tID
-                    bedStrand = t.strand
-                    o.write("\t".join([bedChrom, str(bedStart), str(bedEnd), bedName, ".", bedStrand]) + "\n")
-                genomePos += ct
-            if op == "I":
-                if ct <= maxLen and operation == "I":
-                    bedChrom = t.CHROM
-                    bedStart = genomePos - 1
-                    bedEnd = bedStart + ct
-                    bedName = tID
-                    bedStrand = t.strand
-                    o.write("\t".join([bedChrom, str(bedStart), str(bedEnd), bedName, ".", bedStrand]) + "\n")
-            if op in ["M", "N", "H"]:
-                genomePos += ct
-
-    o.close()
-    os.system('bedtools sort -i tmp_indel.bed > sorted_tmp_indel.bed')
-
-    return
 
 def correctMismatches(transcripts, genome, variants):
     # This function corrects mismatches in the sequences. If a variant file was provided, correction will be SNP-aware.
