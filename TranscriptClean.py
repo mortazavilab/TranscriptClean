@@ -6,6 +6,7 @@
 from transcript2 import Transcript2
 from spliceJunction import *
 from intronBound import IntronBound
+from transcriptError import TranscriptError
 from optparse import OptionParser
 import pybedtools
 from pyfasta import Fasta
@@ -96,21 +97,29 @@ def main():
     # Generate the output files
     oSam = open(options.outprefix + "_clean.sam", 'w')
     oFa = open(options.outprefix + "_clean.fa", 'w')
-    oLog = open(options.outprefix + "_clean.log", 'w')
+    oTLog = open(options.outprefix + "_clean.log", 'w')
+    oTranscriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')    
     oSam.write(header)
-    writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, oLog, genome)
-    writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oLog, genome)
+    writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
+    writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
 
     oSam.close()
     oFa.close()
+    oTLog.close()
+    oTranscriptErrorLog.close()
 
-def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outLog, genome):
+def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outTLog, oTranscriptErrorLog, genome):
 
+    oTranscriptErrorLog.write("\t".join(["transcriptID", "position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     for t in transcripts.keys():
         currTranscript = transcripts[t]
         outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
         outFa.write(Transcript2.printableFa(currTranscript) + "\n")
-        outLog.write(t + "\t" + ";".join(currTranscript.log) + "\n")
+        outTLog.write(t + "\t" + ";".join(currTranscript.log) + "\n")
+        for te in currTranscript.transcriptErrors:
+            oTranscriptErrorLog.write(TranscriptError.printable(te) + "\n")
+
+        
 
     return
 
@@ -137,6 +146,7 @@ def processSAM(sam, genome, spliceAnnot):
             # Filter out unmapped transcripts altogether
             if t.CHROM == "*":
                 continue
+
 
             # Assign transcript to canonical or noncanonical group based on splice junctions
             if t.isCanonical == True:
@@ -285,7 +295,9 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                         if currSeq in variants[ID]:
                             comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.updateLog(t, comment)
-
+                            te = TranscriptError(t.QNAME, ID, "Insertion", ct, "False", "VariantMatch")
+                            Transcript2.addTranscriptErrorRecord(t, te)          
+   
                             # Leave insertion in 
                             MVal, newCIGAR = endMatch(MVal, newCIGAR)
                             newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -297,9 +309,14 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                     # Add comment to log indicating that we made a change to the transcript
                     comment = "Corrected_insertion_at_" + ID
                     Transcript2.updateLog(t, comment)
+                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "True", "NA")
+                    Transcript2.addTranscriptErrorRecord(t, te)
+
                     # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
                     seqPos += ct
                 else: # Move on without correcting insertion because it is too big
+                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "False", "TooLarge")
+                    Transcript2.addTranscriptErrorRecord(t, te)
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                     newCIGAR = newCIGAR + str(ct) + op
@@ -382,6 +399,9 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                     # Add comment to log indicating that we made a change to the transcript
                     comment = "Corrected_deletion_at_" + ID
                     Transcript2.updateLog(t, comment)
+                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "True", "NA")
+                    Transcript2.addTranscriptErrorRecord(t, te)
+
                     # Add the missing reference bases
                     refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                     newSeq = newSeq + refBases
@@ -389,6 +409,8 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                     MVal += ct
                 # Deletion is too big to fix
                 else:
+                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "False", "TooLarge")
+                    Transcript2.addTranscriptErrorRecord(t, te)
                     # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newCIGAR = newCIGAR + str(ct) + op
@@ -458,6 +480,9 @@ def correctMismatches(transcripts, genome, variants):
                         # Add comment to log indicating that we declined to change the transcript
                         comment = "DidNotCorrect_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                         Transcript2.updateLog(t, comment)
+                        te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "False", "VariantMatch")
+                        Transcript2.addTranscriptErrorRecord(t, te)
+
                         # Keep the base as-is
                         newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                         MVal += ct
@@ -468,6 +493,8 @@ def correctMismatches(transcripts, genome, variants):
                 # Add comment to log indicating that we made a change to the transcript
                 comment = "Corrected_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                 Transcript2.updateLog(t, comment)
+                te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "True", "NA")
+                Transcript2.addTranscriptErrorRecord(t, te)
 
                 # Change sequence base to the reference base at this position
                 newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
@@ -541,21 +568,27 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
         match = match.split('\t')
         d = int(match[-1])
         transcriptID, spliceJnNum, side = match[3].split("__")
-
-        # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
-        if abs(d) > n:
-            continue
-
         currTranscript = transcripts[transcriptID]
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
+
+        # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
+        if abs(d) > n:
+            ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
+            te = TranscriptError(t.QNAME, ID, "NC_SJ_boundary", d, "False", "TooFarFromAnnotJn")
+            Transcript2.addTranscriptErrorRecord(t, te)
+            continue
+
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome, spliceAnnot)
 
         # Add comment to log indicating that we made a change to the transcript
         comment = "Corrected_SpliceJn_" + str(spliceJnNum) + ":" + str(side) + "_" + str(n) + "bp"
         Transcript2.updateLog(currTranscript, comment)
+        ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
+        te = TranscriptError(t.QNAME, ID, "NC_SJ_boundary", d, "True", "NA")
+        Transcript2.addTranscriptErrorRecord(t, te)
 
-        #t.NM, t.MD = t.getNMandMDFlags(genome)
+        t.NM, t.MD = t.getNMandMDFlags(genome)
     return
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot):
