@@ -100,6 +100,7 @@ def main():
     oTLog = open(options.outprefix + "_clean.log", 'w')
     oTranscriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')    
     oSam.write(header)
+    oTranscriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
     writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
 
@@ -110,7 +111,6 @@ def main():
 
 def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outTLog, oTranscriptErrorLog, genome):
 
-    oTranscriptErrorLog.write("\t".join(["transcriptID", "position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     for t in transcripts.keys():
         currTranscript = transcripts[t]
         outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
