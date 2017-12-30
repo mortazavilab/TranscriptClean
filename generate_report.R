@@ -23,30 +23,41 @@ library(readr)
 library(grid)
 
 # Create custom theme for plots
-customTheme = theme_bw(base_family = "Helvetica") +
-  theme(axis.line.x = element_line(color="black", size = 0.4),
-        axis.line.y = element_line(color="black", size = 0.4)) +
-  theme(axis.title.x = element_text(size=14, margin=margin(5,0,0,0)),
-        axis.text.x  = element_text(margin=margin(7,0,0,0), size=13),
-        axis.title.y = element_text(size=14,  margin=margin(0,15,0,0)),
-        axis.text.y  = element_text(vjust=0.5, size=13) ) +
-  theme(legend.text = element_text(size = 10), legend.title = element_text(size=11), legend.key.size = unit(0.5, "cm")) +
-  theme(plot.title = element_text(lineheight=.4, size=13, margin=margin(-20,0,0,0))) +
-  theme(plot.margin = unit(c(2.5,1,1,1), "cm")) 
+# axis.text controls tick mark labels
+customTheme = suppressMessages(theme_bw(base_family = "Helvetica", base_size = 14) +
+    theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
+    theme(plot.title = element_text(lineheight=.4, size= 15, margin=margin(1,1,1,1))) +
+    theme(axis.line.x = element_line(color="black", size = 0.5),
+        axis.line.y = element_line(color="black", size = 0.5)) +
+
+    theme(axis.title.x = element_text(color="black", size=14, vjust = -2, margin=margin(5,0,0,0)),
+        axis.text.x  = element_text(color="black", vjust=0.75, size=13),
+        axis.title.y = element_text(color="black", size=14, margin=margin(0,10,0,0)),
+        axis.text.y  = element_text(color="black", vjust=0.75, size=13))  +
+    theme(legend.text = element_text(color="black", size = 11), legend.title = element_text(color="black", size=11), legend.key.size = unit(0.5, "cm"))) 
 
 # Set up the report
 pdf(reportFile)
 grid.newpage()
 cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=30, col="black"))
 grid.draw(cover)
-data = read_delim(logFile, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE)
+
+# Read in data from run
+data = suppressMessages(read_delim(logFile, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
 
 # Plot 1: Size distribution of deletions
+# Median and max values are labeled on the plot
 deletions = subset(data, ErrorType == "Deletion")
-ggplot(deletions, aes(factor(Size))) + customTheme + geom_bar(stat="count", fill="navy") + xlab("Deletion length (bp)")  + ylab("Count") + theme(text= element_text(size=13)) + theme(axis.text.x = element_text(color = "black", size=12), axis.text.y = element_text(color = "black", size=12))
-dev.off()
+medianD = round(median(deletions$Size), 2)
+maxD = max(deletions$Size)
+medianLabel = paste("Median =", medianD, sep = " ")
+maxLabel = paste("Max =", maxD, sep = " ")
+plotLabel = paste( medianLabel, maxLabel, sep = "\n") 
+maxCount = max(table(factor(deletions$Size)))
+ggplot(deletions, aes(factor(Size))) + customTheme + geom_bar(stat="count", fill="skyblue") + xlab("Deletion length (bp)")  + ylab("Count") + ggtitle("Size distribution of deletions in transcripts prior to correction\n") + geom_vline(aes(xintercept=medianD), color="black", linetype="dashed", size=0.75) + annotate("text", x = medianD + 2, y = maxCount*0.75, label = plotLabel, color = "black")
 
-# Plot 1: Size distribution of insertions
+quit()
+# Plot 2: Size distribution of insertions
 insertions = subset(data, ErrorType == "Insertion")
 ggplot(insertions, aes(factor(Size))) + customTheme + geom_bar(stat="count", fill="navy") + xlab("Insertion length (bp)")  + ylab("Count") + theme(text= element_text(size=13)) + theme(axis.text.x = element_text(color = "black", size=12), axis.text.y = element_text(color = "black", size=12))
 
