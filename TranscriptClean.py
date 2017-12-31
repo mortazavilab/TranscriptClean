@@ -578,7 +578,11 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
             te = TranscriptError(t.QNAME, ID, "NC_SJ_boundary", d, "False", "TooFarFromAnnotJn")
             Transcript2.addTranscriptErrorRecord(t, te)
             continue
-
+        if d == 0: 
+            currIntronBound.isCanonical = True
+            SpliceJunction.recheckPosition(currJunction)
+            SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)
+            continue
         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome, spliceAnnot)
 
         # Add comment to log indicating that we made a change to the transcript
