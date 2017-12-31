@@ -15,7 +15,7 @@ main <-function() {
 
 
     # Set up the report
-    pdf(reportFile)
+    pdf(reportFile, paper='USr')
     grid.newpage()
     cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=28, col="black"))
     grid.draw(cover)
@@ -68,8 +68,19 @@ main <-function() {
         coord_cartesian(xlim = c(-50, 50))
     print(p3)
 
-    # Plot 4: 
+    # Plot 4: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
+    data[data$Corrected == "True", "Corrected"] = "Corrected"
+    data[data$Corrected == "False", "Corrected"] = "Uncorrected"
+    data_p4 = within(data, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
+    data_p4 = within(data_p4, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
+    data_p4$Category <- gsub(' \\(NA\\)', '', data_p4$Category)
+    plotcolors = c("red3", "red4", "red1", "darkorange", "darkorange4", "goldenrod1", "springgreen4", "springgreen3", "navy", "skyblue")
 
+    p4 = ggplot(data_p4, aes(x=ErrorType, fill=Category)) + geom_bar() +
+        xlab("Error Type") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) 
+    print(p4)
+
+     
 
     dev.off()
 
@@ -94,7 +105,7 @@ setupRun <- function() {
     # Create custom theme for plots
     # axis.text controls tick mark labels
     customTheme = suppressMessages(theme_bw(base_family = "Helvetica", base_size = 14) +
-        theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
+        #theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
         theme(plot.title = element_text(lineheight=1, size= 13.5, margin=margin(-10,1,1,1))) +
         theme(axis.line.x = element_line(color="black", size = 0.5),
         axis.line.y = element_line(color="black", size = 0.5)) +
@@ -103,7 +114,7 @@ setupRun <- function() {
         axis.text.x  = element_text(color="black", vjust=0.75, size=13),
         axis.title.y = element_text(color="black", size=14, margin=margin(0,10,0,0)),
         axis.text.y  = element_text(color="black", vjust=0.75, size=13))  +
-        theme(legend.text = element_text(color="black", size = 11), legend.title = element_text(color="black", size=11), legend.key.size = unit(0.5, "cm")))
+        theme(legend.text = element_text(color="black", size = 8), legend.title = element_text(color="black", size=11), legend.key.size = unit(0.5, "cm")))
 
     return(customTheme)
 }
