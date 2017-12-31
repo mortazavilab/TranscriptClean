@@ -17,7 +17,7 @@ main <-function() {
     # Set up the report
     pdf(reportFile)
     grid.newpage()
-    cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=30, col="black"))
+    cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=28, col="black"))
     grid.draw(cover)
 
 
@@ -39,6 +39,7 @@ main <-function() {
     print(p1)
 
     # Plot 2: Size distribution of insertions
+    # Median and max values are labeled on the plot
     insertions = subset(data, ErrorType == "Insertion")
     maxCount = max(table(factor(insertions$Size)))
     medianI = median(insertions$Size)
@@ -52,6 +53,22 @@ main <-function() {
 
 
     # Plot 3: If noncanonical splice junction correction mode enabled, plot distribution of distance to nearest annotated junction
+    # Median and max values are labeled on the plot
+    ncSJs = subset(data, ErrorType == "NC_SJ_boundary")
+    maxCount = max(table(factor(ncSJs$Size)))
+    medianS = median(ncSJs$Size)
+    lab = getMedMaxLabel(ncSJs$Size)
+    print(summary(ncSJs$Size))
+
+    p3 = ggplot(ncSJs, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
+        xlab("Distance from annotated splice site (bp)") + ylab("Count") + customTheme +
+        ggtitle("Distribution of distance between noncanonical splice sites and \ntheir nearest annotated splice site\n") +
+        geom_vline(aes(xintercept=medianS), color="grey", linetype="dashed", size=0.75) +
+        annotate("text", x = lineLabelPos(length(lab), medianS, 100), y = maxCount*0.75, label = lab, color = "black") + 
+        coord_cartesian(xlim = c(-50, 50))
+    print(p3)
+
+    # Plot 4: 
 
 
     dev.off()
@@ -78,7 +95,7 @@ setupRun <- function() {
     # axis.text controls tick mark labels
     customTheme = suppressMessages(theme_bw(base_family = "Helvetica", base_size = 14) +
         theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
-        theme(plot.title = element_text(lineheight=.4, size= 13.5, margin=margin(-10,1,1,1))) +
+        theme(plot.title = element_text(lineheight=1, size= 13.5, margin=margin(-10,1,1,1))) +
         theme(axis.line.x = element_line(color="black", size = 0.5),
         axis.line.y = element_line(color="black", size = 0.5)) +
 
