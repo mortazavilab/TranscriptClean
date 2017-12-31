@@ -388,6 +388,8 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                         currSeq = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                         comment = "DidNotCorrect_deletion_at_" + currPos + "_becauseVariantMatch"
                         Transcript2.updateLog(t, comment)
+                        te = TranscriptError(t.QNAME, ID, "Deletion", ct, "False", "VariantMatch")
+                        Transcript2.addTranscriptErrorRecord(t, te)
 
                         # Leave deletion in
                         MVal, newCIGAR = endMatch(MVal, newCIGAR)
