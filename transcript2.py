@@ -2,6 +2,7 @@
 
 from spliceJunction import SpliceJunction
 from intronBound import IntronBound
+from transcriptError import TranscriptError
 import pyfasta
 import pybedtools
 import re
@@ -13,6 +14,7 @@ class Transcript2:
 
         # Keep track of changes for log file
         self.log = []
+        self.transcriptErrors = []
 
         # These eleven attributes are initialized directly from the input SAM entry and are mandatory 
         self.QNAME = samFields[0]
@@ -68,6 +70,13 @@ class Transcript2:
         log.append(newEntry)
         self.log = log
         return    
+
+    def addTranscriptErrorRecord(self, te):
+    # This function adds an error record object to the transcript
+        records = self.transcriptErrors
+        records.append(te)
+        self.transcriptErrors = records
+        return
 
     def recheckCanonical(self):
         for jn in self.spliceJunctions:
