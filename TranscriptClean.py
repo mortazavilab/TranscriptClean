@@ -309,13 +309,13 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                     # Add comment to log indicating that we made a change to the transcript
                     comment = "Corrected_insertion_at_" + ID
                     Transcript2.updateLog(t, comment)
-                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "True", "NA")
+                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "Corrected", "NA")
                     Transcript2.addTranscriptErrorRecord(t, te)
 
                     # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
                     seqPos += ct
                 else: # Move on without correcting insertion because it is too big
-                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "False", "TooLarge")
+                    te = TranscriptError(t.QNAME, ID, "Insertion", ct, "Uncorrected", "TooLarge")
                     Transcript2.addTranscriptErrorRecord(t, te)
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -401,7 +401,7 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                     # Add comment to log indicating that we made a change to the transcript
                     comment = "Corrected_deletion_at_" + ID
                     Transcript2.updateLog(t, comment)
-                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "True", "NA")
+                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "Corrected", "NA")
                     Transcript2.addTranscriptErrorRecord(t, te)
 
                     # Add the missing reference bases
@@ -411,7 +411,7 @@ def correctDeletions(transcripts, genome, variants, maxLen):
                     MVal += ct
                 # Deletion is too big to fix
                 else:
-                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "False", "TooLarge")
+                    te = TranscriptError(t.QNAME, ID, "Deletion", ct, "Uncorrected", "TooLarge")
                     Transcript2.addTranscriptErrorRecord(t, te)
                     # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -482,7 +482,7 @@ def correctMismatches(transcripts, genome, variants):
                         # Add comment to log indicating that we declined to change the transcript
                         comment = "DidNotCorrect_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                         Transcript2.updateLog(t, comment)
-                        te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "False", "VariantMatch")
+                        te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "Uncorrected", "VariantMatch")
                         Transcript2.addTranscriptErrorRecord(t, te)
 
                         # Keep the base as-is
@@ -495,7 +495,7 @@ def correctMismatches(transcripts, genome, variants):
                 # Add comment to log indicating that we made a change to the transcript
                 comment = "Corrected_mismatch_at_" + t.CHROM + ":" + str(genomePos)
                 Transcript2.updateLog(t, comment)
-                te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "True", "NA")
+                te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "Corrected", "NA")
                 Transcript2.addTranscriptErrorRecord(t, te)
 
                 # Change sequence base to the reference base at this position
@@ -577,8 +577,8 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
         # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
         if abs(d) > n:
             ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
-            te = TranscriptError(t.QNAME, ID, "NC_SJ_boundary", d, "False", "TooFarFromAnnotJn")
-            Transcript2.addTranscriptErrorRecord(t, te)
+            te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Uncorrected", "TooFarFromAnnotJn")
+            Transcript2.addTranscriptErrorRecord(currTranscript, te)
             continue
         if d == 0: 
             currIntronBound.isCanonical = True
@@ -591,10 +591,10 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
         comment = "Corrected_SpliceJn_" + str(spliceJnNum) + ":" + str(side) + "_" + str(n) + "bp"
         Transcript2.updateLog(currTranscript, comment)
         ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
-        te = TranscriptError(t.QNAME, ID, "NC_SJ_boundary", d, "True", "NA")
-        Transcript2.addTranscriptErrorRecord(t, te)
+        te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Corrected", "NA")
+        Transcript2.addTranscriptErrorRecord(currTranscript, te)
 
-        t.NM, t.MD = t.getNMandMDFlags(genome)
+        currTranscript.NM, currTranscript.MD = t.getNMandMDFlags(genome)
     return
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot):
