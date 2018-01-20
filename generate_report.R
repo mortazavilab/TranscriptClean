@@ -7,22 +7,25 @@ main <-function() {
 
     # Read input arguments
     args = commandArgs(trailingOnly = TRUE)
-    logFile = args[1]
-    prefix = args[2]
+    prefix = args[1]
+
+    logFileTE = paste(prefix, "_clean.TE.log", sep = "")
+    logFileVerbose = paste(prefix, "_clean.log", sep = "")
 
     customTheme = setupRun()
     reportFile = paste(prefix, "report.pdf", sep="_")
 
 
     # Set up the report
-    pdf(reportFile, paper='USr')
+    #pdf(reportFile, paper='USr')
+    pdf(reportFile, paper ='letter', width = 7, height = 7)
     grid.newpage()
     cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=28, col="black"))
     grid.draw(cover)
 
 
     # Read in data from run
-    data = suppressMessages(read_delim(logFile, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
+    data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
 
     # Plot 1: Size distribution of deletions
     # Median and max values are labeled on the plot
@@ -74,14 +77,45 @@ main <-function() {
     data_p4 = within(data, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
     data_p4 = within(data_p4, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
     data_p4$Category <- gsub(' \\(NA\\)', '', data_p4$Category)
-    plotcolors = c("red3", "red4", "red1", "darkorange", "darkorange4", "goldenrod1", "springgreen4", "springgreen3", "navy", "skyblue")
+    plotcolors = c("red1", "red4", "red3", "goldenrod1", "darkorange4", "darkorange", "springgreen3", "springgreen4", "skyblue", "navy")
+    catOrder = c("Deletion Uncorrected (TooLarge)", "Deletion Uncorrected (VariantMatch)", "Deletion Corrected",
+                 "Insertion Uncorrected (TooLarge)", "Insertion Uncorrected (VariantMatch)", "Insertion Corrected",
+                 "Mismatch Uncorrected (VariantMatch)", "Mismatch Corrected",
+                 "NC_SJ_boundary Uncorrected (TooFarFromAnnotJn)", "NC_SJ_boundary Corrected")   
 
-    p4 = ggplot(data_p4, aes(x=ErrorType, fill=Category)) + geom_bar() +
-        xlab("Error Type") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) 
+    p4 = ggplot(data_p4, aes(x=ErrorType, fill=factor(Category, levels=catOrder))) + geom_bar() +
+        xlab("") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) +
+        ggtitle("Overview of corrections made to insertions, deletions, \nmismatches, and noncanonical splice sites") +
+        theme(axis.text.x = element_text(angle = 45))
     print(p4)
+    
+    # Plot 5: Percentage of transcripts containing error of a given type before and after TranscriptClean 
+    cmd = paste("wc -l <", logFileVerbose, sep = " ") 
+    totalTranscripts = as.numeric(system(cmd, intern = TRUE)) # get total transcript number from other log file because TE log only records errors
+    print(totalTranscripts)
 
-     
+    transcriptsDBefore = length(unique(subset(data, ErrorType == "Deletion")$TranscriptID)) 
+    transcriptsDAfter = length(unique(subset(data, ErrorType == "Deletion" & Corrected == "Uncorrected")$TranscriptID))
 
+    transcriptsIBefore = length(unique(subset(data, ErrorType == "Insertion")$TranscriptID))
+    transcriptsIAfter = length(unique(subset(data, ErrorType == "Insertion" & Corrected == "Uncorrected")$TranscriptID))
+
+    transcriptsMBefore = length(unique(subset(data, ErrorType == "Mismatch")$TranscriptID))
+    transcriptsMAfter = length(unique(subset(data, ErrorType == "Mismatch" & Corrected == "Uncorrected")$TranscriptID))
+
+    transcriptsSJBefore = length(unique(subset(data, ErrorType == "NC_SJ_boundary")$TranscriptID))
+    transcriptsSJAfter = length(unique(subset(data, ErrorType == "NC_SJ_boundary" & Corrected == "Uncorrected")$TranscriptID))
+
+    data_p5 = data.frame(ErrorType=c("Deletion", "Insertion", "Mismatch", "NC_SJ"), Before=c(transcriptsDBefore, transcriptsIBefore, transcriptsMBefore, transcriptsSJBefore), After=c(transcriptsDAfter, transcriptsIAfter, transcriptsMAfter, transcriptsSJAfter))
+    data_p5 = melt(data_p5)
+    data_p5$percent = vapply(as.numeric(data_p5$value), percent, numeric(1), totalTranscripts)
+    data_p5$percent = paste(data_p5$percent,"%",sep="")
+
+    p5 = ggplot(data=data_p5, aes(x=ErrorType, y=value, fill = variable)) + geom_bar(stat="identity",position="dodge") +
+        xlab("Error Type") + ylab("Number of transcripts containing at least one error") + customTheme + scale_fill_manual("", values = c("skyblue", "navy")) + 
+        ggtitle("Transcripts containing a given error type before and after \nTranscriptClean correction") + 
+        geom_text(data=data_p5, aes(label=percent), position=position_dodge(width=0.9), vjust=-0.25)
+    print(p5)
     dev.off()
 
 }
@@ -101,11 +135,12 @@ setupRun <- function() {
     library(ggplot2)
     library(readr)
     library(grid)
+    library(reshape2)
 
     # Create custom theme for plots
     # axis.text controls tick mark labels
     customTheme = suppressMessages(theme_bw(base_family = "Helvetica", base_size = 14) +
-        #theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
+        theme(plot.margin = unit(c(2.5,1,1,1), "cm")) +
         theme(plot.title = element_text(lineheight=1, size= 13.5, margin=margin(-10,1,1,1))) +
         theme(axis.line.x = element_line(color="black", size = 0.5),
         axis.line.y = element_line(color="black", size = 0.5)) +
@@ -120,6 +155,12 @@ setupRun <- function() {
 }
 
 # ------------------Utilities for plotting------------------------------
+
+percent <- function(x, tot) {
+    # Calculate the percentage of x relative to total, and round to two decimal places
+    p = round(100*x/tot, 2)
+    return(p)
+}
 
 lineLabelPos <- function(labelLen, linePos, axisLen) {
     # A common need in my plots is to be able to attach a label to a line
