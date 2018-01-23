@@ -205,6 +205,12 @@ def processVCF(vcf, maxLen):
     insertions = {}
     deletions = {}
 
+    # Check if SNP file is gzipped. If it is, access contents with zcat
+    if vcf.endswith(".gz"):
+        tmpFile = "tmp.snps"
+        os.system("zcat " + vcf + " > " +  tmpFile)
+        vcf = tmpFile
+
     with open(vcf, 'r') as f:
         for line in f:
             line = line.strip()
@@ -247,6 +253,8 @@ def processVCF(vcf, maxLen):
                             insertions[ID].append(allele)
                     elif refLen - altLen > 0: # Deletion
                         deletions[ID] = 1
+    cmd = "rm -f " + tmpFile
+    os.system(cmd)
 
     return SNPs, insertions, deletions
 
