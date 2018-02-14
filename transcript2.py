@@ -27,7 +27,7 @@ class Transcript2:
         self.PNEXT = samFields[7]
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
-        self.QUAL = samFields[10]
+        self.QUAL = "*"
 
         # If the sam entry contains additional optional fields, process them here
         self.NM = ""

@@ -119,13 +119,13 @@ def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outTLog, oTra
         for te in currTranscript.transcriptErrors:
             oTranscriptErrorLog.write(TranscriptError.printable(te) + "\n")
 
-        
-
     return
 
 def processSAM(sam, genome, spliceAnnot):
-    # This function extracts the SAM header (because we'll need that later) and creates a Transcript object for every sam transcript. 
-    # Transcripts are returned two separate lists: one canonical and one noncanonical. 
+    """ Extracts the SAM header (for use in the output files at the end) and 
+    creates a Transcript object for every transcript in the SAM file. 
+    Transcripts are returned two separate dicts: one for canonical transcripts 
+    and one for noncanonical."""
 
     header = ""
     canTranscripts = {}
@@ -134,12 +134,14 @@ def processSAM(sam, genome, spliceAnnot):
     with open(sam, 'r') as f:
         for line in f:
             line = line.strip()
-            if line.startswith("@"):
+
+            if line.startswith("@"): # header line
                 header = header + line + "\n"
                 continue
             t = Transcript2(line, genome, spliceAnnot)
 
-            # Filter out transcripts that are multimapping. The primary alignment will still be kept because its flag is <= 16
+            # Filter out transcript if entry is multimapped. 
+            # The primary alignment will still be kept because its flag is <= 16
             if int(t.FLAG) > 16:
                 continue
 
@@ -147,8 +149,7 @@ def processSAM(sam, genome, spliceAnnot):
             if t.CHROM == "*":
                 continue
 
-
-            # Assign transcript to canonical or noncanonical group based on splice junctions
+            # Assign to canonical or noncanonical group based on splice junctions
             if t.isCanonical == True:
                 canTranscripts[t.QNAME] = t
             else:
@@ -223,9 +224,11 @@ def processVCF(vcf, maxLen):
             pos = int(fields[1])
             ref = fields[3]
             alt = fields[4].split(",")
- 
             refLen = len(ref)
-            # It is possible for a single position to have more than one type of alternate allele (ie mismatch or indel). So it is necessary to treat each alternate allele separately.
+
+            # It is possible for a single position to have more than one 
+            # type of alternate allele (ie mismatch or indel). So it is 
+            # necessary to treat each alternate allele separately.
             for allele in alt:
                 altLen = len(allele)
 
@@ -239,8 +242,12 @@ def processVCF(vcf, maxLen):
                 # Insertion/Deletion
                 else:
                     size = abs(refLen - altLen)
-                    if size > maxLen: continue # Only store indels of correctable size
-                    # Positions in VCF files are one-based. Inserton/deletion sequences always start with the preceding normal reference base, so we need to add one to pos in order to match with transcript positions
+                    # Only store indels of correctable size
+                    if size > maxLen: continue 
+                    # Positions in VCF files are one-based. 
+                    # Inserton/deletion sequences always start with the 
+                    # preceding normal reference base, so we need to add 
+                    # one to pos in order to match with transcript positions.
                     # This principle holds for both insertions and deletions.
                     actPos = pos + 1
                     allele = allele[1:]
@@ -259,7 +266,8 @@ def processVCF(vcf, maxLen):
     return SNPs, insertions, deletions
 
 def correctInsertions(transcripts, genome, variants, maxLen):
-    # This function corrects insertions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
+    # Corrects insertions up to size maxLen using the reference genome. 
+    # If a variant file was provided, correction will be SNP-aware.
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -354,7 +362,8 @@ def correctInsertions(transcripts, genome, variants, maxLen):
     return    
 
 def correctDeletions(transcripts, genome, variants, maxLen):
-    # This function corrects deletions up to size maxLen using the reference genome. If a variant file was provided, correction will be SNP-aware.
+    # Corrects deletions up to size maxLen using the reference genome. 
+    # If a variant file was provided, correction will be SNP-aware.
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -453,12 +462,12 @@ def correctDeletions(transcripts, genome, variants, maxLen):
 def correctMismatches(transcripts, genome, variants):
     # This function corrects mismatches in the sequences. If a variant file was provided, correction will be SNP-aware.
    
-    for t in transcripts.keys():
-        t = transcripts[t]
+    for transcript in transcripts.keys():
+        transcript = transcripts[transcript]
 
-        origSeq = t.SEQ
-        origCIGAR = t.CIGAR
-        origMD = t.MD
+        origSeq = transcript.SEQ
+        origCIGAR = transcript.CIGAR
+        origMD = transcript.MD
 
         # Check for mismatches. If none are present, we can skip this transcript
         if any(i in origMD.upper() for i in 'ACTGN') == False : continue
@@ -466,10 +475,10 @@ def correctMismatches(transcripts, genome, variants):
         newSeq = ""
         MVal = 0
         seqPos = 0
-        genomePos = t.POS
+        genomePos = transcript.POS
 
         # Merge CIGAR and MD tag information so that we have the locations of all insertions, deletions, and mismatches
-        mergeOperations, mergeCounts = t.mergeMDwithCIGAR()
+        mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
 
         # Iterate over operations to sequence and repair mismatches and microindels
         for op,ct in zip(mergeOperations, mergeCounts):
@@ -482,16 +491,16 @@ def correctMismatches(transcripts, genome, variants):
             # This denotes a mismatch
             if op == "X":
                 # Check if the position matches a variant in the optional variant catalog. 
-                ID = t.CHROM + "_" + str(genomePos)
+                ID = transcript.CHROM + "_" + str(genomePos)
                 if ID in variants:
                 # Mismatch position matches a known variant. If the base matches an alternative allele, do not correct it.
                     currBase = origSeq[seqPos]
                     if currBase in variants[ID]: 
                         # Add comment to log indicating that we declined to change the transcript
-                        comment = "DidNotCorrect_mismatch_at_" + t.CHROM + ":" + str(genomePos)
-                        Transcript2.updateLog(t, comment)
-                        te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "Uncorrected", "VariantMatch")
-                        Transcript2.addTranscriptErrorRecord(t, te)
+                        comment = "DidNotCorrect_mismatch_at_" + transcript.CHROM + ":" + str(genomePos)
+                        Transcript2.updateLog(transcript, comment)
+                        te = TranscriptError(transcript.QNAME, ID, "Mismatch", ct, "Uncorrected", "VariantMatch")
+                        Transcript2.addTranscriptErrorRecord(transcript, te)
 
                         # Keep the base as-is
                         newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -501,13 +510,13 @@ def correctMismatches(transcripts, genome, variants):
                         continue
                 # Otherwise, correct the mismatch to reference base
                 # Add comment to log indicating that we made a change to the transcript
-                comment = "Corrected_mismatch_at_" + t.CHROM + ":" + str(genomePos)
-                Transcript2.updateLog(t, comment)
-                te = TranscriptError(t.QNAME, ID, "Mismatch", ct, "Corrected", "NA")
-                Transcript2.addTranscriptErrorRecord(t, te)
+                comment = "Corrected_mismatch_at_" + transcript.CHROM + ":" + str(genomePos)
+                Transcript2.updateLog(transcript, comment)
+                te = TranscriptError(transcript.QNAME, ID, "Mismatch", ct, "Corrected", "NA")
+                Transcript2.addTranscriptErrorRecord(transcript, te)
 
                 # Change sequence base to the reference base at this position
-                newSeq = newSeq + genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                newSeq = newSeq + genome.sequence({'chr': transcript.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                 seqPos += ct # skip the original sequence base
                 genomePos += ct # advance the genome position
                 MVal += ct
@@ -528,9 +537,9 @@ def correctMismatches(transcripts, genome, variants):
         # End any ongoing match
         MVal, newCIGAR = endMatch(MVal, newCIGAR)
 
-        t.CIGAR = newCIGAR
-        t.SEQ = newSeq
-        t.NM, t.MD = t.getNMandMDFlags(genome)
+        transcript.CIGAR = newCIGAR
+        transcript.SEQ = newSeq
+        transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     return 
 
                         
@@ -569,8 +578,8 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
     nc = pybedtools.BedTool("sorted_tmp_nc.bed")
     jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
 
-    os.system("rm tmp_nc.bed")
-    os.system("rm sorted_tmp_nc.bed")
+    #os.system("rm tmp_nc.bed")
+    #os.system("rm sorted_tmp_nc.bed")
 
     # Iterate over noncanonical splice junction boundaries and their closest canonical match. 
     for match in jnMatches:
@@ -582,13 +591,16 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
         currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
         currIntronBound = currJunction.bounds[int(side)]
 
+        ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
         # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
         if abs(d) > n:
-            ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
             te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Uncorrected", "TooFarFromAnnotJn")
             Transcript2.addTranscriptErrorRecord(currTranscript, te)
             continue
-        if d == 0: 
+        if d == 0:
+            te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Corrected", "NA")
+            Transcript2.addTranscriptErrorRecord(currTranscript, te)            
+ 
             currIntronBound.isCanonical = True
             SpliceJunction.recheckPosition(currJunction)
             SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)
@@ -598,7 +610,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
         # Add comment to log indicating that we made a change to the transcript
         comment = "Corrected_SpliceJn_" + str(spliceJnNum) + ":" + str(side) + "_" + str(n) + "bp"
         Transcript2.updateLog(currTranscript, comment)
-        ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
         te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Corrected", "NA")
         Transcript2.addTranscriptErrorRecord(currTranscript, te)
 
