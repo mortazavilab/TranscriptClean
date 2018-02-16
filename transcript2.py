@@ -7,6 +7,7 @@ import pyfasta
 import pybedtools
 import re
 import itertools
+import string
 
 class Transcript2:
     def __init__(self, sam, genome, spliceAnnot):
@@ -57,7 +58,7 @@ class Transcript2:
         self.spliceJunctions = []
         self.isCanonical = True
         self.strand = "+"        
-        if self.FLAG == 16: self.strand = "-"
+        if int(self.FLAG) == 16: self.strand = "-"
 
         # Only run this section if there are splice junctions
         if self.jM != "" and "-1" not in self.jM:
@@ -130,11 +131,6 @@ class Transcript2:
     
         cigarOperation, cigarCount = self.splitCIGAR()
         mdOperation, mdCount = self.splitMD() 
-        #cigarOperation = ["M", "I", "M", "D", "M"] #self.splitCIGAR()
-        #cigarCount = [31, 1, 17, 1, 37]
-
-        #mdOperation = ["M", "X", "M", "X", "M", "X", "M", "X", "M", "X", "M", "X", "M", "D", "M", "X", "M", "X", "M", "X", "M" ]  #self.splitMD()  
-        #mdCount = [6, 1, 4, 1, 20, 1, 1, 1, 5, 1, 5, 1, 1, 1, 3, 1, 15, 1, 1, 1, 15]
 
         mdIndex = 0
         cigarIndex = 0
@@ -209,9 +205,15 @@ class Transcript2:
 
     def printableFa(self):
         # Returns a fasta-formatted string representation of the transcript
-        fasta1 = ">" + self.QNAME
-        fastaSeq = [self.SEQ[i:i+80] for i in range(0, len(self.SEQ), 80)]
-        return fasta1 + "\n" + "\n".join(fastaSeq)
+        fastaID = ">" + self.QNAME
+        strand = self.strand
+        seq = self.SEQ
+        if strand == "-": # Need to reverse-complement the sequence
+            seq = reverseComplement(seq)
+   
+        # Split seq into 80-character segments
+        fastaSeq = [seq[i:i+80] for i in range(0, len(seq), 80)]
+        return fastaID + "\n" + "\n".join(fastaSeq)
 
     def getAllIntronBounds(self):
         # Return all intron bound objects belonging to this transcript
@@ -339,6 +341,14 @@ def getSJMotifCode(startBases, endBases):
     else:
         return 0
         
+def reverseComplement(seq):
+    """ Returns the reverse complement of a DNA sequence, 
+        retaining the case of each letter"""
 
- 
-                  
+    # Transition mapping for each letter
+    trans = string.maketrans('ATGCNatgcn', 'TACGNtacgn')
+
+    # Map and reverse
+    reverseComplement = seq.translate(trans)[::-1]
+
+    return reverseComplement
