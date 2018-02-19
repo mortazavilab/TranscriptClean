@@ -51,7 +51,7 @@ def main():
 
     if options.spliceAnnot != None:
         print "Processing annotated splice junctions ..."
-        annotatedSpliceJns, sjDict = processSpliceAnnotation(options.spliceAnnot)
+        annotatedSpliceJns, sjDict = processSpliceAnnotation(options.spliceAnnot, options.outprefix)
     else:
         print "No splice annotation provided. Will skip splice junction correction."
         sjDict = {}
@@ -90,7 +90,7 @@ def main():
             correctDeletions(noncanTranscripts, genome, deletions, maxLenIndel)
         if options.spliceAnnot != None and options.correctSJs.lower() == "true":
             print "Rescuing noncanonical junctions............."
-            cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict)
+            cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, options.outprefix)
 
     print "Writing output to sam file and fasta file.................."
 
@@ -157,13 +157,15 @@ def processSAM(sam, genome, spliceAnnot):
 
     return header, canTranscripts, noncanTranscripts 
 
-def processSpliceAnnotation(annotFile):
+def processSpliceAnnotation(annotFile, outprefix):
     # This function reads in the tab-separated STAR splice junction file and creates a bedtools object
-    # Also creates a dict to allow easy lookup to find out if a splice junction is annotated or not
+    # Also creates a dict (annot) to allow easy lookup to find out if a splice junction is annotated or not
 
     bedstr = ""
     annot = {}
-    o = open("TC-tmp.bed", 'w')
+    fName = outprefix + "_ref_splice_jns_tmp.bed"
+    fNameSorted = outprefix + "_ref_splice_jns_tmp.sorted.bed"
+    o = open(fName, 'w')
     with open(annotFile, 'r') as f:
         for line in f:
             fields = line.strip().split("\t")
@@ -194,9 +196,10 @@ def processSpliceAnnotation(annotFile):
     o.close()
 
     # Convert bed file into BedTool object
-    os.system('bedtools sort -i TC-tmp.bed > TC-tmp2.bed')
-    bt = pybedtools.BedTool("TC-tmp2.bed")
-    return bt, annot
+    os.system('bedtools sort -i ' + fName + ' >' + fNameSorted)
+    spliceJnBedTool = pybedtools.BedTool(fNameSorted)
+    os.system("rm " + fName)
+    return spliceJnBedTool, annot
 
 def processVCF(vcf, maxLen):
     # This function reads in variants from a VCF file and stores them.
@@ -554,13 +557,13 @@ def endMatch(MVal, newCIGAR):
 
     return MVal, newCIGAR
 
-def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
+def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, outprefix):
     # Iterate over noncanonical transcripts. Determine whether each end is within n basepairs of an annotated junction.
     # If it is, run the rescue function on it. If not, discard the transcript.
 
-    o = open("tmp_nc.bed", 'w')
-    salvageableNCJns = 0
-    totNC = len(transcripts)
+    fName = outprefix + "_noncanonicalJnHalves_tmp.bed"
+    fNameSorted = outprefix + "_sorted_noncanonicalJnHalves_tmp.bed"
+    o = open(fName, 'w')
     for tID in transcripts.keys():
         t = transcripts[tID]
         bounds = Transcript2.getAllIntronBounds(t)
@@ -574,47 +577,95 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot):
             o.write(pos + "\n")
 
     o.close()
-    os.system('bedtools sort -i tmp_nc.bed > sorted_tmp_nc.bed')
-    nc = pybedtools.BedTool("sorted_tmp_nc.bed")
-    jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
-
-    #os.system("rm tmp_nc.bed")
-    #os.system("rm sorted_tmp_nc.bed")
+    os.system('bedtools sort -i ' + fName + ' > ' + fNameSorted)
+    nc = pybedtools.BedTool(fNameSorted)
+    #jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
+    jnMatchFile = outprefix + "_jnMatches_tmp.bed"
+    (nc.closest(annotatedJunctions, s=True, D="ref", t="first")).saveas(jnMatchFile)
+    jnMatchFileSorted = outprefix + "_jnMatches_sorted_tmp.bed"
+    os.system("sort -k 4,4 " + jnMatchFile  + " > " + jnMatchFileSorted)
+    
+    # Cleanup 
+    os.system("rm " + fName)
+    os.system("rm " + fNameSorted)
 
     # Iterate over noncanonical splice junction boundaries and their closest canonical match. 
-    for match in jnMatches:
-        if len(match) == 0: continue
-        match = match.split('\t')
-        d = int(match[-1])
-        transcriptID, spliceJnNum, side = match[3].split("__")
-        currTranscript = transcripts[transcriptID]
-        currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
-        currIntronBound = currJunction.bounds[int(side)]
+    # We process two consecutive lines at once because these represent each side of the jn.
+    with open(jnMatchFileSorted, 'r') as f:
+        for junction_half_0 in f:
+            junction_half_1 = f.next()
+            
+            junction_half_0 = junction_half_0.strip().split("\t")
+            junction_half_1 = junction_half_1.strip().split("\t")
+            
+            # Distances from annotated junction
+            dist_0 = int(junction_half_0[-1])
+            dist_1 = int(junction_half_1[-1])
 
-        ID = "_".join([currIntronBound.chrom, str(currIntronBound.pos)])
-        # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
-        if abs(d) > n:
-            te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Uncorrected", "TooFarFromAnnotJn")
-            Transcript2.addTranscriptErrorRecord(currTranscript, te)
-            continue
-        if d == 0:
-            te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Corrected", "NA")
-            Transcript2.addTranscriptErrorRecord(currTranscript, te)            
- 
-            currIntronBound.isCanonical = True
-            SpliceJunction.recheckPosition(currJunction)
-            SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)
-            continue
-        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, d, genome, spliceAnnot)
+            # Get information about the transcript that the junction belongs to
+            transcriptID, spliceJnNum = junction_half_0[3].split("__")[:2]
+            currTranscript = transcripts[transcriptID]
+            currJunction = currTranscript.spliceJunctions[int(spliceJnNum)]
+            ID = "_".join([currJunction.chrom, str(currJunction.start), str(currJunction.end)]) 
+            
+            # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
+            combinedDist = combinedJunctionDist(dist_0, dist_1)
+            if combinedDist > n:
+                te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", str(dist_0) + "_" + str(dist_1), "Uncorrected", "TooFarFromAnnotJn")
+                Transcript2.addTranscriptErrorRecord(currTranscript, te)   
+            else:
+                for jn in [junction_half_0, junction_half_1]: # Perform correction 
+                    side = jn[3].split("__")[-1]
+                    currIntronBound = currJunction.bounds[int(side)]
+                    currDist = int(jn[-1])
+                    
+                    # It is possible for one side to the junction to match the annotation. If so, do not change this side
+                    if currDist == 0:
+                        currIntronBound.isCanonical = True
+                        SpliceJunction.recheckPosition(currJunction)
+                        SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)       
+                    else:
+                        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, currDist, genome, spliceAnnot)
 
-        # Add comment to log indicating that we made a change to the transcript
-        comment = "Corrected_SpliceJn_" + str(spliceJnNum) + ":" + str(side) + "_" + str(n) + "bp"
-        Transcript2.updateLog(currTranscript, comment)
-        te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", d, "Corrected", "NA")
-        Transcript2.addTranscriptErrorRecord(currTranscript, te)
+                # Add comment to log indicating that we corrected the splice junction
+                comment = "Corrected_SpliceJn_" + str(spliceJnNum) + "_" + str(combinedDist) + "bp"
+                Transcript2.updateLog(currTranscript, comment)
+                te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", str(dist_0) + "_" + str(dist_1), "Corrected", "NA")
+                Transcript2.addTranscriptErrorRecord(currTranscript, te)
 
-        currTranscript.NM, currTranscript.MD = t.getNMandMDFlags(genome)
+                currTranscript.NM, currTranscript.MD = t.getNMandMDFlags(genome)
     return
+
+def combinedJunctionDist(dist_0, dist_1):
+    """Computes the combined genomic distance of two splice junction ends
+    from the closest annotated junctions. In essence, it is finding the 
+    size indel that could have created the discrepancy between the 
+    reference and transcript junctions.    
+
+    Examples ('|' character respresents end of exon):
+
+        Reference:     ----->|          |<-----
+        Transcript:      ----->|      |<-----
+            dist_0 = -2, dist_1 = +2, combined dist = 4
+
+        Reference:     ----->|          |<-----
+        Transcript:    ----->|        |<-----
+            dist_0 = 0, dist_1 = +2, combined dist = 2
+
+        Reference:     ----->|          |<-----
+        Transcript:   ----->|       |<-----
+            dist_0 = +1, dist_1 = +4, combined dist = 3
+
+    """
+    # If dist_0 and dist_1 have different signs, the combined distance is
+    # the sum of their absolute values
+    if dist_0*dist_1 <= 0:
+        combined_dist = abs(dist_0) + abs(dist_1)
+ 
+    else:
+        combined_dist = abs(abs(dist_0) - abs(dist_1))
+    return combined_dist
+
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot):
 
@@ -681,7 +732,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
         # Modify exon string
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
         intronCIGARs[targetJn] += d
-    transcript.SEQ = ''.join(exonSeqs)
+    transcript.SEQ = str(''.join(exonSeqs))
 
     # Paste together the new CIGAR string
     newCIGAR = ""

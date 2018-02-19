@@ -208,6 +208,7 @@ class Transcript2:
         fastaID = ">" + self.QNAME
         strand = self.strand
         seq = self.SEQ
+
         if strand == "-": # Need to reverse-complement the sequence
             seq = reverseComplement(seq)
    
