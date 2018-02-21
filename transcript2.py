@@ -207,7 +207,7 @@ class Transcript2:
         # Returns a fasta-formatted string representation of the transcript
         fastaID = ">" + self.QNAME
         strand = self.strand
-        seq = self.SEQ
+        seq = str(self.SEQ)
 
         if strand == "-": # Need to reverse-complement the sequence
             seq = reverseComplement(seq)
@@ -350,6 +350,7 @@ def reverseComplement(seq):
     trans = string.maketrans('ATGCNatgcn', 'TACGNtacgn')
 
     # Map and reverse
-    reverseComplement = seq.translate(trans)[::-1]
+    complement = seq.translate(trans)
+    reverseComplement = complement[::-1]
 
     return reverseComplement

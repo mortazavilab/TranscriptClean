@@ -661,7 +661,6 @@ def combinedJunctionDist(dist_0, dist_1):
     # the sum of their absolute values
     if dist_0*dist_1 <= 0:
         combined_dist = abs(dist_0) + abs(dist_1)
- 
     else:
         combined_dist = abs(abs(dist_0) - abs(dist_1))
     return combined_dist

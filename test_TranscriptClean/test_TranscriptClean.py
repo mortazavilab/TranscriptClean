@@ -9,7 +9,7 @@ def main():
     # Files used in the course of testing
     genome = "/bio/dwyman/pacbio_f2016/data/STAR_hg38_ENCODE/hg38.fa" #"reference_files/chr1.fa"
     spliceJunctionFile = "reference_files/GM12878_SJs_chr1.tab"
-    variantFile = "reference_files/GM12878_chr1.vcf"
+    variantFile = "reference_files/GM12878_chr1.vcf.gz"
 
     basicSamFile1 = "sam_files/perfectReferenceMatch_noIntrons.sam"
     basicSamFile2 = "sam_files/perfectReferenceMatch_twoIntrons.sam"
@@ -41,6 +41,8 @@ def main():
     sam_nc_case3_answer = "sam_files/nc_case3_correctAnswer.sam"
     sam_nc_case4 = "sam_files/nc_case4.sam"
     sam_nc_case4_answer = "sam_files/nc_case4_correctAnswer.sam"
+    sam_nc_case5 = "sam_files/nc_case5.sam"
+    sam_nc_case5_answer = "sam_files/nc_case5_correctAnswer.sam"
 
     sam_I_var = "sam_files/insertion_variant.sam"
     sam_D_var = "sam_files/deletion_variant.sam"
@@ -112,23 +114,24 @@ def main():
     print "Test 6: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with an insertion that exactly matches a variant. Correct action is to keep the transcript as-is."
     test_variantAware(sam_I_var, genome, spliceJunctionFile, variantFile, sam_I_var, "test_out/I_variantAware_3.0.6")
 
-    print "Test 7: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with an deletion that exactly matches a variant. Correct action is to avoid correcting this deletion."
+    print "Test 7: TranscriptClean Variant-Aware Mode (Indel/Mismatch/SJ) on transcript with a deletion that exactly matches a variant. Correct action is to avoid correcting this deletion."
     test_variantAware(sam_D_var, genome, spliceJunctionFile, variantFile, sam_D_var_answer, "test_out/D_variantAware_3.0.7")
 
     print "--------------------Part 4: Noncanonical Splice Junction Correction-------------------------------------"
-    print "TranscriptClean corrects each end of the splice junction separately. There are four different cases, each defined by the side under correction and the direction in which the correction is made (ie bases are added or subtracted. It is important to test each case."
-    print "--------------------------------------------------------------------------------------------------------"
-    print "Test 1: Bases need to be added to exon end (the exon ended early)."
+    print "Test 1: Distance from annotated junction is too large to correct"
     test_variantAware(sam_nc_case1, genome, spliceJunctionFile, variantFile, sam_nc_case1_answer, "test_out/nc_case1_4.0.1")
 
-    print "Test 2: Bases need to be added to exon start (the exon started late)."
+    print "Test 2: Exon starts late on one side and starts late on the other (dist_0 = negative, dist_1 = positive)"
     test_variantAware(sam_nc_case2, genome, spliceJunctionFile, variantFile, sam_nc_case2_answer, "test_out/nc_case2_4.0.2")
 
-    print "Test 3: Bases need to be subtracted from exon end (the exon ended late)."
+    print "Test 3: Junction is shifted in the negative direction (dist_0 and dist_1 are both negative)"
     test_variantAware(sam_nc_case3, genome, spliceJunctionFile, variantFile, sam_nc_case3_answer, "test_out/nc_case3_4.0.3")
 
-    print "Test 4: Bases need to be subtracted from exon start (the exon started early)."
+    print "Test 4: Junction is shifted in the positive direction (dist_0 and dist_1 are both positive)"
     test_variantAware(sam_nc_case4, genome, spliceJunctionFile, variantFile, sam_nc_case4_answer, "test_out/nc_case4_4.0.4")
+
+    print "Test 5: One side of the junction matches the annotation and the other side does not "
+    test_variantAware(sam_nc_case5, genome, spliceJunctionFile, variantFile, sam_nc_case5_answer, "test_out/nc_case3_4.0.5")
 
 def test_basic(sam, genome, answer, prefix):
     # Runs TranscriptClean in basic mode, then compares the output to the answer sam file using diff. If these two files are identical, the test is considered successful 
@@ -276,12 +279,11 @@ def runIntermediate(sam, genome, sj, outprefix):
 
 def runVariantAware(sam, genome, sj, variants, outprefix):
     # Run TranscriptClean with the settings: Correct microindels, mismatches, and noncanonical splice junctions. Correction is variant aware.
-
     command = "python ../TranscriptClean.py --sam " + sam + " --genome " + genome + " --spliceJns " + sj + " --variants " + variants + " --correctMismatches True --maxLenIndel 5 --maxSJOffset 5 --outprefix " + outprefix + " > /dev/null"
     try:
         os.system(command)
     except:
-        print "\tERROR: Intermediate TranscriptClean run failed."
+        print "\tERROR: VariantAware TranscriptClean run failed."
         print command
     return
 
