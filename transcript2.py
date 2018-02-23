@@ -345,12 +345,26 @@ def getSJMotifCode(startBases, endBases):
 def reverseComplement(seq):
     """ Returns the reverse complement of a DNA sequence, 
         retaining the case of each letter"""
+    complement = ""
 
+    for base in seq:
+        if base == "A": complement += "T"
+        elif base == "T": complement += "A" 
+        elif base == "G": complement += "C"
+        elif base == "C": complement += "G"
+        elif base == "N": complement += "N"
+        elif base == "a": complement += "t"
+        elif base == "t": complement += "a" 
+        elif base == "g": complement += "c"
+        elif base == "c": complement += "g"
+	elif base == "n": complement += "n"
+        else:
+            print "Warning: reverse complement function encountered unknown base " + "'" + base + "'"
     # Transition mapping for each letter
-    trans = string.maketrans('ATGCNatgcn', 'TACGNtacgn')
+    #trans = string.maketrans('ATGCNatgcn', 'TACGNtacgn')
 
     # Map and reverse
-    complement = seq.translate(trans)
+    #complement = seq.translate(trans)
     reverseComplement = complement[::-1]
 
     return reverseComplement

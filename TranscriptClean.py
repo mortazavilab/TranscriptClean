@@ -105,6 +105,7 @@ def main():
     writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
 
     oSam.close()
+    # Command to convert sam file into fastq: samtools fastq -s test.fq -n sorted_PB31_pool_clean.sam > test.fq
     oFa.close()
     oTLog.close()
     oTranscriptErrorLog.close()
@@ -263,8 +264,8 @@ def processVCF(vcf, maxLen):
                             insertions[ID].append(allele)
                     elif refLen - altLen > 0: # Deletion
                         deletions[ID] = 1
-    cmd = "rm -f " + tmpFile
-    os.system(cmd)
+    #cmd = "rm -f " + tmpFile
+    #os.system(cmd)
 
     return SNPs, insertions, deletions
 
@@ -610,16 +611,17 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
             
             # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
             combinedDist = combinedJunctionDist(dist_0, dist_1)
-            if combinedDist > n:
+            if combinedDist > n or abs(dist_0) > 2*n or abs(dist_1) > 2*n:
                 te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", str(dist_0) + "_" + str(dist_1), "Uncorrected", "TooFarFromAnnotJn")
                 Transcript2.addTranscriptErrorRecord(currTranscript, te)   
             else:
+                print transcriptID
                 for jn in [junction_half_0, junction_half_1]: # Perform correction 
                     side = jn[3].split("__")[-1]
                     currIntronBound = currJunction.bounds[int(side)]
                     currDist = int(jn[-1])
                     
-                    # It is possible for one side to the junction to match the annotation. If so, do not change this side
+                    # It is possible for one side of the junction to match the annotation. If so, do not change this side
                     if currDist == 0:
                         currIntronBound.isCanonical = True
                         SpliceJunction.recheckPosition(currJunction)
@@ -699,7 +701,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
 
     # Now go and fix the specific splice junction piece
     targetJn = spliceJn.jnNumber
-    
+
     if intronBound.bound == 0:
         targetExon = targetJn
         exon = exonSeqs[targetExon]

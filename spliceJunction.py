@@ -24,7 +24,7 @@ class SpliceJunction:
         self.bounds = [left, right]
 
     def isCanonical(self):
-        # If both intron bounds of the junction are canonical, then so is the splice juntion as a whole.
+        # If both intron bounds of the junction are canonical, then so is the splice junction as a whole.
                 
         return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
