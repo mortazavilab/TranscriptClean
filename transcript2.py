@@ -1,4 +1,5 @@
-# This file contains classes for the TranscriptClean program
+# This file contains the Transcript2 class and associated methods for the 
+# TranscriptClean program
 
 from spliceJunction import SpliceJunction
 from intronBound import IntronBound
@@ -17,7 +18,8 @@ class Transcript2:
         self.log = []
         self.transcriptErrors = []
 
-        # These eleven attributes are initialized directly from the input SAM entry and are mandatory 
+        # These eleven attributes are initialized directly from the input 
+        # SAM entry and are mandatory 
         self.QNAME = samFields[0]
         self.FLAG = samFields[1]
         self.CHROM = samFields[2]
@@ -29,8 +31,15 @@ class Transcript2:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = "*"
-
-        # If the sam entry contains additional optional fields, process them here
+ 
+        # Check if read is unmapped (0), uniquely mapped (1), multimapped (2)
+        self.mapping = 1
+        if self.CHROM == "*" or int(self.FLAG) == 4: 
+            self.mapping = 0
+        elif int(self.FLAG) > 16:
+            self.mapping = 2
+        
+        # If the sam entry contains additional optional fields, process them 
         self.NM = ""
         self.MD = ""
         self.jM = ""
@@ -45,11 +54,11 @@ class Transcript2:
             else: otherFields.append(field)
 
         # If the NM and MD tags were missing, compute them here.
-        if self.MD == "":
+        if self.MD == "" and self.mapping == 1:
             self.NM, self.MD = self.getNMandMDFlags(genome)
 
         # If the jM and jI fields are missing, compute them here.
-        if self.jM == self.jI == "":
+        if (self.jM == self.jI == "") and self.mapping != 0:
             self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
 
         self.otherFields = "\t".join(otherFields)        
@@ -58,7 +67,8 @@ class Transcript2:
         self.spliceJunctions = []
         self.isCanonical = True
         self.strand = "+"        
-        if int(self.FLAG) == 16: self.strand = "-"
+        if int(self.FLAG) == 16 or int(self.FLAG) == 272: 
+            self.strand = "-"
 
         # Only run this section if there are splice junctions
         if self.jM != "" and "-1" not in self.jM:
@@ -66,20 +76,22 @@ class Transcript2:
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
 
     def updateLog(self, newEntry):
-    # This function adds a change to the log
+        """ Adds a transcript correction to the log """
         log = self.log
         log.append(newEntry)
         self.log = log
         return    
 
     def addTranscriptErrorRecord(self, te):
-    # This function adds an error record object to the transcript
+        """ This function adds an error record object to the transcript """
         records = self.transcriptErrors
         records.append(te)
         self.transcriptErrors = records
         return
 
     def recheckCanonical(self):
+        """ Check each splice junction. If one or more junctions are
+            noncanonical, then so is the transcript. """
         for jn in self.spliceJunctions:
             if jn.isCanonical == False:
                 self.isCanonical = False
@@ -89,7 +101,9 @@ class Transcript2:
 
 
     def splitCIGAR(self):
-        # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
+        """ Takes CIGAR string from SAM and splits it into two lists: 
+            one with capital letters (match operators), and one with 
+            the number of bases that each operation applies to. """
 
         alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
         counts = re.sub('[A-Z]', " ", self.CIGAR).split()
@@ -98,12 +112,16 @@ class Transcript2:
         return alignTypes, counts
 
     def splitMD(self):
-        # Takes MD tag and splits into individual operations
+        """ Takes MD tag and splits into two lists: 
+            one with capital letters (match operators), and one with 
+            the number of bases that each operation applies to. """
 
         MD = self.MD.split(":")[2]
         operations = []
 
-        # Split MD string where type changes. Digits are separated from base changes. Deletions (with ^) are captured together.
+        # Split MD string where type changes. 
+        # Digits are separated from base changes. 
+        # Deletions (with ^) are captured together.
         counts = ["".join(x) for _, x in itertools.groupby(MD, key=str.isdigit)]
 
         # Get operations
@@ -113,7 +131,7 @@ class Transcript2:
                 counts[i] = int(curr)
                 operations.append("M")
             except ValueError:
-                #Handle the exception
+                # Handle deletion 
                 if curr.startswith("^"): 
                     operations.append("D")
                     counts[i] = len(counts[i]) - 1
@@ -124,7 +142,10 @@ class Transcript2:
         return operations, counts
 
     def mergeMDwithCIGAR(self):
-        # This function takes the MD and CIGAR strings, and combines them into a unified structure that encodes all possible operations w.r.t the reference: match, mismatch, deletion, insertion, hard clipping, and soft clipping.
+        """ Takes the MD and CIGAR strings, and combines them into a unified 
+            structure that encodes all possible operations w.r.t the reference:
+            match, mismatch, deletion, insertion, hard clipping, 
+            and soft clipping. """
 
         mergeCounts = []
         mergeOperations = []
@@ -137,29 +158,35 @@ class Transcript2:
 
         while mdIndex < len(mdOperation) or cigarIndex < len(cigarOperation):
 
-            # If the current CIGAR operation is S, H, N, or I, add that to the output. The MD tag doesn't have these
-            if cigarOperation[cigarIndex] == "H" or cigarOperation[cigarIndex] == "S" or cigarOperation[cigarIndex] == "I" or cigarOperation[cigarIndex] == "N":
+            # If the current CIGAR operation is S, H, N, or I, add that to the
+            # output. The MD tag doesn't have these
+            if cigarOperation[cigarIndex] in ("H", "S", "I", "N"):
                 mergeOperations.append(cigarOperation[cigarIndex])
                 mergeCounts.append(cigarCount[cigarIndex])
                 cigarIndex += 1
 
-            # Otherwise, select the "shorter" operation and add it to the results. Subtract away the same number of bases from the competing entry.
+            # Otherwise, we need to compare the current CIGAR and MD operations.
+            # Select the "shorter" operation and add it to the results. 
+            # Subtract away the same number of bases from the competing entry.
             else:
                 if cigarCount[cigarIndex] < mdCount[mdIndex]:
-                # If the CIGAR string lists fewer matched bases than MD, it means the CIGAR has an insertion not listed in MD
+                # If the CIGAR string lists fewer matched bases than MD, 
+                # it means the CIGAR has had an insertion not listed in MD
                     mdCount[mdIndex] = mdCount[mdIndex] - cigarCount[cigarIndex]
                     mergeOperations.append(cigarOperation[cigarIndex])
                     mergeCounts.append(cigarCount[cigarIndex])
                     cigarIndex += 1
 
                 elif cigarCount[cigarIndex] > mdCount[mdIndex]:
-                # If the CIGAR string lists more matched bases than MD, it means that MD has a mismatch not listed in CIGAR
+                # If the CIGAR string lists more matched bases than MD, 
+                # it means that MD has a mismatch not listed in CIGAR
                     cigarCount[cigarIndex] = cigarCount[cigarIndex] - mdCount[mdIndex]
                     mergeOperations.append(mdOperation[mdIndex])
                     mergeCounts.append(mdCount[mdIndex])
                     mdIndex += 1
                     
-                # For cases where both MD and CIGAR specify the same match type, add to the result and advance to next position in lists
+                # For cases where both MD and CIGAR specify the same match type, 
+                # add to the result and advance to next position in lists
                 else: 
                     mergeOperations.append(mdOperation[mdIndex])
                     mergeCounts.append(mdCount[mdIndex])
@@ -170,7 +197,8 @@ class Transcript2:
 
 
     def parseSpliceJunctions(self, genome):
-        # This function takes the splice junction information from the SAM input and creates a SpliceJunction object for each.
+        """ Takes the splice junction information from the SAM input and 
+            creates a SpliceJunction object for each junction."""
 
         spliceJns = ((self.jM).split(":")[-1]).split(",")[1:]
         intronBounds = ((self.jI).split(":")[-1]).split(",")[1:]
@@ -181,7 +209,8 @@ class Transcript2:
         for entry in spliceJns:
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
-            sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, self.strand, entry, genome)
+            sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, \
+                 self.strand, entry, genome)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
@@ -192,19 +221,19 @@ class Transcript2:
         return jnObjects
 
     def printableSAM(self, genome, spliceAnnot):
-        # Returns a SAM-formatted string representation of the transcript
+        """ Returns a SAM-formatted string representation of the transcript"""
         if len(self.spliceJunctions) > 0:
             self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
             self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome, spliceAnnot))
         self.NM, self.MD = self.getNMandMDFlags(genome)        
-        if self.otherFields == "":
-            fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
-        else:
-            fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, "NM:i:" + str(self.NM), self.MD, self.jM, self.jI ]
+        fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, \
+                   self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, \
+                   self.NM, self.MD, self.jM, self.jI ]
+        fields = filter(None, fields)
         return "\t".join([str(x) for x in fields]).strip()
 
     def printableFa(self):
-        # Returns a fasta-formatted string representation of the transcript
+        """ Returns a fasta-formatted string representation of the transcript """
         fastaID = ">" + self.QNAME
         strand = self.strand
         seq = str(self.SEQ)
@@ -212,12 +241,12 @@ class Transcript2:
         if strand == "-": # Need to reverse-complement the sequence
             seq = reverseComplement(seq)
    
-        # Split seq into 80-character segments
+        # Split seq into 80-character segments 
         fastaSeq = [seq[i:i+80] for i in range(0, len(seq), 80)]
         return fastaID + "\n" + "\n".join(fastaSeq)
 
     def getAllIntronBounds(self):
-        # Return all intron bound objects belonging to this transcript
+        """ Return all intron bound objects belonging to this transcript """
 
         result = []
         for jn in self.spliceJunctions:
@@ -227,7 +256,8 @@ class Transcript2:
         return result
    
     def getAllSJMotifs(self, genome, spliceAnnot):
-    #    # Return all splice junction motifs translated into their numeric STAR codes
+        """ Return all splice junction motifs translated into their numeric 
+            STAR codes"""
         result = []
         for jn in self.spliceJunctions:
             #SpliceJunction.recheckJnStr(jn, genome, spliceAnnot)
@@ -235,12 +265,16 @@ class Transcript2:
         return result
  
     def getNMandMDFlags(self, genome):
-        # This function uses the transcript sequence, its CIGAR string, and the reference genome to create NM and MD sam flags.
+        """ This function uses the transcript sequence, its CIGAR string, 
+            and the reference genome to create NM and MD sam flags."""
         NM = 0
         MD = "MD:Z:"
         MVal = 0
         seqPos = 0
         genomePos = self.POS
+
+        if self.mapping != 1:
+            return "",""
 
         operations, counts = self.splitCIGAR()
         for op, ct in zip(operations, counts):
@@ -274,13 +308,18 @@ class Transcript2:
                 genomePos += ct
                 
         if MVal > 0: MD = MD + str(MVal) 
-        return str(NM), MD
+        return "NM:i:" + str(NM), MD
 
     def getjMandjITags(self, genome, spliceAnnot):
-        # If the input sam file doesn't have the custom STARlong-derived jM and jI tags, we need to compute them.
-        # This is done by stepping through the CIGAR string and sequence. When an intron (N) is encountered, we check the 
-        # first two bases and last two bases of the intron in the genome sequence to detemine whether they are canonical. 
-        # We also record the start and end position of the intron.
+        """ If the input sam file doesn't have the custom STARlong-derived jM 
+            and jI tags, we need to compute them. This is done by stepping 
+            through the CIGAR string and sequence. When an intron (N) is 
+            encountered, we check the first two bases and last two bases of 
+            the intron in the genome sequence to detemine whether they are 
+            canonical. We also record the start and end position of the intron. """
+
+        if self.mapping != 1:
+            return "",""
        
         seq = self.SEQ
         operations, counts = self.splitCIGAR()
@@ -323,7 +362,7 @@ class Transcript2:
         return jMstr, jIstr
 
 def getSJMotifCode(startBases, endBases):
-    # Determines which STAR-style splice junction code applies to a splice motif        
+    """ Determines which STAR-style splice junction code applies to a splice motif """       
 
     motif = (startBases + endBases).upper()
 
@@ -358,13 +397,10 @@ def reverseComplement(seq):
         elif base == "g": complement += "c"
         elif base == "c": complement += "g"
 	elif base == "n": complement += "n"
+        elif base == "*": complement += "*"
         else:
             print "Warning: reverse complement function encountered unknown base " + "'" + base + "'"
-    # Transition mapping for each letter
-    #trans = string.maketrans('ATGCNatgcn', 'TACGNtacgn')
 
-    # Map and reverse
-    #complement = seq.translate(trans)
     reverseComplement = complement[::-1]
 
     return reverseComplement

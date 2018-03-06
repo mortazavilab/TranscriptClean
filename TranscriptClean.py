@@ -1,7 +1,11 @@
-# TranscriptClean Version 2
-# Dana Wyman, 11/20/2017
-# In this version of TranscriptClean, mismatches and microindels in long reads are corrected in a SNP-aware fashion using the reference genome and a VCF file of whitelisted variants. Noncanonical splice junctions can also be corrected using a file of reference splice sites as long as the provided SAM file is splice aware.
-
+# TranscriptClean
+# Author: Dana Wyman
+# 3/1/2018
+# -----------------------------------------------------------------------------
+# Mismatches and microindels in long reads are corrected in a  SNP-aware 
+# fashion using the reference genome and a VCF file of whitelisted variants. 
+# Noncanonical splice junctions can also be corrected using a file of reference 
+# splice sites.
 
 from transcript2 import Transcript2
 from spliceJunction import *
@@ -15,102 +19,136 @@ import re
 
 def getOptions():
     parser = OptionParser()
-    parser.add_option("--sam", "-s", dest = "sam", help = "Input file",
+    
+    parser.add_option("--sam", "-s", dest = "sam", 
+                      help = "Input SAM file containing transcripts to correct",
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--genome", "-g", dest = "refGenome", help = "Reference genome fasta file. Should be the same one used during mapping to generate the sam file.",
+    parser.add_option("--genome", "-g", dest = "refGenome", 
+                      help = "Reference genome fasta file. Should be the \
+                      same one used during mapping to generate the sam file.",
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--spliceJns", "-j", dest = "spliceAnnot", help = "Splice junction file obtained by mapping Illumina reads to the genome using STAR. More formats may be supported in the future. (Optional, but necessary for splice junction correction).", metavar = "FILE", type = "string", default = None)
+    parser.add_option("--spliceJns", "-j", dest = "spliceAnnot", 
+                      help = "Splice junction file obtained by mapping Illumina\
+                       reads to the genome using STAR. More formats may be \
+                      supported in the future.",
+                      metavar = "FILE", type = "string", default = None)
     parser.add_option("--variants", "-v", dest = "variantFile",
-                      help = "VCF formatted file of variants to avoid correcting away in the data (optional).", metavar = "FILE", type = "string", default = None )
+                      help = "VCF formatted file of variants to avoid \
+                      correcting away in the data (optional).", 
+                      metavar = "FILE", type = "string", default = None )
     parser.add_option("--maxLenIndel", dest = "maxLenIndel",
-                      help = "Maximum size indel to correct (Default: 5 bp)", type = "int", default = 5 )
+                      help = "Maximum size indel to correct (Default: 5 bp)", 
+                      type = "int", default = 5 )
     parser.add_option("--maxSJOffset", dest = "maxSJOffset",
-                      help = "Maximum distance from annotated splice junction to correct (Default: 5 bp)", type = "int", default = 5 )
+                      help = "Maximum distance from annotated splice \
+                      junction to correct (Default: 5 bp)", 
+                      type = "int", default = 5 )
     parser.add_option("--outprefix", "-o", dest = "outprefix",
-                      help = "output file prefix. '_clean' plus a file extension will be added to the end.", metavar = "FILE", type = "string", default = "out")
-
-    # Options that control which sections to run
+                      help = "output file prefix. '_clean' plus a file \
+                      extension will be added to the end.", 
+                      metavar = "FILE", type = "string", default = "out")
     parser.add_option("--correctMismatches", "-m", dest = "correctMismatches",
-                      help = "If set to false, TranscriptClean will skip mismatch correction. Default: True", type = "string", default = "true" )
+                      help = "If set to false, TranscriptClean will skip \
+                      mismatch correction. Default: True", 
+                      type = "string", default = "true" )
     parser.add_option("--correctIndels", "-i", dest = "correctIndels",
-                      help = "If set to false, TranscriptClean will skip indel correction. Default: True", type = "string", default = "true")
+                      help = "If set to false, TranscriptClean will skip indel \
+                      correction. Default: True", type = "string", 
+                      default = "true")
     parser.add_option("--correctSJs", dest = "correctSJs",
-                      help = "If set to false, TranscriptClean will skip splice junction correction. Default: True, but requires splice junction annotation file to work.", type = "string", default = "true") 
+                      help = "If set to false, TranscriptClean will skip \
+                      splice junction correction. Default: True, but requires \
+                      splice junction annotation file to work.", \
+                      type = "string", default = "true") 
 
     (options, args) = parser.parse_args()
     return options
 
 def main():
     options = getOptions()
+    samFile = options.sam
+    genomeFile = options.refGenome
+    outprefix = options.outprefix 
+    variantFile = options.variantFile
+    sjFile = options.spliceAnnot
     maxLenIndel = int(options.maxLenIndel)
     maxSJOffset = int(options.maxSJOffset)
+    
+    indelCorrection = (options.correctIndels).lower()
+    mismatchCorrection = (options.correctMismatches).lower()
+    sjCorrection = (options.correctSJs).lower()
 
     # Read in the reference genome. 
     print "Reading genome .............................."
-    genome = Fasta(options.refGenome)
+    genome = Fasta(genomeFile)
 
-    if options.spliceAnnot != None:
+    if sjFile != None:
         print "Processing annotated splice junctions ..."
-        annotatedSpliceJns, sjDict = processSpliceAnnotation(options.spliceAnnot, options.outprefix)
+        annotatedSpliceJns, sjDict = processSpliceAnnotation(sjFile, outprefix)
     else:
         print "No splice annotation provided. Will skip splice junction correction."
         sjDict = {}
 
-    if options.variantFile != None:
+    if variantFile != None:
         print "Processing variant file ................."
-        snps, insertions, deletions = processVCF(options.variantFile, maxLenIndel)
+        snps, insertions, deletions = processVCF(variantFile, maxLenIndel)
     else:
-        print "No variant file provided. Transcript correction will not be SNP-aware."
+        print "No variant file provided. Transcript correction will not be variant-aware."
         snps = {}
         insertions = {}
         deletions = {}
 
     print "Processing SAM file ........................."
-    header, canTranscripts, noncanTranscripts = processSAM(options.sam, genome, sjDict) 
-    if len(noncanTranscripts) == 0: print "Note: No noncanonical transcripts found. If this is unexpected, check whether the sam file lacks the jM tag."
-  
-    if options.correctMismatches.lower() == "true":
-        print "Correcting mismatches (canonical transcripts)............"
-        correctMismatches(canTranscripts, genome, snps)
-     
-    if options.correctIndels.lower() == "true":
-        print "Correcting insertions (canonical transcripts)............"
-        correctInsertions(canTranscripts, genome, insertions, maxLenIndel)
-        print "Correcting deletions (canonical transcripts)............"
-        correctDeletions(canTranscripts, genome, deletions, maxLenIndel)
+    oSam = open(options.outprefix + "_clean.sam", 'w')
+    oFa = open(options.outprefix + "_clean.fa", 'w')
+    oTLog = open(options.outprefix + "_clean.log", 'w')
+    oTranscriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')
+    oTranscriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n") 
 
-    if len(noncanTranscripts) > 0:
-        if options.correctMismatches.lower() == "true":
+    canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, oTLog) 
+
+    if len(canTranscripts) == 0: 
+        print "Note: No canonical transcripts found."
+    else: 
+        if mismatchCorrection == "true":
+            print "Correcting mismatches (canonical transcripts)............"
+            correctMismatches(canTranscripts, genome, snps)
+     
+        if indelCorrection == "true":
+            print "Correcting insertions (canonical transcripts)............"
+            correctInsertions(canTranscripts, genome, insertions, maxLenIndel)
+            print "Correcting deletions (canonical transcripts)............"
+            correctDeletions(canTranscripts, genome, deletions, maxLenIndel)
+
+    if len(noncanTranscripts) == 0:
+        print "Note: No noncanonical transcripts found."
+    else:
+        if mismatchCorrection == "true":
             print "Correcting mismatches (noncanonical transcripts)............"
             correctMismatches(noncanTranscripts, genome, snps)
-        if options.correctIndels.lower() == "true":
+        if indelCorrection == "true":
             print "Correcting insertions (noncanonical transcripts)............"
             correctInsertions(noncanTranscripts, genome, insertions, maxLenIndel)
             print "Correcting deletions (noncanonical transcripts)............"
             correctDeletions(noncanTranscripts, genome, deletions, maxLenIndel)
-        if options.spliceAnnot != None and options.correctSJs.lower() == "true":
+        if sjFile != None and sjCorrection == "true":
             print "Rescuing noncanonical junctions............."
-            cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, options.outprefix)
+            cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, outprefix)
 
     print "Writing output to sam file and fasta file.................."
 
     # Generate the output files
-    oSam = open(options.outprefix + "_clean.sam", 'w')
-    oFa = open(options.outprefix + "_clean.fa", 'w')
-    oTLog = open(options.outprefix + "_clean.log", 'w')
-    oTranscriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')    
-    oSam.write(header)
-    oTranscriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
     writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, oTLog, oTranscriptErrorLog, genome)
 
     oSam.close()
-    # Command to convert sam file into fastq: samtools fastq -s test.fq -n sorted_PB31_pool_clean.sam > test.fq
     oFa.close()
     oTLog.close()
     oTranscriptErrorLog.close()
 
 def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outTLog, oTranscriptErrorLog, genome):
+    """Given a dict containing transcripts, write them to sam and fasta output files. Also write
+       two log files that track corrections. """
 
     for t in transcripts.keys():
         currTranscript = transcripts[t]
@@ -122,13 +160,13 @@ def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, outTLog, oTra
 
     return
 
-def processSAM(sam, genome, spliceAnnot):
+def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog):
     """ Extracts the SAM header (for use in the output files at the end) and 
     creates a Transcript object for every transcript in the SAM file. 
     Transcripts are returned two separate dicts: one for canonical transcripts 
-    and one for noncanonical."""
+    and one for noncanonical. Some transcripts are unmapped or are non-primary 
+    multimapping alignments. These are outputted directly and are not corrected."""
 
-    header = ""
     canTranscripts = {}
     noncanTranscripts = {}
 
@@ -137,30 +175,35 @@ def processSAM(sam, genome, spliceAnnot):
             line = line.strip()
 
             if line.startswith("@"): # header line
-                header = header + line + "\n"
+                outSam.write(line + "\n")
                 continue
+            
             t = Transcript2(line, genome, spliceAnnot)
 
-            # Filter out transcript if entry is multimapped. 
-            # The primary alignment will still be kept because its flag is <= 16
-            if int(t.FLAG) > 16:
-                continue
+            # Unmapped/multimapper cases
+            if t.mapping != 1:
+                if t.mapping == 0:
+                    comment = "Unmapped"
+                    Transcript2.updateLog(t, comment)                
+                elif t.mapping == 2:
+                    comment = "Non-primary_alignment"
+                    Transcript2.updateLog(t, comment)
+                outSam.write(Transcript2.printableSAM(t, genome, spliceAnnot) + "\n")
+                outFa.write(Transcript2.printableFa(t) + "\n")
+                outTLog.write(t.QNAME + "\t" + ";".join(t.log) + "\n") 
 
-            # Filter out unmapped transcripts altogether
-            if t.CHROM == "*":
-                continue
-
-            # Assign to canonical or noncanonical group based on splice junctions
-            if t.isCanonical == True:
+            # Assign to canonical or noncanonical group based on splice jns
+            elif t.isCanonical == True:
                 canTranscripts[t.QNAME] = t
-            else:
+            elif t.isCanonical == False:
                 noncanTranscripts[t.QNAME] = t
 
-    return header, canTranscripts, noncanTranscripts 
+    return canTranscripts, noncanTranscripts 
 
 def processSpliceAnnotation(annotFile, outprefix):
-    # This function reads in the tab-separated STAR splice junction file and creates a bedtools object
-    # Also creates a dict (annot) to allow easy lookup to find out if a splice junction is annotated or not
+    """ Reads in the tab-separated STAR splice junction file and creates a 
+        bedtools object. Also creates a dict (annot) to allow easy lookup 
+        to find out if a splice junction is annotated or not """
 
     bedstr = ""
     annot = {}
@@ -203,9 +246,9 @@ def processSpliceAnnotation(annotFile, outprefix):
     return spliceJnBedTool, annot
 
 def processVCF(vcf, maxLen):
-    # This function reads in variants from a VCF file and stores them.
-    # SNPs are stored in a dictionary by position.
-    # Indels are stored in their own dictionary by start and end position.
+    """ This function reads in variants from a VCF file and stores them. SNPs 
+        are stored in a dictionary by position. Indels are stored in their own 
+        dictionary by start and end position."""
     SNPs = {}
     insertions = {}
     deletions = {}
@@ -264,17 +307,18 @@ def processVCF(vcf, maxLen):
                             insertions[ID].append(allele)
                     elif refLen - altLen > 0: # Deletion
                         deletions[ID] = 1
-    #cmd = "rm -f " + tmpFile
-    #os.system(cmd)
 
     return SNPs, insertions, deletions
 
 def correctInsertions(transcripts, genome, variants, maxLen):
-    # Corrects insertions up to size maxLen using the reference genome. 
-    # If a variant file was provided, correction will be SNP-aware.
+    """ Corrects insertions up to size maxLen using the reference genome. 
+        If a variant file was provided, correction will be SNP-aware. """
 
     for t in transcripts.keys():
         t = transcripts[t]
+  
+        # Only correct primary mapping transcripts
+        if t.mapping != 1: continue
 
         origSeq = t.SEQ
         origCIGAR = t.CIGAR
@@ -310,7 +354,8 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                 if ct <= maxLen:
                     # Check if the insertion is in the optional variant catalog.
                     if ID in variants:
-                        # The insertion perfectly matches a variant position. Leave the sequence alone if it matches an allele sequence.
+                        # The insertion perfectly matches a variant position. 
+                        # Leave the sequence alone if it matches an allele sequence.
                         currSeq = origSeq[seqPos:seqPos + ct]
                         if currSeq in variants[ID]:
                             comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
@@ -332,7 +377,8 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                     te = TranscriptError(t.QNAME, ID, "Insertion", ct, "Corrected", "NA")
                     Transcript2.addTranscriptErrorRecord(t, te)
 
-                    # Subtract the inserted bases by skipping them. GenomePos stays the same, as does MVal
+                    # Subtract the inserted bases by skipping them. 
+                    # GenomePos stays the same, as does MVal
                     seqPos += ct
                 else: # Move on without correcting insertion because it is too big
                     te = TranscriptError(t.QNAME, ID, "Insertion", ct, "Uncorrected", "TooLarge")
@@ -349,7 +395,8 @@ def correctInsertions(transcripts, genome, variants, maxLen):
                 newCIGAR = newCIGAR + str(ct) + op
                 seqPos += ct
 
-            # N, H, and D operations are cases where the transcript sequence is missing bases that are in the reference genome.
+            # N, H, and D operations are cases where the transcript sequence 
+            # is missing bases that are in the reference genome.
             if op in ["N", "H", "D"]:
                 # End any ongoing match
                 MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -366,8 +413,8 @@ def correctInsertions(transcripts, genome, variants, maxLen):
     return    
 
 def correctDeletions(transcripts, genome, variants, maxLen):
-    # Corrects deletions up to size maxLen using the reference genome. 
-    # If a variant file was provided, correction will be SNP-aware.
+    """ Corrects deletions up to size maxLen using the reference genome. 
+        If a variant file was provided, correction will be SNP-aware."""
 
     for t in transcripts.keys():
         t = transcripts[t]
@@ -464,7 +511,8 @@ def correctDeletions(transcripts, genome, variants, maxLen):
 
 
 def correctMismatches(transcripts, genome, variants):
-    # This function corrects mismatches in the sequences. If a variant file was provided, correction will be SNP-aware.
+    """ This function corrects mismatches in the sequences. If a variant file was
+        provided, correction will be SNP-aware."""
    
     for transcript in transcripts.keys():
         transcript = transcripts[transcript]
@@ -548,9 +596,12 @@ def correctMismatches(transcripts, genome, variants):
 
                         
 def endMatch(MVal, newCIGAR):
-    # Function to end an ongoing match during error correction, updating new CIGAR and MD tag strings as needed.
-    # MVal keeps track of how many matched bases we have at the moment so that when errors are fixed, adjoining matches can be combined.
-    # When an intron or unfixable error is encountered, it is necessary to end the match by outputting the current MVal and then setting the variable to zero.
+    """ Function to end an ongoing match during error correction, updating new 
+        CIGAR and MD tag strings as needed. MVal keeps track of how many 
+        matched bases we have at the moment so that when errors are fixed, 
+        adjoining matches can be combined. When an intron or unfixable error 
+        is encountered, it is necessary to end the match by outputting the 
+        current MVal and then setting the variable to zero."""
 
     if MVal > 0:
         newCIGAR = newCIGAR + str(MVal) + "M"
@@ -559,14 +610,18 @@ def endMatch(MVal, newCIGAR):
     return MVal, newCIGAR
 
 def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, outprefix):
-    # Iterate over noncanonical transcripts. Determine whether each end is within n basepairs of an annotated junction.
-    # If it is, run the rescue function on it. If not, discard the transcript.
+    """ Iterate over noncanonical transcripts. Determine whether each end is 
+        within n basepairs of an annotated junction. If it is, run the rescue 
+        function on it. If not, discard the transcript."""
 
     fName = outprefix + "_noncanonicalJnHalves_tmp.bed"
     fNameSorted = outprefix + "_sorted_noncanonicalJnHalves_tmp.bed"
     o = open(fName, 'w')
     for tID in transcripts.keys():
         t = transcripts[tID]
+        # Only correct primary mapping transcripts
+        if t.mapping != 1: continue
+
         bounds = Transcript2.getAllIntronBounds(t)
 
         for b in bounds:
@@ -580,7 +635,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
     o.close()
     os.system('bedtools sort -i ' + fName + ' > ' + fNameSorted)
     nc = pybedtools.BedTool(fNameSorted)
-    #jnMatches = str(nc.closest(annotatedJunctions, s=True, D="ref", t="first")).split("\n")
     jnMatchFile = outprefix + "_jnMatches_tmp.bed"
     (nc.closest(annotatedJunctions, s=True, D="ref", t="first")).saveas(jnMatchFile)
     jnMatchFileSorted = outprefix + "_jnMatches_sorted_tmp.bed"
@@ -590,8 +644,9 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
     os.system("rm " + fName)
     os.system("rm " + fNameSorted)
 
-    # Iterate over noncanonical splice junction boundaries and their closest canonical match. 
-    # We process two consecutive lines at once because these represent each side of the jn.
+    # Iterate over noncanonical splice junction boundaries and their closest
+    # canonical match. We process two consecutive lines at once because these 
+    # represent each side of the jn.
     with open(jnMatchFileSorted, 'r') as f:
         for junction_half_0 in f:
             junction_half_1 = f.next()
@@ -615,7 +670,6 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 te = TranscriptError(currTranscript.QNAME, ID, "NC_SJ_boundary", str(dist_0) + "_" + str(dist_1), "Uncorrected", "TooFarFromAnnotJn")
                 Transcript2.addTranscriptErrorRecord(currTranscript, te)   
             else:
-                print transcriptID
                 for jn in [junction_half_0, junction_half_1]: # Perform correction 
                     side = jn[3].split("__")[-1]
                     currIntronBound = currJunction.bounds[int(side)]
@@ -669,7 +723,9 @@ def combinedJunctionDist(dist_0, dist_1):
 
 
 def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot):
-
+    """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
+        Rechecks junction motif and updates the transcript. NM and MD are not updated-
+        this happens in cleanNoncanonical, the function that calls this one."""
     oldCIGAR = transcript.CIGAR
     seq = transcript.SEQ
 
@@ -744,11 +800,13 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
     intronBound.isCanonical = True
     SpliceJunction.recheckPosition(spliceJn)
     SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot) 
+
     return
 
  
 def splitCIGAR(CIGAR):
-    # Takes CIGAR string from SAM and splits it into two lists: one with capital letters (match operators), and one with the number of bases
+    """ Takes CIGAR string from SAM and splits it into two lists: one with 
+        capital letters (match operators), and one with the number of bases """
 
     matchTypes = re.sub('[0-9]', " ", CIGAR).split()
     matchCounts = re.sub('[A-Z]', " ", CIGAR).split()
@@ -757,11 +815,14 @@ def splitCIGAR(CIGAR):
     return matchTypes, matchCounts
 
 def editExonCIGAR(exon, side, nBases):
-    # Given an exon CIGAR string, this function adds or subtracts bases from the start (side = 0) or end (side = -1)
+    """ Given an exon CIGAR string, this function adds or subtracts bases from
+        the start (side = 0) or end (side = -1)"""
+
     operations, counts = splitCIGAR(exon)
     if side == -1:
         operations = operations[::-1]
         counts = counts[::-1]
+
     # If nBases > 0, we have an easy case. Just add the bases.
     if nBases >= 0:
         if operations[0] == "M":
@@ -795,7 +856,5 @@ def editExonCIGAR(exon, side, nBases):
         result = result + str(ct) + op
     return result
         
-
-
 
 main()
