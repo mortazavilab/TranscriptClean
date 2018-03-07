@@ -28,7 +28,8 @@ main <-function() {
 
     # Read in data from run
     data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
-
+    transcripts = suppressMessages(read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
+    
     # Plot 1: Size distribution of deletions
     # Median and max values are labeled on the plot
     deletions = subset(data, ErrorType == "Deletion")
@@ -72,6 +73,7 @@ main <-function() {
     # Median and max values are labeled on the plot
     ncSJs = subset(data, ErrorType == "NC_SJ_boundary")
     if (nrow(ncSJs) != 0) {
+        ncSJs$Size = abs(ncSJs$Size)
         maxCount = max(table(factor(ncSJs$Size)))
         medianS = median(ncSJs$Size)
         lab = getMedMaxLabel(ncSJs$Size)
@@ -80,31 +82,49 @@ main <-function() {
             xlab("Distance from annotated splice site (bp)") + ylab("Count") + customTheme +
             ggtitle("Distribution of distance between noncanonical splice sites and \ntheir nearest annotated splice site\n") +
             geom_vline(aes(xintercept=medianS), color="grey", linetype="dashed", size=0.75) +
-            annotate("text", x = lineLabelPos(length(lab), medianS, 100), y = maxCount*0.75, label = lab, color = "black") + 
-            coord_cartesian(xlim = c(-50, 50))
+            annotate("text", x = 25, y = maxCount*0.75, label = lab, color = "black", size = 6) + 
+            coord_cartesian(xlim = c(0, 50))
         print(p4)
     }
-    
+     
     # Plot 5: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
     if (nrow(subset(data, Corrected == "Corrected")) > 0) {
-        data[data$Corrected == "True", "Corrected"] = "Corrected"
-        data[data$Corrected == "False", "Corrected"] = "Uncorrected"
-        data_p4 = within(data, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
-        data_p4 = within(data_p4, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
-        data_p4$Category <- gsub(' \\(NA\\)', '', data_p4$Category)
-        plotcolors = c("red1", "red4", "red3", "goldenrod1", "darkorange4", "darkorange", "springgreen3", "springgreen4", "skyblue", "navy")
-        catOrder = c("Deletion Uncorrected (TooLarge)", "Deletion Uncorrected (VariantMatch)", "Deletion Corrected",
-                     "Insertion Uncorrected (TooLarge)", "Insertion Uncorrected (VariantMatch)", "Insertion Corrected",
-                     "Mismatch Uncorrected (VariantMatch)", "Mismatch Corrected",
-                     "NC_SJ_boundary Uncorrected (TooFarFromAnnotJn)", "NC_SJ_boundary Corrected")   
+        data_p5 = data
+        data_p5[data_p5$ErrorType == "NC_SJ_boundary", "ErrorType"] = "NC_SJ"
+        #data_p5 = within(data_p5, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
+        #data_p5 = within(data_p5, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
+        #data_p5$Category <- gsub(' \\(NA\\)', '', data_p5$Category)
+        data_p5$Category = rep("Corrected", nrow(data_p5))
+        catOrder = c("Corrected")
+        plotcolors = c("skyblue")
+        if (nrow(subset(data_p5, ReasonNotCorrected == "VariantMatch")) > 0) {
+            data_p5$Category[data_p5$ReasonNotCorrected == "VariantMatch"] <- "Variant"
+            catOrder = c(catOrder, "Variant")
+            plotcolors = c(plotcolors, "blue")
+        }
+        if (nrow(subset(data_p5, ReasonNotCorrected == "TooLarge")) > 0) {
+            data_p5$Category[data_p5$ReasonNotCorrected == "TooLarge"] <- "Uncorrected (Too large)"
+            catOrder = c(catOrder, "Uncorrected (Too large)")
+            plotcolors = c(plotcolors, "red")
+        }
+        if (nrow(subset(data_p5, ReasonNotCorrected == "TooFarFromAnnotJn")) > 0) {
+            data_p5$Category[data_p5$ReasonNotCorrected == "TooFarFromAnnotJn"] <- "Uncorrected (Too far from annotated junction)"
+            catOrder = c(catOrder, "Uncorrected (Too far from annotated junction)")
+            plotcolors = c(plotcolors, "orange")   
+        }
+        #plotcolors = c("red1", "red4", "red3", "goldenrod1", "darkorange4", "darkorange", "springgreen3", "springgreen4", "skyblue", "navy")
+        #catOrder = c("Deletion Uncorrected (TooLarge)", "Deletion Uncorrected (VariantMatch)", "Deletion Corrected",
+        #             "Insertion Uncorrected (TooLarge)", "Insertion Uncorrected (VariantMatch)", "Insertion Corrected",
+        #             "Mismatch Uncorrected (VariantMatch)", "Mismatch Corrected",
+        #             "NC_SJ Uncorrected (TooFarFromAnnotJn)", "NC_SJ Corrected")   
 
-         p5 = ggplot(data_p4, aes(x=ErrorType, fill=factor(Category, levels=catOrder))) + geom_bar() +
+         p5 = ggplot(data_p5, aes(x=ErrorType, fill=factor(Category, levels=catOrder))) + geom_bar(position = "dodge") +
              xlab("") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) +
             ggtitle("Overview of corrections made to insertions, deletions, \nmismatches, and noncanonical splice sites") +
-            theme(axis.text.x = element_text(angle = 45))
+            theme(axis.text.x = element_text(angle = 0), legend.position = "bottom", legend.direction = "vertical")
         print(p5)
     }    
-    quit()
+    
     # Plot 5: Percentage of transcripts containing error of a given type before and after TranscriptClean 
     cmd = paste("wc -l <", logFileVerbose, sep = " ") 
     totalTranscripts = as.numeric(system(cmd, intern = TRUE)) # get total transcript number from other log file because TE log only records errors
