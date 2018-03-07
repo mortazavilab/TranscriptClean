@@ -27,6 +27,7 @@ TranscriptClean is run from the command line as follows:
 ### Options that control run mode
 | Option              | Shortcut  | Description
 |-------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------
+| --dryRun            | n/a       | Include this option to run an inventory of all indels in the data without performing any correction. Useful for selecting maxLenIndel and maxSJOffset size
 | --correctMismatches | -m        | If set to false, TranscriptClean will skip mismatch correction. Default = True.
 | --correctIndels     | -i        | If set to false, TranscriptClean will skip indel correction. Default = True.
 | --variants          | -v        | Optional: VCF-formatted file of variants to avoid correcting (this enables variant-aware correction). Irrelevant if correctMismatches is set to false. 
