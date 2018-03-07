@@ -3,7 +3,6 @@
 
 from spliceJunction import SpliceJunction
 from intronBound import IntronBound
-from transcriptError import TranscriptError
 import pyfasta
 import pybedtools
 import re
@@ -15,8 +14,8 @@ class Transcript2:
         samFields = sam.strip().split('\t')
 
         # Keep track of changes for log file
-        self.log = []
-        self.transcriptErrors = []
+        #self.log = []
+        #self.transcriptErrors = []
 
         # These eleven attributes are initialized directly from the input 
         # SAM entry and are mandatory 
@@ -31,14 +30,17 @@ class Transcript2:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = "*"
- 
+
+        self.logInfo = [self.QNAME, "primary", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] 
         # Check if read is unmapped (0), uniquely mapped (1), multimapped (2)
         self.mapping = 1
         if self.CHROM == "*" or int(self.FLAG) == 4: 
             self.mapping = 0
+            self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
         elif int(self.FLAG) > 16:
             self.mapping = 2
-        
+            self.logInfo = [self.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+
         # If the sam entry contains additional optional fields, process them 
         self.NM = ""
         self.MD = ""
@@ -58,7 +60,7 @@ class Transcript2:
             self.NM, self.MD = self.getNMandMDFlags(genome)
 
         # If the jM and jI fields are missing, compute them here.
-        if (self.jM == self.jI == "") and self.mapping != 0:
+        if (self.jM == self.jI == "") and self.mapping == 1:
             self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
 
         self.otherFields = "\t".join(otherFields)        
@@ -75,20 +77,56 @@ class Transcript2:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
 
-    def updateLog(self, newEntry):
-        """ Adds a transcript correction to the log """
-        log = self.log
-        log.append(newEntry)
-        self.log = log
+    def addCorrectedDeletion(self):
+        """ Add a corrected deletion to log"""
+        self.logInfo[2] += 1
         return    
 
-    def addTranscriptErrorRecord(self, te):
-        """ This function adds an error record object to the transcript """
-        records = self.transcriptErrors
-        records.append(te)
-        self.transcriptErrors = records
+    def addUncorrectedDeletion(self):
+        """ Add an uncorrected deletion to log"""
+        self.logInfo[3] += 1
         return
 
+    def addVariantDeletion(self):
+        """ Add a variant deletion to log"""
+        self.logInfo[4] += 1
+        return
+
+    def addCorrectedInsertion(self):
+        """ Add a corrected insertion to log"""
+        self.logInfo[5] += 1
+        return    
+
+    def addUncorrectedInsertion(self):
+        """ Add an uncorrected insertion to log"""
+        self.logInfo[6] += 1
+        return
+
+    def addVariantInsertion(self):
+        """ Add a variant insertion to log"""
+        self.logInfo[7] += 1
+        return
+
+    def addCorrectedMismatch(self):
+        """ Add a corrected mismatch to log"""
+        self.logInfo[8] += 1
+        return
+
+    def addVariantMismatch(self):
+        """ Add a variant mismatch to log"""
+        self.logInfo[9] += 1
+        return
+
+    def addCorrected_NC_SJ(self):
+        """ Add a corrected noncanonical SJ to log"""
+        self.logInfo[10] += 1
+        return
+
+    def addUncorrected_NC_SJ(self):
+        """ Add an uncorrected noncanonical SJ to log"""
+        self.logInfo[11] += 1
+        return
+    
     def recheckCanonical(self):
         """ Check each splice junction. If one or more junctions are
             noncanonical, then so is the transcript. """

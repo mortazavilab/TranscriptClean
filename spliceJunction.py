@@ -1,4 +1,4 @@
-# This file contains classes for the clean_splice_jns.py program
+# This file contains the SpliceJunction class and associated functions
 
 from intronBound import IntronBound
 
@@ -23,18 +23,20 @@ class SpliceJunction:
         right = IntronBound(self.transcriptID, self.jnNumber, "1", self.chrom, self.end, self.strand, jnStr, genome)
         self.bounds = [left, right]
 
-    def isCanonical(self):
-        # If both intron bounds of the junction are canonical, then so is the splice junction as a whole.
-                
-        return self.bounds[0].isCanonical and self.bounds[1].isCanonical
+    #def isCanonical(self):
+    #    """ If both intron bounds of the junction are canonical, then so is the 
+    #        splice junction as a whole."""
+    #            
+    #    return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
     def recheckPosition(self):
-        # Get start and end position from its intron bounds
+        """ Get start and end position from its intron bounds """
         self.start = self.bounds[0].pos
         self.end = self.bounds[1].pos
 
     def recheckJnStr(self, genome, spliceAnnot):
-        # Check the splice junction sequence motif to determine whether the jnStr should be changed
+        """ Check the splice junction sequence motif to determine whether the 
+            jnStr should be changed"""
 
         startBases = IntronBound.getSpliceMotif(self.bounds[0], genome) 
         endBases = IntronBound.getSpliceMotif(self.bounds[1], genome).upper()        
@@ -45,11 +47,11 @@ class SpliceJunction:
 
         motifCode += getSJMotifCode(startBases, endBases)
         self.jnStr = str(motifCode)
-        self.isCanonical = self.bounds[0].isCanonical and self.bounds[1].isCanonical
+        self.isCanonical = self.jnStr != "0" and self.jnStr != "20" #self.bounds[0].isCanonical and self.bounds[1].isCanonical
         return        
         
 def getSJMotifCode(startBases, endBases):
-    # Determines which STAR-style splice junction code applies to a splice motif        
+    """ Determines which STAR-style splice junction code applies to a splice motif """       
 
     motif = (startBases + endBases).upper()
 

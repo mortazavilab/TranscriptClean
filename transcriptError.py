@@ -13,10 +13,5 @@ class TranscriptError:
         self.reason = reason
 
 
-    #def update(self, corrected, reason):
-        # This function updates the 'corrected' and 'reason' fields of the object
-    #    self.corrected = corrected
-    #    self.reason = reason
-
     def printable(self):
         return "\t".join([self.transcriptID, self.position, self.errorType, str(self.size), self.corrected, self.reason])

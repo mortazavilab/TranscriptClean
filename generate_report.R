@@ -5,6 +5,8 @@
 
 main <-function() {
 
+    options(scipen=10000)
+
     # Read input arguments
     args = commandArgs(trailingOnly = TRUE)
     prefix = args[1]
@@ -36,59 +38,73 @@ main <-function() {
 
     p1 = ggplot(deletions, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") + 
     	xlab("Deletion length (bp)") + ylab("Count") + customTheme +
-	ggtitle("Size distribution of deletions in transcripts prior to correction\n") + 
-	geom_vline(aes(xintercept=medianD), color="grey", linetype="dashed", size=0.75) + 
-	annotate("text", x = lineLabelPos(length(lab), medianD, max(deletions$Size)), y = maxCount*0.75, label = lab, color = "black")
+	ggtitle("Size distribution of deletions in transcripts prior to correction\n") +
+        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10))  +
+	annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
     print(p1)
-
+    
     # Plot 2: Size distribution of insertions
     # Median and max values are labeled on the plot
     insertions = subset(data, ErrorType == "Insertion")
     maxCount = max(table(factor(insertions$Size)))
     medianI = median(insertions$Size)
     lab = getMedMaxLabel(insertions$Size)
-    p2 = ggplot(insertions, aes(Size)) + geom_bar(stat="count", fill="navy") +
+    p2 = ggplot(insertions, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
     	xlab("Insertion length (bp)") + ylab("Count") + customTheme + 
 	ggtitle("Size distribution of insertions in transcripts prior to correction\n") +
-        geom_vline(aes(xintercept=medianD), color="grey", linetype="dashed", size=0.75) +
-        annotate("text", x = lineLabelPos(length(lab), medianI, max(insertions$Size)), y = maxCount*0.75, label = lab, color = "black")
+        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10))  +
+        annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
     print(p2)
-
-
-    # Plot 3: If noncanonical splice junction correction mode enabled, plot distribution of distance to nearest annotated junction
+    
+    # Plot 3: Size distribution of all indels
+    # Median and max values are labeled on the plot
+    indels = subset(data, ErrorType == "Deletion" | ErrorType == "Insertion")
+    maxCount = max(table(factor(indels$Size)))
+    lab = getMedMaxLabel(indels$Size)
+    p3 = ggplot(indels, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
+        xlab("Indel length (bp)") + ylab("Count") + customTheme +
+        ggtitle("Size distribution of indels in transcripts prior to correction\n") +
+        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10)) +
+        annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
+    print(p3)
+    
+    # Plot 4: If noncanonical splice junction correction mode enabled, plot distribution of distance to nearest annotated junction
     # Median and max values are labeled on the plot
     ncSJs = subset(data, ErrorType == "NC_SJ_boundary")
-    maxCount = max(table(factor(ncSJs$Size)))
-    medianS = median(ncSJs$Size)
-    lab = getMedMaxLabel(ncSJs$Size)
-    print(summary(ncSJs$Size))
+    if (nrow(ncSJs) != 0) {
+        maxCount = max(table(factor(ncSJs$Size)))
+        medianS = median(ncSJs$Size)
+        lab = getMedMaxLabel(ncSJs$Size)
 
-    p3 = ggplot(ncSJs, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
-        xlab("Distance from annotated splice site (bp)") + ylab("Count") + customTheme +
-        ggtitle("Distribution of distance between noncanonical splice sites and \ntheir nearest annotated splice site\n") +
-        geom_vline(aes(xintercept=medianS), color="grey", linetype="dashed", size=0.75) +
-        annotate("text", x = lineLabelPos(length(lab), medianS, 100), y = maxCount*0.75, label = lab, color = "black") + 
-        coord_cartesian(xlim = c(-50, 50))
-    print(p3)
-
-    # Plot 4: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
-    data[data$Corrected == "True", "Corrected"] = "Corrected"
-    data[data$Corrected == "False", "Corrected"] = "Uncorrected"
-    data_p4 = within(data, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
-    data_p4 = within(data_p4, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
-    data_p4$Category <- gsub(' \\(NA\\)', '', data_p4$Category)
-    plotcolors = c("red1", "red4", "red3", "goldenrod1", "darkorange4", "darkorange", "springgreen3", "springgreen4", "skyblue", "navy")
-    catOrder = c("Deletion Uncorrected (TooLarge)", "Deletion Uncorrected (VariantMatch)", "Deletion Corrected",
-                 "Insertion Uncorrected (TooLarge)", "Insertion Uncorrected (VariantMatch)", "Insertion Corrected",
-                 "Mismatch Uncorrected (VariantMatch)", "Mismatch Corrected",
-                 "NC_SJ_boundary Uncorrected (TooFarFromAnnotJn)", "NC_SJ_boundary Corrected")   
-
-    p4 = ggplot(data_p4, aes(x=ErrorType, fill=factor(Category, levels=catOrder))) + geom_bar() +
-        xlab("") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) +
-        ggtitle("Overview of corrections made to insertions, deletions, \nmismatches, and noncanonical splice sites") +
-        theme(axis.text.x = element_text(angle = 45))
-    print(p4)
+        p4 = ggplot(ncSJs, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
+            xlab("Distance from annotated splice site (bp)") + ylab("Count") + customTheme +
+            ggtitle("Distribution of distance between noncanonical splice sites and \ntheir nearest annotated splice site\n") +
+            geom_vline(aes(xintercept=medianS), color="grey", linetype="dashed", size=0.75) +
+            annotate("text", x = lineLabelPos(length(lab), medianS, 100), y = maxCount*0.75, label = lab, color = "black") + 
+            coord_cartesian(xlim = c(-50, 50))
+        print(p4)
+    }
     
+    # Plot 5: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
+    if (nrow(subset(data, Corrected == "Corrected")) > 0) {
+        data[data$Corrected == "True", "Corrected"] = "Corrected"
+        data[data$Corrected == "False", "Corrected"] = "Uncorrected"
+        data_p4 = within(data, ReasonNotCorrected <- paste('(',ReasonNotCorrected, ')', sep=''))
+        data_p4 = within(data_p4, Category <- paste(ErrorType,Corrected,ReasonNotCorrected,sep=' '))
+        data_p4$Category <- gsub(' \\(NA\\)', '', data_p4$Category)
+        plotcolors = c("red1", "red4", "red3", "goldenrod1", "darkorange4", "darkorange", "springgreen3", "springgreen4", "skyblue", "navy")
+        catOrder = c("Deletion Uncorrected (TooLarge)", "Deletion Uncorrected (VariantMatch)", "Deletion Corrected",
+                     "Insertion Uncorrected (TooLarge)", "Insertion Uncorrected (VariantMatch)", "Insertion Corrected",
+                     "Mismatch Uncorrected (VariantMatch)", "Mismatch Corrected",
+                     "NC_SJ_boundary Uncorrected (TooFarFromAnnotJn)", "NC_SJ_boundary Corrected")   
+
+         p5 = ggplot(data_p4, aes(x=ErrorType, fill=factor(Category, levels=catOrder))) + geom_bar() +
+             xlab("") + ylab("Count") + customTheme + scale_fill_manual("",values = plotcolors) +
+            ggtitle("Overview of corrections made to insertions, deletions, \nmismatches, and noncanonical splice sites") +
+            theme(axis.text.x = element_text(angle = 45))
+        print(p5)
+    }    
+    quit()
     # Plot 5: Percentage of transcripts containing error of a given type before and after TranscriptClean 
     cmd = paste("wc -l <", logFileVerbose, sep = " ") 
     totalTranscripts = as.numeric(system(cmd, intern = TRUE)) # get total transcript number from other log file because TE log only records errors
@@ -145,11 +161,11 @@ setupRun <- function() {
         theme(axis.line.x = element_line(color="black", size = 0.5),
         axis.line.y = element_line(color="black", size = 0.5)) +
 
-        theme(axis.title.x = element_text(color="black", size=14, vjust = -2, margin=margin(5,0,0,0)),
-        axis.text.x  = element_text(color="black", vjust=0.75, size=13),
-        axis.title.y = element_text(color="black", size=14, margin=margin(0,10,0,0)),
-        axis.text.y  = element_text(color="black", vjust=0.75, size=13))  +
-        theme(legend.text = element_text(color="black", size = 8), legend.title = element_text(color="black", size=11), legend.key.size = unit(0.5, "cm")))
+        theme(axis.title.x = element_text(color="black", size=18, vjust = -2, margin=margin(5,0,0,0)),
+        axis.text.x  = element_text(color="black", vjust=0.75, size=16),
+        axis.title.y = element_text(color="black", size=18, margin=margin(0,10,0,0)),
+        axis.text.y  = element_text(color="black", vjust=0.75, size=16))  +
+        theme(legend.text = element_text(color="black", size = 14), legend.title = element_text(color="black", size=11), legend.key.size = unit(0.5, "cm")))
 
     return(customTheme)
 }
@@ -174,17 +190,15 @@ lineLabelPos <- function(labelLen, linePos, axisLen) {
 
 getMedMaxLabel <- function(v) {
     # Returns a print-ready label of the median and max of vector v
-    medianV = round(median(v), 2)
+    v = as.numeric(v)
+    medianV = round(median(v), 3)
+    meanV = round(mean(v), 3)
     maxV = max(v)
     medianLabel = paste("Median =", medianV, sep = " ")
+    meanLabel = paste("Mean =", meanV, sep = " ")
     maxLabel = paste("Max =", maxV, sep = " ")
-    plotLabel = paste( medianLabel, maxLabel, sep = "\n")
+    plotLabel = paste( medianLabel, meanLabel, maxLabel, sep = "\n")
     return(plotLabel)
 }
 
 main()
-
-#function.name <- function(arg1, arg2, arg3=2, ...) {
-#  newVar <- sin(arg1) + sin(arg2)  # do Some Useful Stuff
-#  newVar / arg3   # return value 
-#}
