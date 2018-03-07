@@ -19,17 +19,39 @@ main <-function() {
 
 
     # Set up the report
-    #pdf(reportFile, paper='USr')
     pdf(reportFile, paper ='letter', width = 7, height = 7)
     grid.newpage()
     cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=28, col="black"))
     grid.draw(cover)
-
+    #grid.newpage()
 
     # Read in data from run
     data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
     transcripts = suppressMessages(read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
-    
+
+    # Table
+    primary = c("Primary mapping", nrow(subset(transcripts, Mapping == "primary")))
+    multi = c("Non-primary mapping", nrow(subset(transcripts, Mapping == "non-primary"))) 
+    unmap = c("Unmapped", nrow(subset(transcripts, Mapping == "unmapped")))
+    t1 = rbind(primary, rbind(multi, unmap))
+    colnames(t1) = c("Transcript type", "Quantity in input")
+    rownames(t1) = NULL
+
+    # Table 
+    processedTranscripts = subset(transcripts, Mapping == "primary")
+    del = c("Deletions", sum(processedTranscripts$corrected_deletions), sum(processedTranscripts$uncorrected_deletions), sum(processedTranscripts$variant_deletions))
+    ins = c("Insertions", sum(processedTranscripts$corrected_insertions), sum(processedTranscripts$uncorrected_insertions), sum(processedTranscripts$variant_insertions))
+    mis = c("Mismatches", sum(processedTranscripts$corrected_mismatches), 0, sum(processedTranscripts$variant_mismatches))
+    ncsj = c("Noncanonical jns", sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), 0)
+    t2 <- rbind(del, rbind(ins, rbind(mis, ncsj)))
+    colnames(t2) = c("Error Type", "Corrected", "Not Corrected", "Variant")
+    rownames(t2) = NULL
+
+    grid.arrange(
+        tableGrob(t1),
+        tableGrob(t2),
+        nrow=2)
+
     # Plot 1: Size distribution of deletions
     # Median and max values are labeled on the plot
     deletions = subset(data, ErrorType == "Deletion")
@@ -166,6 +188,7 @@ setupRun <- function() {
     library(ggplot2)
     library(readr)
     library(grid)
+    library(gridExtra)
     library(reshape2)
 
     # Create custom theme for plots
