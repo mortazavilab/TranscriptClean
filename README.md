@@ -36,6 +36,10 @@ TranscriptClean is run from the command line as follows:
 | --maxSJOffset       | n/a       | Maximum distance from annotated splice junction to correct. Default = 5 bp.         
 
 ## Output files
-
+TranscriptClean outputs the following files:
+* SAM file of corrected transcripts. Unmapped/non-primary transcript alignments from the input file are included in their original form.
+* Fasta file of corrected transcript sequences. Unmapped transcripts from the input file are included in their original form.
+* Transcript error log file (.TE.log): Each row represents a potential error in a given transcript. The column values track whether the error was corrected or not and why.
+* Transcript log file (.log): Each row represents a transcript. The columns track the mapping status of the transcript, as well as how many errors of each type were found and corrected/not corrected in the transcript.
 
 
