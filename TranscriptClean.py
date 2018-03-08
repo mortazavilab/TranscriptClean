@@ -378,10 +378,10 @@ def correctInsertions(transcripts, genome, variants, maxLen, transcriptErrorLog)
                         # Leave the sequence alone if it matches an allele sequence.
                         currSeq = origSeq[seqPos:seqPos + ct]
                         if currSeq in variants[ID]:
-                            #comment = "DidNotCorrect_insertion_at_" + currPos + "_becauseVariantMatch"
                             Transcript2.addVariantInsertion(t)
                             errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Uncorrected", "VariantMatch"])
-   
+                            transcriptErrorLog.write(errorEntry + "\n")  
+ 
                             # Leave insertion in 
                             MVal, newCIGAR = endMatch(MVal, newCIGAR)
                             newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -392,17 +392,18 @@ def correctInsertions(transcripts, genome, variants, maxLen, transcriptErrorLog)
                     # Correct insertion
                     errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Corrected", "NA"])
                     Transcript2.addCorrectedInsertion(t)
+                    transcriptErrorLog.write(errorEntry + "\n")
                     # Subtract the inserted bases by skipping them. 
                     # GenomePos stays the same, as does MVal
                     seqPos += ct
                 else: # Move on without correcting insertion because it is too big
                     errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Uncorrected", "TooLarge"])
                     Transcript2.addUncorrectedInsertion(t)
+                    transcriptErrorLog.write(errorEntry + "\n")
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                     newCIGAR = newCIGAR + str(ct) + op
                     seqPos += ct
-                transcriptErrorLog.write(errorEntry + "\n") 
 
             if op == "S":
                 # End any ongoing match
@@ -472,8 +473,8 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
                         currSeq = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                         errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Uncorrected", "VariantMatch"])
                         Transcript2.addVariantDeletion(t)
+                        transcriptErrorLog.write(errorEntry + "\n")
 
-                        # Leave deletion in
                         MVal, newCIGAR = endMatch(MVal, newCIGAR)
                         genomePos += ct
                         newCIGAR = newCIGAR + str(ct) + op
@@ -482,6 +483,7 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
                     # Correct deletion if we're not in variant-aware mode
                     errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Corrected", "NA"])
                     Transcript2.addCorrectedDeletion(t)
+                    transcriptErrorLog.write(errorEntry + "\n")
 
                     # Add the missing reference bases
                     refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
@@ -493,13 +495,12 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
                 else:
                     errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
                     Transcript2.addUncorrectedDeletion(t)
+                    transcriptErrorLog.write(errorEntry + "\n")
 
                     # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     newCIGAR = newCIGAR + str(ct) + op
                     genomePos += ct
-
-                transcriptErrorLog.write(errorEntry + "\n")            
 
             # S and I operations are cases where the transcript sequence contains bases that are not in the reference genome. 
             if op in ["S", "I"]:
@@ -910,13 +911,13 @@ def dryRun_recordIndels(sam, outprefix, genome):
 
                 if op == "D":
                     ID = "_".join([transcript.CHROM, str(genomePos), str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Deletion", str(ct), "NA", "NA"]) + "\n")
+                    eL.write("\t".join([transcript.QNAME, ID, "Deletion", str(ct), "Uncorrected", "DryRun"]) + "\n")
                     logInfo[3] += 1
                     genomePos += ct
                    
                 if op == "I":
                     ID = "_".join([transcript.CHROM, str(genomePos), str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Insertion", str(ct), "NA", "NA"]) + "\n")
+                    eL.write("\t".join([transcript.QNAME, ID, "Insertion", str(ct), "Uncorrected", "DryRun"]) + "\n")
                     logInfo[6] += 1
                     seqPos += ct
  

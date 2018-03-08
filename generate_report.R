@@ -23,12 +23,12 @@ main <-function() {
     grid.newpage()
     cover <- textGrob("TranscriptClean Report", gp=gpar(fontsize=28, col="black"))
     grid.draw(cover)
-    #grid.newpage()
 
     # Read in data from run
     print("Reading log files............")
-    data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA"))
-    transcripts = suppressMessages(read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA"))
+    data = read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA")
+    transcripts = read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA")
+    transcripts[,3:12] <- sapply(transcripts[,3:12], as.numeric)
 
     # Table 1
     primary = c("Primary mapping", nrow(subset(transcripts, Mapping == "primary")))
@@ -44,26 +44,28 @@ main <-function() {
     processedTranscripts = subset(transcripts, Mapping == "primary")
     del = c(sum(processedTranscripts$corrected_deletions), sum(processedTranscripts$uncorrected_deletions), sum(processedTranscripts$variant_deletions))
     ins = c(sum(processedTranscripts$corrected_insertions), sum(processedTranscripts$uncorrected_insertions), sum(processedTranscripts$variant_insertions))
-    mis = c(sum(processedTranscripts$corrected_mismatches), 0, sum(processedTranscripts$variant_mismatches))
-    ncsj = c(sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), 0)
+    mis = c(sum(processedTranscripts$corrected_mismatches), NA, sum(processedTranscripts$variant_mismatches))
+    ncsj = c(sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), NA)
     categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
-    t2 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind(mis, ncsj))))
-    t2$total = rowSums(t2[,2:4])
+    t2 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind.data.frame(mis, ncsj))))
+    t2$total = rowSums(t2[,2:4], na.rm = TRUE)
+    t2$total[t2$total == 0] = NA
+    t2$percent = round((t2[,2])*100.0/t2[,5], 2)
     title_t2 = textGrob("Summary of Processed Errors",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
-    t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", "Not Corrected", "Variant", "Total"))
+    t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", "Not Correctable", "Variant", "Total", "Percent Corrected"))
     gt2 = gTree(children=gList(t2, title_t2))    
 
     # Table 3
-    processedTranscripts$totD = rowSums(processedTranscripts[,3:5])
-    processedTranscripts$totI = rowSums(processedTranscripts[,6:8])    
-    processedTranscripts$totM = rowSums(processedTranscripts[,9:10])
-    processedTranscripts$totNCSJ = rowSums(processedTranscripts[,11:12])
+    processedTranscripts$totD = rowSums(processedTranscripts[,3:5], na.rm = TRUE)
+    processedTranscripts$totI = rowSums(processedTranscripts[,6:8], na.rm = TRUE)    
+    processedTranscripts$totM = rowSums(processedTranscripts[,9:10], na.rm = TRUE)
+    processedTranscripts$totNCSJ = rowSums(processedTranscripts[,11:12], na.rm = TRUE)
     del = c(nrow(subset(processedTranscripts, totD > 0)), nrow(subset(processedTranscripts, totD > 0 & (uncorrected_deletions > 0 | variant_deletions > 0)))) 
     ins = c(nrow(subset(processedTranscripts, totI > 0)), nrow(subset(processedTranscripts, totI > 0 & (uncorrected_insertions > 0 | variant_insertions > 0))))
     mis = c(nrow(subset(processedTranscripts, totM > 0)), nrow(subset(processedTranscripts, totM > 0 & variant_mismatches > 0)))
     ncsj = c(nrow(subset(processedTranscripts, totNCSJ > 0)), nrow(subset(processedTranscripts, totNCSJ > 0 & uncorrected_NC_SJs > 0))) 
     categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
-    t3 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind(mis, ncsj))))
+    t3 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind.data.frame(mis, ncsj))))
     t3$change = round((t3[,2] - t3[,3])*100.0/t3[,2], 2)
     title_t3 = textGrob("Transcripts containing one or more of error/variant type",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
     t3 = tableGrob(t3, rows = NULL, cols = c("Type", "Before TranscriptClean", "After TranscriptClean", "Percent Corrected"))
@@ -80,12 +82,13 @@ main <-function() {
     maxCount = max(table(factor(deletions$Size)))
     medianD = median(deletions$Size)
     lab = getMedMaxLabel(deletions$Size)
+    q = quantile(deletions$Size, probs = 0.99)[1]
 
     p1 = ggplot(deletions, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") + 
     	xlab("Deletion length (bp)") + ylab("Count") + customTheme +
 	ggtitle("Size distribution of deletions in transcripts prior to correction\n") +
-        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10))  +
-	annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
+        coord_cartesian(xlim = c(0,2*q))  +
+	annotate("text", x = q, y = maxCount*0.75, label = lab, color = "black", size = 6)
     print(p1)
     
     # Plot 2: Size distribution of insertions
@@ -95,11 +98,13 @@ main <-function() {
     maxCount = max(table(factor(insertions$Size)))
     medianI = median(insertions$Size)
     lab = getMedMaxLabel(insertions$Size)
+    q = quantile(insertions$Size, probs = 0.99)[1]
+
     p2 = ggplot(insertions, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
     	xlab("Insertion length (bp)") + ylab("Count") + customTheme + 
 	ggtitle("Size distribution of insertions in transcripts prior to correction\n") +
-        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10))  +
-        annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
+        coord_cartesian(xlim = c(0,2*q)) +
+        annotate("text", x = q, y = maxCount*0.75, label = lab, color = "black", size = 6)
     print(p2)
     
     # Plot 3: Size distribution of all indels
@@ -108,35 +113,41 @@ main <-function() {
     indels = subset(data, ErrorType == "Deletion" | ErrorType == "Insertion")
     maxCount = max(table(factor(indels$Size)))
     lab = getMedMaxLabel(indels$Size)
+    q = quantile(indels$Size, probs = 0.99)[1]
+    lab = paste(lab, "\n", "99% Quantile = ", q, sep="")
+
     p3 = ggplot(indels, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
         xlab("Indel length (bp)") + ylab("Count") + customTheme +
         ggtitle("Size distribution of indels in transcripts prior to correction\n") +
-        coord_cartesian(xlim = c(0,10)) + scale_x_continuous(breaks=seq(1,10)) +
-        annotate("text", x = 5, y = maxCount*0.75, label = lab, color = "black", size = 6)
+        coord_cartesian(xlim = c(0,2*q)) +
+        annotate("text", x = q, y = maxCount*0.75, label = lab, color = "black", size = 6)
     print(p3)
     
     # Plot 4: If noncanonical splice junction correction mode enabled, plot distribution of distance to nearest annotated junction
     # Median and max values are labeled on the plot
-    print("Plot 4..................")
     ncSJs = subset(data, ErrorType == "NC_SJ_boundary")
     if (nrow(ncSJs) != 0) {
+        print("Plot 4..................")
         ncSJs$Size = abs(ncSJs$Size)
         maxCount = max(table(factor(ncSJs$Size)))
         medianS = median(ncSJs$Size)
         lab = getMedMaxLabel(ncSJs$Size)
+        # Find the mode
+        mode = names(table(ncSJs$Size))[table(ncSJs$Size)==max(table(ncSJs$Size))]
+        lab = paste(lab, "\n", "Mode = ", mode, sep = "")
 
         p4 = ggplot(ncSJs, aes(Size)) + geom_bar(stat="count", fill="dodgerblue4") +
             xlab("Distance from annotated splice site (bp)") + ylab("Count") + customTheme +
             ggtitle("Distribution of distance between noncanonical splice sites and \ntheir nearest annotated splice site\n") +
             geom_vline(aes(xintercept=medianS), color="grey", linetype="dashed", size=0.75) +
-            annotate("text", x = 25, y = maxCount*0.75, label = lab, color = "black", size = 6) + 
-            coord_cartesian(xlim = c(0, 50))
+            annotate("text", lineLabelPos(1, medianS, medianS*2), y = maxCount*0.75, label = lab, color = "black", size = 6) + 
+            coord_cartesian(xlim = c(0, medianS*2))
         print(p4)
     }
      
     # Plot 5: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
-    print("Plot 5..................")
     if (nrow(subset(data, Corrected == "Corrected")) > 0) {
+        print("Plot 5..................")
         data_p5 = data
         data_p5[data_p5$ErrorType == "NC_SJ_boundary", "ErrorType"] = "NC_SJ"
         data_p5$Category = rep("Corrected", nrow(data_p5))
@@ -166,8 +177,8 @@ main <-function() {
     }    
     
     # Plot 6: Percentage of transcripts containing error of a given type before and after TranscriptClean 
-    print("Plot 6..................")
     if (nrow(subset(data, Corrected == "Corrected")) > 0) {
+        print("Plot 6..................")
         totalTranscripts = nrow(processedTranscripts)
 
         transcriptsDBefore = length(unique(subset(data, ErrorType == "Deletion")$TranscriptID)) 
