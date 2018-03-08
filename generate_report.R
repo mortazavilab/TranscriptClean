@@ -26,34 +26,56 @@ main <-function() {
     #grid.newpage()
 
     # Read in data from run
-    data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
-    transcripts = suppressMessages(read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE))
+    print("Reading log files............")
+    data = suppressMessages(read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA"))
+    transcripts = suppressMessages(read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA"))
 
-    # Table
+    # Table 1
     primary = c("Primary mapping", nrow(subset(transcripts, Mapping == "primary")))
     multi = c("Non-primary mapping", nrow(subset(transcripts, Mapping == "non-primary"))) 
     unmap = c("Unmapped", nrow(subset(transcripts, Mapping == "unmapped")))
-    t1 = rbind(primary, rbind(multi, unmap))
-    colnames(t1) = c("Transcript type", "Quantity in input")
-    rownames(t1) = NULL
+    total = c("Total", nrow(transcripts))
+    t1 = rbind(primary, rbind(multi, rbind(unmap, total)))
+    title_t1 <- textGrob("Transcripts in Input",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
+    t1 = tableGrob(t1, rows = NULL, cols = c("Transcript type", "Count"))
+    gt1 = gTree(children=gList(t1, title_t1))
 
-    # Table 
+    # Table 2
     processedTranscripts = subset(transcripts, Mapping == "primary")
-    del = c("Deletions", sum(processedTranscripts$corrected_deletions), sum(processedTranscripts$uncorrected_deletions), sum(processedTranscripts$variant_deletions))
-    ins = c("Insertions", sum(processedTranscripts$corrected_insertions), sum(processedTranscripts$uncorrected_insertions), sum(processedTranscripts$variant_insertions))
-    mis = c("Mismatches", sum(processedTranscripts$corrected_mismatches), 0, sum(processedTranscripts$variant_mismatches))
-    ncsj = c("Noncanonical jns", sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), 0)
-    t2 <- rbind(del, rbind(ins, rbind(mis, ncsj)))
-    colnames(t2) = c("Error Type", "Corrected", "Not Corrected", "Variant")
-    rownames(t2) = NULL
+    del = c(sum(processedTranscripts$corrected_deletions), sum(processedTranscripts$uncorrected_deletions), sum(processedTranscripts$variant_deletions))
+    ins = c(sum(processedTranscripts$corrected_insertions), sum(processedTranscripts$uncorrected_insertions), sum(processedTranscripts$variant_insertions))
+    mis = c(sum(processedTranscripts$corrected_mismatches), 0, sum(processedTranscripts$variant_mismatches))
+    ncsj = c(sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), 0)
+    categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
+    t2 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind(mis, ncsj))))
+    t2$total = rowSums(t2[,2:4])
+    title_t2 = textGrob("Summary of Processed Errors",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
+    t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", "Not Corrected", "Variant", "Total"))
+    gt2 = gTree(children=gList(t2, title_t2))    
 
-    grid.arrange(
-        tableGrob(t1),
-        tableGrob(t2),
-        nrow=2)
+    # Table 3
+    processedTranscripts$totD = rowSums(processedTranscripts[,3:5])
+    processedTranscripts$totI = rowSums(processedTranscripts[,6:8])    
+    processedTranscripts$totM = rowSums(processedTranscripts[,9:10])
+    processedTranscripts$totNCSJ = rowSums(processedTranscripts[,11:12])
+    del = c(nrow(subset(processedTranscripts, totD > 0)), nrow(subset(processedTranscripts, totD > 0 & (uncorrected_deletions > 0 | variant_deletions > 0)))) 
+    ins = c(nrow(subset(processedTranscripts, totI > 0)), nrow(subset(processedTranscripts, totI > 0 & (uncorrected_insertions > 0 | variant_insertions > 0))))
+    mis = c(nrow(subset(processedTranscripts, totM > 0)), nrow(subset(processedTranscripts, totM > 0 & variant_mismatches > 0)))
+    ncsj = c(nrow(subset(processedTranscripts, totNCSJ > 0)), nrow(subset(processedTranscripts, totNCSJ > 0 & uncorrected_NC_SJs > 0))) 
+    categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
+    t3 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind(mis, ncsj))))
+    t3$change = round((t3[,2] - t3[,3])*100.0/t3[,2], 2)
+    title_t3 = textGrob("Transcripts containing one or more of error/variant type",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
+    t3 = tableGrob(t3, rows = NULL, cols = c("Type", "Before TranscriptClean", "After TranscriptClean", "Percent Corrected"))
+    gt3 = gTree(children=gList(t3, title_t3))
+
+    # Drawing tables
+    grid.arrange(gt1, gt2, gt3)#, layout_matrix = cbind(c(1,2,3),c(1,4,4)))
+
 
     # Plot 1: Size distribution of deletions
     # Median and max values are labeled on the plot
+    print("Plot 1..................")
     deletions = subset(data, ErrorType == "Deletion")
     maxCount = max(table(factor(deletions$Size)))
     medianD = median(deletions$Size)
@@ -68,6 +90,7 @@ main <-function() {
     
     # Plot 2: Size distribution of insertions
     # Median and max values are labeled on the plot
+    print("Plot 2..................")
     insertions = subset(data, ErrorType == "Insertion")
     maxCount = max(table(factor(insertions$Size)))
     medianI = median(insertions$Size)
@@ -81,6 +104,7 @@ main <-function() {
     
     # Plot 3: Size distribution of all indels
     # Median and max values are labeled on the plot
+    print("Plot 3..................")
     indels = subset(data, ErrorType == "Deletion" | ErrorType == "Insertion")
     maxCount = max(table(factor(indels$Size)))
     lab = getMedMaxLabel(indels$Size)
@@ -93,6 +117,7 @@ main <-function() {
     
     # Plot 4: If noncanonical splice junction correction mode enabled, plot distribution of distance to nearest annotated junction
     # Median and max values are labeled on the plot
+    print("Plot 4..................")
     ncSJs = subset(data, ErrorType == "NC_SJ_boundary")
     if (nrow(ncSJs) != 0) {
         ncSJs$Size = abs(ncSJs$Size)
@@ -110,6 +135,7 @@ main <-function() {
     }
      
     # Plot 5: Overview of corrections made to insertions, deletions, mismatches, and noncanonical splice sites
+    print("Plot 5..................")
     if (nrow(subset(data, Corrected == "Corrected")) > 0) {
         data_p5 = data
         data_p5[data_p5$ErrorType == "NC_SJ_boundary", "ErrorType"] = "NC_SJ"
@@ -119,7 +145,7 @@ main <-function() {
         if (nrow(subset(data_p5, ReasonNotCorrected == "VariantMatch")) > 0) {
             data_p5$Category[data_p5$ReasonNotCorrected == "VariantMatch"] <- "Variant"
             catOrder = c(catOrder, "Variant")
-            plotcolors = c(plotcolors, "blue")
+            plotcolors = c(plotcolors, "navy")
         }
         if (nrow(subset(data_p5, ReasonNotCorrected == "TooLarge")) > 0) {
             data_p5$Category[data_p5$ReasonNotCorrected == "TooLarge"] <- "Uncorrected (Too large)"
@@ -140,11 +166,9 @@ main <-function() {
     }    
     
     # Plot 6: Percentage of transcripts containing error of a given type before and after TranscriptClean 
+    print("Plot 6..................")
     if (nrow(subset(data, Corrected == "Corrected")) > 0) {
-       # cmd = paste("wc -l <", logFileVerbose, sep = " ") 
-        cmd = paste("grep -v 'NA'", logFileVerbose, " | wc -l ", sep = " ") 
-        totalTranscripts = as.numeric(system(cmd, intern = TRUE)) # get total transcript number from other log file because TE log only records errors
-        print(totalTranscripts)
+        totalTranscripts = nrow(processedTranscripts)
 
         transcriptsDBefore = length(unique(subset(data, ErrorType == "Deletion")$TranscriptID)) 
         transcriptsDAfter = length(unique(subset(data, ErrorType == "Deletion" & Corrected == "Uncorrected")$TranscriptID))
@@ -159,7 +183,7 @@ main <-function() {
         transcriptsSJAfter = length(unique(subset(data, ErrorType == "NC_SJ_boundary" & Corrected == "Uncorrected")$TranscriptID))
 
         data_p6 = data.frame(ErrorType=c("Deletion", "Insertion", "Mismatch", "NC_SJ"), Before=c(transcriptsDBefore, transcriptsIBefore, transcriptsMBefore, transcriptsSJBefore), After=c(transcriptsDAfter, transcriptsIAfter, transcriptsMAfter, transcriptsSJAfter))
-        data_p6 = melt(data_p6)
+        data_p6 = suppressMessages(melt(data_p6))
         data_p6$percent = vapply(as.numeric(data_p6$value), percent, numeric(1), totalTranscripts)
         data_p6$percent = paste(data_p6$percent,"%",sep="")
 
@@ -190,6 +214,7 @@ setupRun <- function() {
     library(grid)
     library(gridExtra)
     library(reshape2)
+    library(gtable)
 
     # Create custom theme for plots
     # axis.text controls tick mark labels

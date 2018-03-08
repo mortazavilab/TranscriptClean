@@ -676,9 +676,9 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
             # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
             combinedDist = combinedJunctionDist(dist_0, dist_1)
             if combinedDist > n or abs(dist_0) > 2*n or abs(dist_1) > 2*n:
-                errorEntry = "\t".join([t.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Uncorrected", "TooFarFromAnnotJn"])
+                errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Uncorrected", "TooFarFromAnnotJn"])
                 transcriptErrorLog.write(errorEntry + "\n")
-                Transcript2.addUncorrected_NC_SJ(t)
+                Transcript2.addUncorrected_NC_SJ(currTranscript)
             else:
                 for jn in [junction_half_0, junction_half_1]: # Perform correction 
                     side = jn[3].split("__")[-1]
@@ -693,9 +693,9 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                     else:
                         rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, currDist, genome, spliceAnnot)
 
-                errorEntry = "\t".join([t.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Corrected", "NA"])
+                errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Corrected", "NA"])
                 transcriptErrorLog.write(errorEntry + "\n")
-                Transcript2.addCorrected_NC_SJ(t)
+                Transcript2.addCorrected_NC_SJ(currTranscript)
 
                 currTranscript.NM, currTranscript.MD = t.getNMandMDFlags(genome)
     return
