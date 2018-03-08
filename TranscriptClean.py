@@ -204,11 +204,10 @@ def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog):
             if t.mapping != 1:
                 if t.mapping == 0:
                     logInfo = [t.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+                    outFa.write(Transcript2.printableFa(t) + "\n")
                 elif t.mapping == 2:
                     logInfo = [t.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]               
-                #Transcript2.updateLog(t, comment)
                 outSam.write(Transcript2.printableSAM(t, genome, spliceAnnot) + "\n")
-                outFa.write(Transcript2.printableFa(t) + "\n")
                 outTLog.write("\t".join(logInfo) + "\n") 
                 continue
 
