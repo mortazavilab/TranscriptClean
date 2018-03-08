@@ -6,7 +6,8 @@ TranscriptClean is designed to be run with Python version 2.7. It requires Bedto
 * Bedtools (v2.25.0): http://bedtools.readthedocs.io/en/latest/content/installation.html
 * pybedtools (v0.7.8): https://daler.github.io/pybedtools/
 * pyfasta (v0.5.2): https://pypi.python.org/pypi/pyfasta/
-In addition, R (v.3.3.2 recommended) is needed to run the visualization script(generate_report.R).
+
+In addition, R (v.3.3.2 recommended) is needed to run the visualization script, generate_report.R.
 
 To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. The TranscriptClean script can now be run directly from the command line- just include the path. 
 
