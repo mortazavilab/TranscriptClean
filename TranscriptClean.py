@@ -65,6 +65,10 @@ def getOptions():
                       mismatches, and noncanonical splice junctions, but it will \
                       skip correction. This is useful for checking the distribution \
                       of transcript errors in the data before running correction.")
+    parser.add_option("--primaryOnly", dest ="primaryOnly", action='store_true',
+                      help = "If this option is set, TranscriptClean will only \
+                      output primary mappings of transcripts (ie it will filter \
+                      out unmapped and multimapped lines from the SAM input.")
 
     (options, args) = parser.parse_args()
     return options
@@ -83,6 +87,7 @@ def main():
     mismatchCorrection = (options.correctMismatches).lower()
     sjCorrection = (options.correctSJs).lower()
     dryRun = options.dryRun
+    primaryOnly = options.primaryOnly
 
     # Read in the reference genome. 
     print "Reading genome .............................."
@@ -123,7 +128,7 @@ def main():
     transcriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')
     transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n") 
 
-    canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, transcriptLog) 
+    canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, transcriptLog, primaryOnly) 
     if len(canTranscripts) == 0: 
         print "Note: No canonical transcripts found."
     else:
@@ -180,7 +185,7 @@ def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, transcriptLog
         transcriptLog.write("\t".join([str(i) for i in currTranscript.logInfo]) + "\n")
     return
 
-def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog):
+def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog, primaryOnly):
     """ Extracts the SAM header (for use in the output files at the end) and 
     creates a Transcript object for every transcript in the SAM file. 
     Transcripts are returned two separate dicts: one for canonical transcripts 
@@ -202,6 +207,8 @@ def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog):
 
             # Unmapped/multimapper cases
             if t.mapping != 1:
+                if primaryOnly == True:
+                    continue
                 if t.mapping == 0:
                     logInfo = [t.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
                     outFa.write(Transcript2.printableFa(t) + "\n")
