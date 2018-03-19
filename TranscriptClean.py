@@ -704,7 +704,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 transcriptErrorLog.write(errorEntry + "\n")
                 Transcript2.addCorrected_NC_SJ(currTranscript)
 
-                currTranscript.NM, currTranscript.MD = t.getNMandMDFlags(genome)
+                currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
     return
 
 def combinedJunctionDist(dist_0, dist_1):
