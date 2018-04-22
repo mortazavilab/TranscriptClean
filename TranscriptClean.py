@@ -698,13 +698,18 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                         SpliceJunction.recheckPosition(currJunction)
                         SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)       
                     else:
-                        rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, currDist, genome, spliceAnnot)
-
-                errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Corrected", "NA"])
-                transcriptErrorLog.write(errorEntry + "\n")
-                Transcript2.addCorrected_NC_SJ(currTranscript)
-
-                currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
+                        corrected = rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, currDist, genome, spliceAnnot, 2*n)
+                        if corrected:
+                            errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Corrected", "NA"])
+                            transcriptErrorLog.write(errorEntry + "\n")
+                            Transcript2.addCorrected_NC_SJ(currTranscript)
+                            currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
+                        else:
+                            # Micro-exon case where exon size was less than correction
+                            errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Uncorrected", "MicroExon"])
+                            transcriptErrorLog.write(errorEntry + "\n")
+                            Transcript2.addUncorrected_NC_SJ(currTranscript)
+                            break
     return
 
 def combinedJunctionDist(dist_0, dist_1):
@@ -737,7 +742,7 @@ def combinedJunctionDist(dist_0, dist_1):
     return combined_dist
 
 
-def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot):
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot, maxDist):
     """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
         Rechecks junction motif and updates the transcript. NM and MD are not updated-
         this happens in cleanNoncanonical, the function that calls this one."""
@@ -770,8 +775,14 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
     exonSeqs.append(currExonStr)
     exonCIGARs.append(currExonCIGAR)
 
-    # Now go and fix the specific splice junction piece
+    # If the noncanonical junction involves an exon that is smaller than the 
+    # combined dist, then we can't fix it
     targetJn = spliceJn.jnNumber
+    exonLengths = [len(exonSeqs[targetJn]), len(exonSeqs[targetJn+1])]
+    if not all(x > maxDist for x in exonLengths):
+        return False
+   
+    # Now go and fix the specific splice junction piece
 
     if intronBound.bound == 0:
         targetExon = targetJn
@@ -816,7 +827,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
     SpliceJunction.recheckPosition(spliceJn)
     SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot) 
 
-    return
+    return True
 
  
 def splitCIGAR(CIGAR):
