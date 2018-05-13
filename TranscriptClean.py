@@ -683,33 +683,45 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
             # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
             combinedDist = combinedJunctionDist(dist_0, dist_1)
             if combinedDist > n or abs(dist_0) > 2*n or abs(dist_1) > 2*n:
-                errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Uncorrected", "TooFarFromAnnotJn"])
+                errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", 
+                                        str(combinedDist), "Uncorrected", 
+                                        "TooFarFromAnnotJn"])
                 transcriptErrorLog.write(errorEntry + "\n")
                 Transcript2.addUncorrected_NC_SJ(currTranscript)
-            else:
-                for jn in [junction_half_0, junction_half_1]: # Perform correction 
+
+            else: # Attempt to perform correction 
+                for jn in [junction_half_0, junction_half_1]: 
+                    corrected = []
                     side = jn[3].split("__")[-1]
                     currIntronBound = currJunction.bounds[int(side)]
                     currDist = int(jn[-1])
                     
-                    # It is possible for one side of the junction to match the annotation. If so, do not change this side
+                    # It is possible for one side of the junction to match the 
+                    # annotation. If so, do not change this side
                     if currDist == 0:
                         currIntronBound.isCanonical = True
                         SpliceJunction.recheckPosition(currJunction)
-                        SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)       
-                    else:
-                        corrected = rescueNoncanonicalJunction(currTranscript, currJunction, currIntronBound, currDist, genome, spliceAnnot, 2*n)
-                        if corrected:
-                            errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Corrected", "NA"])
-                            transcriptErrorLog.write(errorEntry + "\n")
-                            Transcript2.addCorrected_NC_SJ(currTranscript)
-                            currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
-                        else:
-                            # Micro-exon case where exon size was less than correction
-                            errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", str(combinedDist), "Uncorrected", "MicroExon"])
-                            transcriptErrorLog.write(errorEntry + "\n")
-                            Transcript2.addUncorrected_NC_SJ(currTranscript)
-                            break
+                        SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot) 
+                        corrected.append(True)      
+                    else: # Try correction
+                        corrected.append(rescueNoncanonicalJunction(currTranscript, 
+                                          currJunction, currIntronBound, currDist, 
+                                          genome, spliceAnnot, 2*n))
+                # After both sides of the junction have been processed, check to see
+                # whether both of them were corrected. Update log accordingly
+                if all(corrected):
+                    errorEntry = "\t".join([currTranscript.QNAME, ID, 
+                                            "NC_SJ_boundary", str(combinedDist), 
+                                             "Corrected", "NA"])
+                    transcriptErrorLog.write(errorEntry + "\n")
+                    Transcript2.addCorrected_NC_SJ(currTranscript)
+                    currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
+                else:
+                    # Micro-exon case where exon size was less than correction
+                    errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", 
+                              str(combinedDist), "Uncorrected", "MicroExon"])
+                    transcriptErrorLog.write(errorEntry + "\n")
+                    Transcript2.addUncorrected_NC_SJ(currTranscript)
     return
 
 def combinedJunctionDist(dist_0, dist_1):
