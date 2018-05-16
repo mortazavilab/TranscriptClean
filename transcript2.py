@@ -434,7 +434,7 @@ class Transcript2:
             base_wise_str += op*ct
         return base_wise_str
     
-    def fetch_region_sequence(self, chromosome, start, end, strand):
+    def fetch_region_sequence(self, chromosome, start, end):
         """ Walks the SAM sequence to return the bases in the specified region.
             Returns None if the sequence is not available, i.e. because the 
             region does not overlap with the transcript, or because it is in
@@ -442,7 +442,7 @@ class Transcript2:
          
         # Check whether the supplied region is located even remotely near the
         # transcript
-        if chromosome != self.CHROM or strand != self.strand:
+        if chromosome != self.CHROM:
             return None
         if not(start >= self.POS and end <= self.compute_transcript_end()):
             return None
