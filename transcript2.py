@@ -137,6 +137,28 @@ class Transcript2:
         self.isCanonical = True
         return True
 
+    def compute_transcript_end(self):
+        """ Given the start position and CIGAR string of a mapped SAM transcript,
+            compute the end position in the reference genome.
+
+            Args:
+                start: The start position of the transcript with respect to the
+                forward strand
+
+                cigar: SAM CIGAR string describing match operations to the reference
+                genome
+
+            Returns:
+                end position of the transcript.
+        """
+        end = self.POS
+
+        ops, counts = self.splitCIGAR()
+        for op,ct in zip(ops, counts):
+            if op in ["M", "N", "D"]:
+                end += ct
+
+        return end - 1
 
     def splitCIGAR(self):
         """ Takes CIGAR string from SAM and splits it into two lists: 
@@ -399,6 +421,67 @@ class Transcript2:
 
         return jMstr, jIstr
 
+    def base_wise_CIGAR(self):
+        """ Create an extended version of the CIGAR string with an operation
+            per base.
+            Example: 3M10N2D5M becomes
+                     MMMNNNNNNNNNNDDMMMMM
+
+        """
+        base_wise_str = ""
+        ops, counts = self.splitCIGAR()        
+        for op,ct in zip(ops, counts):
+            base_wise_str += op*ct
+        return base_wise_str
+    
+    def fetch_region_sequence(self, chromosome, start, end, strand):
+        """ Walks the SAM sequence to return the bases in the specified region.
+            Returns None if the sequence is not available, i.e. because the 
+            region does not overlap with the transcript, or because it is in
+            an intron. Supplied coordinates should be 1-based. """
+         
+        # Check whether the supplied region is located even remotely near the
+        # transcript
+        if chromosome != self.CHROM or strand != self.strand:
+            return None
+        if not(start >= self.POS and end <= self.compute_transcript_end()):
+            return None
+        
+        # Walk transcript sequence using CIGAR string
+        positions = range(start, end + 1)
+        seq = self.SEQ
+        seq_pos = 0
+        bases = ""
+
+        genome_pos = self.POS
+        while genome_pos <= end:
+            for op in self.base_wise_CIGAR():
+                if op == "M":
+                    if (genome_pos in positions):
+                        bases += seq[seq_pos]
+                    genome_pos += 1
+                    seq_pos += 1
+                # Advance in genome sequence but not in transcript sequence
+                if op in ["D", "N", "H"]:
+                    if (genome_pos in positions) and op == "D":
+                        bases += "-"
+                    genome_pos += 1
+                # Advance in transcript sequence but not genome sequence
+                if op in ["S", "I"]:
+                    if (genome_pos in positions) and op == "I":
+                        bases += seq[seq_pos]
+                    seq_pos += 1       
+ 
+        if bases == "":
+            return None
+
+        # If the transcript is on the reverse strand, reverse-complement the
+        # sequence before returning it
+        if self.strand == "-":    
+            bases = reverseComplement(bases)
+        return bases
+        
+
 def getSJMotifCode(startBases, endBases):
     """ Determines which STAR-style splice junction code applies to a splice motif """       
 
@@ -437,8 +520,10 @@ def reverseComplement(seq):
 	elif base == "n": complement += "n"
         elif base == "*": complement += "*"
         else:
-            print "Warning: reverse complement function encountered unknown base " + "'" + base + "'"
+            complement += base
+            #print "Warning: reverse complement function encountered unknown base " + "'" + base + "'"
 
     reverseComplement = complement[::-1]
 
     return reverseComplement
+
