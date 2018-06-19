@@ -31,6 +31,7 @@ main <-function() {
     transcripts[,3:12] <- sapply(transcripts[,3:12], as.numeric)
 
     # Table 1
+    print("Creating tables..............")
     primary = c("Primary mapping", nrow(subset(transcripts, Mapping == "primary")))
     multi = c("Non-primary mapping", nrow(subset(transcripts, Mapping == "non-primary"))) 
     unmap = c("Unmapped", nrow(subset(transcripts, Mapping == "unmapped")))
@@ -39,6 +40,7 @@ main <-function() {
     title_t1 <- textGrob("Transcripts in Input",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
     t1 = tableGrob(t1, rows = NULL, cols = c("Transcript type", "Count"))
     gt1 = gTree(children=gList(t1, title_t1))
+    
 
     # Table 2
     processedTranscripts = subset(transcripts, Mapping == "primary")
@@ -51,10 +53,12 @@ main <-function() {
     t2$total = rowSums(t2[,2:4], na.rm = TRUE)
     t2$total[t2$total == 0] = NA
     t2$percent = round((t2[,2])*100.0/t2[,5], 2)
+ 
     title_t2 = textGrob("Summary of Processed Errors",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
     t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", "Not Correctable", "Variant", "Total", "Percent Corrected"))
     gt2 = gTree(children=gList(t2, title_t2))    
 
+    
     # Table 3
     processedTranscripts$totD = rowSums(processedTranscripts[,3:5], na.rm = TRUE)
     processedTranscripts$totI = rowSums(processedTranscripts[,6:8], na.rm = TRUE)    
