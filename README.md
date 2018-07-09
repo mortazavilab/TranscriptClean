@@ -9,7 +9,7 @@ TranscriptClean is designed to be run with Python version 2.7. It requires Bedto
 
 In addition, R (v.3.3.2 recommended) is needed to run the visualization script, generate_report.R.
 
-To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. The TranscriptClean script can now be run directly from the command line- just include the path. 
+To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. Alternately, you can download a specific version of the program from the Releases tab. The TranscriptClean script can now be run directly from the command line- just include the path. 
 
 ## Usage 
 TranscriptClean is run from the command line as follows. For additional details and examples, please see the Wiki section.
