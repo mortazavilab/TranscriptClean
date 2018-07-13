@@ -690,8 +690,11 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 Transcript2.addUncorrected_NC_SJ(currTranscript)
 
             else: # Attempt to perform correction 
+                currSeq = currTranscript.SEQ
+                currCIGAR = currTranscript.CIGAR
+                corrected = []
                 for jn in [junction_half_0, junction_half_1]: 
-                    corrected = []
+                    #corrected = []
                     side = jn[3].split("__")[-1]
                     currIntronBound = currJunction.bounds[int(side)]
                     currDist = int(jn[-1])
@@ -704,9 +707,10 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                         SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot) 
                         corrected.append(True)      
                     else: # Try correction
-                        corrected.append(rescueNoncanonicalJunction(currTranscript, 
-                                          currJunction, currIntronBound, currDist, 
-                                          genome, spliceAnnot, 2*n))
+                        corr, currSeq, currCIGAR = rescueNoncanonicalJunction(currTranscript,
+                                          currJunction, currIntronBound, currDist,
+                                          genome, spliceAnnot, 2*n, currSeq, currCIGAR)
+                        corrected.append(corr)
                 # After both sides of the junction have been processed, check to see
                 # whether both of them were corrected. Update log accordingly
                 if all(corrected):
@@ -715,11 +719,13 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                                              "Corrected", "NA"])
                     transcriptErrorLog.write(errorEntry + "\n")
                     Transcript2.addCorrected_NC_SJ(currTranscript)
+                    currTranscript.SEQ = currSeq
+                    currTranscript.CIGAR = currCIGAR
                     currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
                 else:
-                    # Micro-exon case where exon size was less than correction
+                    # Micro-exon case where exon size was less than correction, or other special case
                     errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", 
-                              str(combinedDist), "Uncorrected", "MicroExon"])
+                              str(combinedDist), "Uncorrected", "Other"])
                     transcriptErrorLog.write(errorEntry + "\n")
                     Transcript2.addUncorrected_NC_SJ(currTranscript)
     return
@@ -754,17 +760,20 @@ def combinedJunctionDist(dist_0, dist_1):
     return combined_dist
 
 
-def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spliceAnnot, maxDist):
+def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
+                               spliceAnnot, maxDist, seq, oldCIGAR):
     """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
         Rechecks junction motif and updates the transcript. NM and MD are not updated-
         this happens in cleanNoncanonical, the function that calls this one."""
-    oldCIGAR = transcript.CIGAR
-    seq = transcript.SEQ
+    #oldCIGAR = transcript.CIGAR
+    #seq = transcript.SEQ
+
+    print oldCIGAR, seq
 
     currExonStr = ""
     currExonCIGAR = ""
     currSeqIndex = 0
-    operations, counts = splitCIGAR(transcript.CIGAR)
+    operations, counts = splitCIGAR(oldCIGAR)
     exonSeqs = []
     exonCIGARs = []
     intronCIGARs = []
@@ -792,7 +801,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
     targetJn = spliceJn.jnNumber
     exonLengths = [len(exonSeqs[targetJn]), len(exonSeqs[targetJn+1])]
     if not all(x > maxDist for x in exonLengths):
-        return False
+        return False, seq, oldCIGAR
    
     # Now go and fix the specific splice junction piece
 
@@ -827,20 +836,41 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, spl
         # Modify exon string
         exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
         intronCIGARs[targetJn] += d
-    transcript.SEQ = str(''.join(exonSeqs))
+
+    newSeq = str(''.join(exonSeqs))
 
     # Paste together the new CIGAR string
     newCIGAR = ""
     for i in range(0,len(intronCIGARs)):
         newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
     newCIGAR = newCIGAR + exonCIGARs[-1]
-    transcript.CIGAR = newCIGAR    
-    intronBound.isCanonical = True
-    SpliceJunction.recheckPosition(spliceJn)
-    SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot) 
 
+    # Check the validity of the new CIGAR string
+    if check_CIGAR_validity(newCIGAR) == True:
+        intronBound.isCanonical = True
+        SpliceJunction.recheckPosition(spliceJn)
+        SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot)
+        return True, newSeq, newCIGAR
+
+    else:
+        return False, seq, oldCIGAR
+
+def check_CIGAR_validity(CIGAR):
+    """ Returns 'True' if CIGAR string passes tests, and "False" otherwise.
+        Checks to make sure that 
+        1) Introns (N) are only ever followed by M operation
+        2) Introns never follow an insertion/deletion
+    """
+
+    operations, counts = splitCIGAR(CIGAR)
+    prev = ""
+    for op, ct in zip(operations, counts):
+        if prev == "N" and op != "M":
+            return False
+        prev = op
+        elif prev == "D" and op == "N":
+            return False
     return True
-
  
 def splitCIGAR(CIGAR):
     """ Takes CIGAR string from SAM and splits it into two lists: one with 

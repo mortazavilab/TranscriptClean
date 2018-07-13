@@ -172,8 +172,8 @@ main <-function() {
             catOrder = c(catOrder, "Uncorrected (Too far from annotated junction)")
             plotcolors = c(plotcolors, "orange")   
         }
-        if (nrow(subset(data_p5, ReasonNotCorrected == "MicroExon")) > 0) {
-            data_p5$Category[data_p5$ReasonNotCorrected == "MicroExon"] <- "Uncorrected (Exon smaller than correction dist)"
+        if (nrow(subset(data_p5, ReasonNotCorrected == "Other")) > 0) {
+            data_p5$Category[data_p5$ReasonNotCorrected == "Other"] <- "Uncorrected (Exon smaller than correction dist)"
             catOrder = c(catOrder, "Uncorrected (Exon smaller than correction dist)")
             plotcolors = c(plotcolors, "yellow")
         }
