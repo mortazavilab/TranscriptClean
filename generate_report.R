@@ -173,8 +173,8 @@ main <-function() {
             plotcolors = c(plotcolors, "orange")   
         }
         if (nrow(subset(data_p5, ReasonNotCorrected == "Other")) > 0) {
-            data_p5$Category[data_p5$ReasonNotCorrected == "Other"] <- "Uncorrected (Exon smaller than correction dist)"
-            catOrder = c(catOrder, "Uncorrected (Exon smaller than correction dist)")
+            data_p5$Category[data_p5$ReasonNotCorrected == "Other"] <- "Uncorrected (Other)"
+            catOrder = c(catOrder, "Uncorrected (Other)")
             plotcolors = c(plotcolors, "yellow")
         }
 
