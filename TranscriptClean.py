@@ -765,10 +765,6 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
     """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
         Rechecks junction motif and updates the transcript. NM and MD are not updated-
         this happens in cleanNoncanonical, the function that calls this one."""
-    #oldCIGAR = transcript.CIGAR
-    #seq = transcript.SEQ
-
-    print oldCIGAR, seq
 
     currExonStr = ""
     currExonCIGAR = ""
@@ -867,9 +863,9 @@ def check_CIGAR_validity(CIGAR):
     for op, ct in zip(operations, counts):
         if prev == "N" and op != "M":
             return False
-        prev = op
-        elif prev == "D" and op == "N":
+        if prev == "D" and op == "N":
             return False
+        prev = op
     return True
  
 def splitCIGAR(CIGAR):
