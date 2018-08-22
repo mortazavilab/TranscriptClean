@@ -689,12 +689,11 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 transcriptErrorLog.write(errorEntry + "\n")
                 Transcript2.addUncorrected_NC_SJ(currTranscript)
 
-            else: # Attempt to perform correction 
+            else: # Attempt to perform correction
                 currSeq = currTranscript.SEQ
                 currCIGAR = currTranscript.CIGAR
                 corrected = []
                 for jn in [junction_half_0, junction_half_1]: 
-                    #corrected = []
                     side = jn[3].split("__")[-1]
                     currIntronBound = currJunction.bounds[int(side)]
                     currDist = int(jn[-1])
@@ -773,7 +772,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
     exonSeqs = []
     exonCIGARs = []
     intronCIGARs = []
-
+    
     # First, use the old CIGAR string to segment the sequence by exon
     # Also, group the CIGAR string by exon
     for op, ct in zip(operations, counts):
@@ -789,6 +788,7 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
             currSeqIndex += ct
         else:
             currExonCIGAR = currExonCIGAR + str(ct) + op
+    # Append last exon entries
     exonSeqs.append(currExonStr)
     exonCIGARs.append(currExonCIGAR)
 
@@ -798,9 +798,24 @@ def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
     exonLengths = [len(exonSeqs[targetJn]), len(exonSeqs[targetJn+1])]
     if not all(x > maxDist for x in exonLengths):
         return False, seq, oldCIGAR
-   
-    # Now go and fix the specific splice junction piece
 
+    # Also need to check for and avoid situations where the overall
+    # exon is of an acceptable length, but has an intervening deletion in the 
+    # bordering maxDist bases
+    if intronBound.bound == 0: # check the end of the exon sequence
+        exonOps, exonCts = splitCIGAR(exonCIGARs[spliceJn.jnNumber])   
+        if len(exonOps) < 3:
+            pass
+        elif exonOps[-2] == "D" and exonCts[-1] <= maxDist:
+            return False, seq, oldCIGAR
+    if intronBound.bound == 1:
+        exonOps, exonCts = splitCIGAR(exonCIGARs[spliceJn.jnNumber + 1])
+        if len(exonOps) < 3:
+            pass
+        elif exonOps[1] == "D" and exonCts[0] <= maxDist:
+            return False, seq, oldCIGAR
+
+    # Now go and fix the specific splice junction piece
     if intronBound.bound == 0:
         targetExon = targetJn
         exon = exonSeqs[targetExon]
@@ -858,6 +873,9 @@ def check_CIGAR_validity(CIGAR):
         2) Introns never follow an insertion/deletion
     """
 
+    if "-" in CIGAR:
+        return False
+
     operations, counts = splitCIGAR(CIGAR)
     prev = ""
     for op, ct in zip(operations, counts):
@@ -865,6 +883,7 @@ def check_CIGAR_validity(CIGAR):
             return False
         if prev == "D" and op == "N":
             return False
+        
         prev = op
     return True
  

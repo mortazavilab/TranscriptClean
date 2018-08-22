@@ -55,9 +55,15 @@ class Transcript2:
             elif field.startswith("jI"): self.jI = field
             else: otherFields.append(field)
 
-        # If the NM and MD tags were missing, compute them here.
-        if self.MD == "" and self.mapping == 1:
+        # Compute NM and MD tags here.
+        if self.mapping == 1:
             self.NM, self.MD = self.getNMandMDFlags(genome)
+
+        # If the NM and MD tags are None, it means there was a reference genome
+        # problem somewhere in the read. Consider such reads unmapped.
+        if self.NM == None and self.MD == None:
+            self.mapping = 0
+            self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
 
         # If the jM and jI fields are missing, compute them here.
         if (self.jM == self.jI == "") and self.mapping == 1:
@@ -176,14 +182,14 @@ class Transcript2:
             one with capital letters (match operators), and one with 
             the number of bases that each operation applies to. """
 
-        MD = self.MD.split(":")[2]
+        MD = str(self.MD).split(":")[2]
         operations = []
 
         # Split MD string where type changes. 
         # Digits are separated from base changes. 
         # Deletions (with ^) are captured together.
         counts = ["".join(x) for _, x in itertools.groupby(MD, key=str.isdigit)]
-
+        
         # Get operations
         for i in range(0,len(counts)):
             curr = counts[i]
@@ -198,7 +204,7 @@ class Transcript2:
                 else: 
                     operations.append("X")
                     counts[i] = len(counts[i])
-
+       
         return operations, counts
 
     def mergeMDwithCIGAR(self):
@@ -221,9 +227,9 @@ class Transcript2:
             # If the current CIGAR operation is S, H, N, or I, add that to the
             # output. The MD tag doesn't have these
             if cigarOperation[cigarIndex] in ("H", "S", "I", "N"):
-                mergeOperations.append(cigarOperation[cigarIndex])
-                mergeCounts.append(cigarCount[cigarIndex])
-                cigarIndex += 1
+                    mergeOperations.append(cigarOperation[cigarIndex])
+                    mergeCounts.append(cigarCount[cigarIndex])
+                    cigarIndex += 1
 
             # Otherwise, we need to compare the current CIGAR and MD operations.
             # Select the "shorter" operation and add it to the results. 
@@ -337,19 +343,31 @@ class Transcript2:
             return "",""
 
         operations, counts = self.splitCIGAR()
+
+        tot = 0
+        for op, ct in zip(operations, counts):
+            if op in ["M", "I", "S"]:
+                tot += ct
+        
         for op, ct in zip(operations, counts):
             if op == "M":
                 for i in range(0,ct):
                     currBase = self.SEQ[seqPos]
                     refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True) 
+                    if refBase == "":
+                        return None, None
+                   
+                    # In the event of a mismatch
                     if currBase.upper() != refBase.upper():
                         # End any match we have going and add the mismatch
                         MD = MD + str(MVal)  
                         MVal = 0 
                         MD = MD + str(refBase) 
                         NM += 1
+                    # Bases match
                     else:
                         MVal += 1
+                    # Either way, advance forwards in the sequence and genome
                     seqPos += 1
                     genomePos += 1
             if op == "D":
@@ -357,6 +375,8 @@ class Transcript2:
                 MD = MD + str(MVal)  
                 MVal = 0
                 refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                if refBase == "":
+                    return None, None
                 MD = MD + "^" + str(refBases)
                 NM += ct
                 genomePos += ct
@@ -366,7 +386,7 @@ class Transcript2:
                 if op == "I": NM += ct
             if op in ["N", "H"]:
                 genomePos += ct
-                
+            
         if MVal > 0: MD = MD + str(MVal) 
         return "NM:i:" + str(NM), MD
 
