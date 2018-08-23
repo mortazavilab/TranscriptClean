@@ -375,7 +375,7 @@ class Transcript2:
                 MD = MD + str(MVal)  
                 MVal = 0
                 refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                if refBase == "":
+                if refBases == "":
                     return None, None
                 MD = MD + "^" + str(refBases)
                 NM += ct
