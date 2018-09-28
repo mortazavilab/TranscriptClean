@@ -295,8 +295,13 @@ class Transcript2:
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, \
                    self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, \
                    self.NM, self.MD, self.jM, self.jI ]
-        fields = filter(None, fields)
-        return "\t".join([str(x) for x in fields]).strip()
+      
+        final_fields = []
+        for field in fields:
+            if field != "" and field != None:
+                final_fields.append(field)
+        
+        return "\t".join([str(x) for x in final_fields]).strip()
 
     def printableFa(self):
         """ Returns a fasta-formatted string representation of the transcript """
