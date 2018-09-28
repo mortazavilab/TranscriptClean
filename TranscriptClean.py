@@ -690,6 +690,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 Transcript2.addUncorrected_NC_SJ(currTranscript)
 
             else: # Attempt to perform correction
+                print currTranscript.QNAME
                 currSeq = currTranscript.SEQ
                 currCIGAR = currTranscript.CIGAR
                 corrected = []
@@ -713,14 +714,26 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                 # After both sides of the junction have been processed, check to see
                 # whether both of them were corrected. Update log accordingly
                 if all(corrected):
-                    errorEntry = "\t".join([currTranscript.QNAME, ID, 
+                    try:
+                        temp_transcript = copy.copy(currTranscript)
+                        temp_transcript.SEQ = currSeq
+                        temp_transcript.CIGAR = currCIGAR
+                        temp_transcript.NM, temp_transcript.MD = currTranscript.getNMandMDFlags(genome)
+ 
+                        errorEntry = "\t".join([currTranscript.QNAME, ID, 
                                             "NC_SJ_boundary", str(combinedDist), 
                                              "Corrected", "NA"])
-                    transcriptErrorLog.write(errorEntry + "\n")
-                    Transcript2.addCorrected_NC_SJ(currTranscript)
-                    currTranscript.SEQ = currSeq
-                    currTranscript.CIGAR = currCIGAR
-                    currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
+                        transcriptErrorLog.write(errorEntry + "\n")
+                        currTranscript = temp_transcript
+                        Transcript2.addCorrected_NC_SJ(currTranscript)
+                    #currTranscript.SEQ = currSeq
+                    #currTranscript.CIGAR = currCIGAR
+                    #currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
+                    except:
+                        errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary",
+                              str(combinedDist), "Uncorrected", "Other"])
+                        transcriptErrorLog.write(errorEntry + "\n")
+                        Transcript2.addUncorrected_NC_SJ(currTranscript)
                 else:
                     # Micro-exon case where exon size was less than correction, or other special case
                     errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", 
