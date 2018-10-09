@@ -15,6 +15,7 @@ import pybedtools
 from pyfasta import Fasta
 import os
 import re
+import copy
 
 def getOptions():
     parser = OptionParser()
@@ -682,6 +683,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
             
             # Only attempt to rescue junction boundaries that are within n bp of an annotated junction
             combinedDist = combinedJunctionDist(dist_0, dist_1)
+            
             if combinedDist > n or abs(dist_0) > 2*n or abs(dist_1) > 2*n:
                 errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary", 
                                         str(combinedDist), "Uncorrected", 
@@ -728,7 +730,8 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                     #currTranscript.SEQ = currSeq
                     #currTranscript.CIGAR = currCIGAR
                     #currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
-                    except:
+                    except Exception as e:
+                        print e
                         errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary",
                               str(combinedDist), "Uncorrected", "Other"])
                         transcriptErrorLog.write(errorEntry + "\n")
