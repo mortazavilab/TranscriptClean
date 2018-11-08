@@ -43,4 +43,9 @@ TranscriptClean outputs the following files:
 * Transcript error log file (.TE.log): Each row represents a potential error in a given transcript. The column values track whether the error was corrected or not and why.
 * Transcript log file (.log): Each row represents a transcript. The columns track the mapping status of the transcript, as well as how many errors of each type were found and corrected/not corrected in the transcript.
 
+## Credit
+Please cite our paper when using TranscriptClean:
+
+Dana Wyman, Ali Mortazavi. TranscriptClean: variant-aware correction of indels, mismatches and splice junctions in long-read transcripts, Bioinformatics, 15 June 2018, https://doi.org/10.1093/bioinformatics/bty483
+
 
