@@ -542,11 +542,11 @@ def reverseComplement(seq):
         elif base == "t": complement += "a" 
         elif base == "g": complement += "c"
         elif base == "c": complement += "g"
-	elif base == "n": complement += "n"
+        elif base == "n": complement += "n"
         elif base == "*": complement += "*"
         else:
             complement += base
-            #print "Warning: reverse complement function encountered unknown base " + "'" + base + "'"
+            print("Warning: reverse complement function encountered unknown base " + "'" + base + "'")
 
     reverseComplement = complement[::-1]
 

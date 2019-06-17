@@ -91,32 +91,32 @@ def main():
     primaryOnly = options.primaryOnly
 
     # Read in the reference genome. 
-    print "Reading genome .............................."
+    print("Reading genome ..............................")
     genome = Fasta(genomeFile)
 
     if dryRun == True:
         # Dry run mode simply catalogues all indels in the data, then exits.
-        print "Dry run mode: Cataloguing indels........."
+        print("Dry run mode: Cataloguing indels.........")
         dryRun_recordIndels(samFile, outprefix, genome)
         return
 
     if sjFile != None:
-        print "Processing annotated splice junctions ..."
+        print("Processing annotated splice junctions ...")
         annotatedSpliceJns, sjDict = processSpliceAnnotation(sjFile, outprefix)
     else:
-        print "No splice annotation provided. Will skip splice junction correction."
+        print("No splice annotation provided. Will skip splice junction correction.")
         sjDict = {}
 
     if variantFile != None:
-        print "Processing variant file ................."
+        print("Processing variant file .................")
         snps, insertions, deletions = processVCF(variantFile, maxLenIndel)
     else:
-        print "No variant file provided. Transcript correction will not be variant-aware."
+        print("No variant file provided. Transcript correction will not be variant-aware.")
         snps = {}
         insertions = {}
         deletions = {}
 
-    print "Processing SAM file ........................."
+    print("Processing SAM file .........................")
     oSam = open(outprefix + "_clean.sam", 'w')
     oFa = open(outprefix + "_clean.fa", 'w')
     transcriptLog = open(outprefix + "_clean.log", 'w')
@@ -131,40 +131,40 @@ def main():
 
     canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, transcriptLog, primaryOnly) 
     if len(canTranscripts) == 0: 
-        print "Note: No canonical transcripts found."
+        print("Note: No canonical transcripts found.")
     else:
         if dryRun == True:
             dryRun_recordIndels(canTranscripts)
         else: 
             if mismatchCorrection == "true":
-                print "Correcting mismatches (canonical transcripts)............"
+                print("Correcting mismatches (canonical transcripts)............")
                 correctMismatches(canTranscripts, genome, snps, transcriptErrorLog)
      
             if indelCorrection == "true":
-                print "Correcting insertions (canonical transcripts)............"
+                print("Correcting insertions (canonical transcripts)............")
                 correctInsertions(canTranscripts, genome, insertions, maxLenIndel, transcriptErrorLog)
-                print "Correcting deletions (canonical transcripts)............"
+                print("Correcting deletions (canonical transcripts)............")
                 correctDeletions(canTranscripts, genome, deletions, maxLenIndel, transcriptErrorLog)
 
     if len(noncanTranscripts) == 0:
-        print "Note: No noncanonical transcripts found."
+        print("Note: No noncanonical transcripts found.")
     else:
         if dryRun == True:
             dryRun_recordIndels(noncanTranscripts)
         else:
             if mismatchCorrection == "true":
-                print "Correcting mismatches (noncanonical transcripts)............"
+                print("Correcting mismatches (noncanonical transcripts)............")
                 correctMismatches(noncanTranscripts, genome, snps, transcriptErrorLog)
             if indelCorrection == "true":
-                print "Correcting insertions (noncanonical transcripts)............"
+                print("Correcting insertions (noncanonical transcripts)............")
                 correctInsertions(noncanTranscripts, genome, insertions, maxLenIndel, transcriptErrorLog)
-                print "Correcting deletions (noncanonical transcripts)............"
+                print("Correcting deletions (noncanonical transcripts)............")
                 correctDeletions(noncanTranscripts, genome, deletions, maxLenIndel, transcriptErrorLog)
             if sjFile != None and sjCorrection == "true":
-                print "Rescuing noncanonical junctions............."
+                print("Rescuing noncanonical junctions.............")
                 cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, outprefix, transcriptErrorLog)
 
-    print "Writing output to sam file and fasta file.................."
+    print("Writing output to sam file and fasta file..................")
 
     # Generate the output files
     writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
@@ -666,7 +666,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
     # represent each side of the jn.
     with open(jnMatchFileSorted, 'r') as f:
         for junction_half_0 in f:
-            junction_half_1 = f.next()
+            junction_half_1 = next(f)
             
             junction_half_0 = junction_half_0.strip().split("\t")
             junction_half_1 = junction_half_1.strip().split("\t")
@@ -731,7 +731,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                     #currTranscript.CIGAR = currCIGAR
                     #currTranscript.NM, currTranscript.MD = currTranscript.getNMandMDFlags(genome)
                     except Exception as e:
-                        print e
+                        print(e)
                         errorEntry = "\t".join([currTranscript.QNAME, ID, "NC_SJ_boundary",
                               str(combinedDist), "Uncorrected", "Other"])
                         transcriptErrorLog.write(errorEntry + "\n")
