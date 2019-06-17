@@ -2,7 +2,7 @@
 # Author: Dana Wyman
 # 3/1/2018
 # -----------------------------------------------------------------------------
-# Mismatches and microindels in long reads are corrected in a  SNP-aware 
+# Mismatches and microindels in long reads are corrected in a variant-aware 
 # fashion using the reference genome and a VCF file of whitelisted variants. 
 # Noncanonical splice junctions can also be corrected using a file of reference 
 # splice sites.
@@ -12,6 +12,7 @@ from spliceJunction import *
 from intronBound import IntronBound
 from optparse import OptionParser
 import pybedtools
+import dstruct
 from pyfasta import Fasta
 import os
 import re
@@ -74,47 +75,69 @@ def getOptions():
     (options, args) = parser.parse_args()
     return options
 
-def main():
-    options = getOptions()
-    samFile = options.sam
+def prep_refs(orig_options):
+    """ Process input files and store them in a reference dict """
+
+    options = cleanup_options(orig_options)
     genomeFile = options.refGenome
-    outprefix = options.outprefix 
     variantFile = options.variantFile
     sjFile = options.spliceAnnot
-    maxLenIndel = int(options.maxLenIndel)
-    maxSJOffset = int(options.maxSJOffset)
-    
-    indelCorrection = (options.correctIndels).lower()
-    mismatchCorrection = (options.correctMismatches).lower()
-    sjCorrection = (options.correctSJs).lower()
-    dryRun = options.dryRun
-    primaryOnly = options.primaryOnly
+    outprefix = options.outprefix
 
-    # Read in the reference genome. 
+    # Container for references
+    refs = {}
+
+    # Read in the reference genome.
     print("Reading genome ..............................")
-    genome = Fasta(genomeFile)
+    refs["genome"] = Fasta(genomeFile)
+
+    # Read in splice junctions
+    if sjFile != None:
+        print("Processing annotated splice junctions ...")
+        refs["annotatedSpliceJns"], refs["sjDict"] = processSpliceAnnotation(sjFile, outprefix)
+    else:
+        print("No splice annotation provided. Will skip splice junction correction.")
+        refs["sjDict"] = {}
+
+    # Read in variants
+    if variantFile != None:
+        print("Processing variant file .................")
+        refs["snps"], refs["insertions"], refs["deletions"] = processVCF(variantFile, options.maxLenIndel)
+    else:
+        print("No variant file provided. Transcript correction will not be variant-aware.")
+        refs["snps"] = refs["insertions"] = refs["deletions"] = {}
+
+    return options, refs
+
+def cleanup_options(options):
+    """ Clean up input options by casting to appropriate types etc. """
+    options.maxLenIndel = int(options.maxLenIndel)
+    options.maxSJOffset = int(options.maxSJOffset)
+    options.indelCorrection = (options.correctIndels).lower()
+    options.mismatchCorrection = (options.correctMismatches).lower()
+    options.sjCorrection = (options.correctSJs).lower()
+
+    return options
+
+def setup_outfiles(options, process = ""):
+    # TODO
+    """ Set up output files. If running in parallel, label with a process ID """
+
+def main():
+    orig_options = getOptions()
+    options, refs = prep_refs(orig_options)
+    print(options.maxLenIndel)
+    exit()
+
+    samFile = options.sam
+    outprefix = options.outprefix 
 
     if dryRun == True:
         # Dry run mode simply catalogues all indels in the data, then exits.
         print("Dry run mode: Cataloguing indels.........")
-        dryRun_recordIndels(samFile, outprefix, genome)
+        dryRun_recordIndels(samFile, outprefix, refs.genome)
         return
 
-    if sjFile != None:
-        print("Processing annotated splice junctions ...")
-        annotatedSpliceJns, sjDict = processSpliceAnnotation(sjFile, outprefix)
-    else:
-        print("No splice annotation provided. Will skip splice junction correction.")
-        sjDict = {}
-
-    if variantFile != None:
-        print("Processing variant file .................")
-        snps, insertions, deletions = processVCF(variantFile, maxLenIndel)
-    else:
-        print("No variant file provided. Transcript correction will not be variant-aware.")
-        snps = {}
-        insertions = {}
-        deletions = {}
 
     print("Processing SAM file .........................")
     oSam = open(outprefix + "_clean.sam", 'w')
@@ -1020,4 +1043,5 @@ def dryRun_recordIndels(sam, outprefix, genome):
     tL.close()
     return 
 
-main()
+if __name__ == '__main__':
+    main()
