@@ -149,34 +149,40 @@ def setup_outfiles(options, process = ""):
 
     return outfiles
 
+def close_outfiles(outfiles):
+    """ Close all of the outout files """
+
+    for f in list(outfiles.values()):
+        f.close()
+
+    return
+
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
-    outfiles = setup_outfiles(options, process = "")
-    exit()
-
+    outfiles = setup_outfiles(options)
     samFile = options.sam
-    outprefix = options.outprefix 
-
-    if dryRun == True:
-        # Dry run mode simply catalogues all indels in the data, then exits.
-        print("Dry run mode: Cataloguing indels.........")
-        dryRun_recordIndels(samFile, outprefix, refs.genome)
+    
+    if options.dryRun == True:
+        dryRun(samFile, outfiles, refs)
+        close_outfiles(outfiles)
         return
 
+    close_outfiles(outfiles)
+    exit()
 
     print("Processing SAM file .........................")
-    oSam = open(outprefix + "_clean.sam", 'w')
-    oFa = open(outprefix + "_clean.fa", 'w')
-    transcriptLog = open(outprefix + "_clean.log", 'w')
-    transcriptLog.write("\t".join(["TranscriptID", "Mapping", \
-                        "corrected_deletions", "uncorrected_deletions", "variant_deletions", \
-                        "corrected_insertions", "uncorrected_insertions", "variant_insertions", \
-                        "corrected_mismatches", "variant_mismatches", \
-                        "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
+    #oSam = open(outprefix + "_clean.sam", 'w')
+    #oFa = open(outprefix + "_clean.fa", 'w')
+    #transcriptLog = open(outprefix + "_clean.log", 'w')
+    #transcriptLog.write("\t".join(["TranscriptID", "Mapping", \
+    #                    "corrected_deletions", "uncorrected_deletions", "variant_deletions", \
+    #                    "corrected_insertions", "uncorrected_insertions", "variant_insertions", \
+    #                    "corrected_mismatches", "variant_mismatches", \
+    #                    "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
 
-    transcriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')
-    transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n") 
+    #transcriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')
+    #transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n") 
 
     canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, transcriptLog, primaryOnly) 
     if len(canTranscripts) == 0: 
@@ -1003,22 +1009,55 @@ def editExonCIGAR(exon, side, nBases):
         result = result + str(ct) + op
     return result
         
-def dryRun_recordIndels(sam, outprefix, genome):
-    """Records all insertions and deletions in the transcripts,
+def init_log_info():
+    """ Initialize a log_info struct to track the error types and correction
+        status for a single transcript """
+
+    logInfo = dstruct.Struct()
+    logInfo.TranscriptID = None
+    logInfo.Mapping = None
+    logInfo.corrected_deletions = "NA"
+    logInfo.uncorrected_deletions = "NA"
+    logInfo.variant_deletions = "NA"
+    logInfo.corrected_insertions = "NA"
+    logInfo.uncorrected_insertions = "NA"
+    logInfo.variant_insertions = "NA"
+    logInfo.corrected_mismatches = "NA"
+    logInfo.variant_mismatches = "NA"
+    logInfo.corrected_NC_SJs = "NA"
+    logInfo.uncorrected_NC_SJs = "NA"
+
+    return logInfo
+
+def write_to_transcript_log(logInfo, tL):
+    """ Write a transcript log entry to output """
+
+    log_strings = [ str(x) for x in [logInfo.TranscriptID, logInfo.Mapping,
+                                     logInfo.corrected_deletions,
+                                     logInfo.uncorrected_deletions,
+                                     logInfo.variant_deletions,
+                                     logInfo.corrected_insertions,
+                                     logInfo.uncorrected_insertions,
+                                     logInfo.variant_insertions,
+                                     logInfo.corrected_mismatches,
+                                     logInfo.variant_mismatches,
+                                     logInfo.corrected_NC_SJs,
+                                     logInfo.uncorrected_NC_SJs] ]
+
+    tL.write("\t".join(log_strings) + "\n")
+    return
+
+
+def dryRun(sam, outfiles, refs):
+    """Records all mismatches, insertions, and deletions in the transcripts,
        but does not correct them """
 
-    errorLog = outprefix + "_clean.TE.log"
-    transcriptLog = outprefix + "_clean.log"
-    eL = open(errorLog, 'w')
-    tL = open(transcriptLog, 'w')
+    print("Dry run mode: Cataloguing indels and mismatches.........")
+    tL = outfiles.log
+    eL = outfiles.TElog
+    genome = refs.genome
+    spliceAnnot = None
 
-    eL.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
-    tL.write("\t".join(["TranscriptID", "Mapping", \
-                        "corrected_deletions", "uncorrected_deletions", "variant_deletions", \
-                        "corrected_insertions", "uncorrected_insertions", "variant_insertions", \
-                        "corrected_mismatches", "variant_mismatches", \
-                        "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
-    spliceAnnot = {}
     with open(sam, 'r') as f:
         for line in f:
             line = line.strip()
@@ -1026,37 +1065,59 @@ def dryRun_recordIndels(sam, outprefix, genome):
             if line.startswith("@"): # header line
                 continue
 
+            # Set up log entry for transcript
             transcript = Transcript2(line, genome, spliceAnnot)
+            logInfo = init_log_info()
+            logInfo.TranscriptID = transcript.QNAME
             
             if transcript.mapping == 0:
-                logInfo = [transcript.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
-                tL.write("\t".join(logInfo) + "\n")
+                logInfo.Mapping = "unmapped"
+                write_to_transcript_log(logInfo, tL)
                 continue
             if transcript.mapping == 2:
-                logInfo = [transcript.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
-                tL.write("\t".join(logInfo) + "\n")
+                logInfo.Mapping = "non-primary"
+                write_to_transcript_log(logInfo, tL)
                 continue
 
-            logInfo = [transcript.QNAME, "primary", "NA", 0, "NA", "NA", 0, "NA", "NA", "NA", "NA", "NA"]
+            # For primary alignments, modify logInfo
+            logInfo.Mapping = "primary" 
+            logInfo.uncorrected_deletions = 0
+            logInfo.uncorrected_insertions = 0
+            logInfo.corrected_mismatches = 0
+
+            # Iterate over CIGAR to catalogue indels and mismatches
             seqPos = 0
             genomePos = transcript.POS
             mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
 
             for op,ct in zip(mergeOperations, mergeCounts):
-                if op in ["M", "X"]:
+                if op == "M":
+                    seqPos += ct
+                    genomePos += ct
+               
+                if op == "X":
+                    ID = "_".join([transcript.CHROM, str(genomePos), 
+                                   str(genomePos + ct - 1)])
+                    eL.write("\t".join([transcript.QNAME, ID, "Mismatch", 
+                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
+                    logInfo.corrected_mismatches += 1
                     seqPos += ct
                     genomePos += ct
 
                 if op == "D":
-                    ID = "_".join([transcript.CHROM, str(genomePos), str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Deletion", str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo[3] += 1
+                    ID = "_".join([transcript.CHROM, str(genomePos), 
+                                   str(genomePos + ct - 1)])
+                    eL.write("\t".join([transcript.QNAME, ID, "Deletion", 
+                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
+                    logInfo.uncorrected_deletions += 1
                     genomePos += ct
                    
                 if op == "I":
-                    ID = "_".join([transcript.CHROM, str(genomePos), str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Insertion", str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo[6] += 1
+                    ID = "_".join([transcript.CHROM, str(genomePos), 
+                                   str(genomePos + ct - 1)])
+                    eL.write("\t".join([transcript.QNAME, ID, "Insertion", 
+                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
+                    logInfo.uncorrected_insertions += 1
                     seqPos += ct
  
                 if op == "S":
@@ -1064,9 +1125,7 @@ def dryRun_recordIndels(sam, outprefix, genome):
 
                 if op in ["N", "H"]:
                     genomePos += ct
-            tL.write("\t".join([str(i) for i in logInfo]) + "\n")
-    eL.close()
-    tL.close()
+            write_to_transcript_log(logInfo, tL)
     return 
 
 if __name__ == '__main__':
