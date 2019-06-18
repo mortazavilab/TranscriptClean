@@ -136,7 +136,7 @@ def setup_outfiles(options, process = ""):
                         "corrected_deletions", "uncorrected_deletions", 
                         "variant_deletions", "corrected_insertions", 
                         "uncorrected_insertions", "variant_insertions", \
-                        "corrected_mismatches", "variant_mismatches", \
+                        "corrected_mismatches", "uncorrected_mismatches", \
                         "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
 
     transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", 
@@ -157,6 +157,80 @@ def close_outfiles(outfiles):
 
     return
 
+def transcript_init(transcript_line, options, refs, outfiles):
+    """ Attempt to initialize a Transcript object from a SAM entry. If the
+        transcript alignment is unmapped or non-primary, then output that 
+        information to the outfiles, but return None. Otherwise, return the
+        transcript object. """
+
+    outSam = outfiles.sam
+    outFa = outfiles.fasta
+
+    if transcript_line.startswith("@"): # header line
+        outSam.write(transcript_line + "\n")
+        return None
+    
+    # Init transcript object and log entry
+    transcript = Transcript2(transcript_line, refs.genome, refs.sjDict)
+    logInfo = init_log_info()
+    logInfo.TranscriptID = transcript.QNAME
+
+    # Unmapped/multimapper cases
+    if transcript.mapping != 1:
+        if transcript.mapping == 0:
+            logInfo.Mapping = "unmapped"
+        elif transcript.mapping == 2:
+            logInfo.Mapping = "non-primary"
+
+        # Only output the transcript if Primary Only option is off
+        if primaryOnly == "false":
+            outSam.write(transcript_line + "\n")
+            outFa.write(Transcript2.printableFa(t) + "\n")
+
+        return None, logInfo
+    else:
+        return transcript, logInfo 
+
+
+def correct_transcript(transcript_line, options, refs, outfiles):
+    """ Given a line from a SAM file, create a transcript object. If it's a
+        primary alignment, then perform the corrections specified in the 
+        options.
+    """
+    outSam = outfiles.sam
+
+    if transcript_line.startswith("@"): # header line
+        outSam.write(transcript_line + "\n")
+        return
+
+    transcript, logInfo = transcript_init(transcript_line, options, refs, outfiles)
+    
+    # Correct the transcript 
+    if transcript != None:
+
+        #TODO: surround with try-except
+        # Mismatch correction
+        if options.mismatchCorrection == "true":
+            correctMismatches(transcript, refs.genome, refs.snps, 
+                              logInfo, outfiles)
+        
+        if options.indelCorrection == "true":
+            # Insertion correction
+            correctInsertions(transcript, refs.genome, refs.insertions,
+                              options.maxLenIndel, logInfo, outfiles)
+
+            # Deletion correction
+            correctDeletions(transcript, refs.genome, refs.deletions,
+                              options.maxLenIndel, logInfo, outfiles)
+
+        # NCSJ correction
+        print(logInfo)
+        exit()
+    
+    # Output transcript log entry 
+    write_to_transcript_log(logInfo, outfiles.log)
+    
+
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
@@ -168,21 +242,20 @@ def main():
         close_outfiles(outfiles)
         return
 
+    #close_outfiles(outfiles)
+
+    # TODO: Iterate over individual sam transcripts
+
+    print("Processing transcripts in SAM file .........................")
+
+    with open(samFile, 'r') as f:
+        for transcript_line in f:
+            correct_transcript(transcript_line, options, refs, outfiles)            
+            close_outfiles(outfiles)
+            exit()
+
     close_outfiles(outfiles)
     exit()
-
-    print("Processing SAM file .........................")
-    #oSam = open(outprefix + "_clean.sam", 'w')
-    #oFa = open(outprefix + "_clean.fa", 'w')
-    #transcriptLog = open(outprefix + "_clean.log", 'w')
-    #transcriptLog.write("\t".join(["TranscriptID", "Mapping", \
-    #                    "corrected_deletions", "uncorrected_deletions", "variant_deletions", \
-    #                    "corrected_insertions", "uncorrected_insertions", "variant_insertions", \
-    #                    "corrected_mismatches", "variant_mismatches", \
-    #                    "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
-
-    #transcriptErrorLog = open(options.outprefix + "_clean.TE.log", 'w')
-    #transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", "Size", "Corrected", "ReasonNotCorrected"]) + "\n") 
 
     canTranscripts, noncanTranscripts = processSAM(samFile, genome, sjDict, oSam, oFa, transcriptLog, primaryOnly) 
     if len(canTranscripts) == 0: 
@@ -219,68 +292,68 @@ def main():
                 print("Rescuing noncanonical junctions.............")
                 cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, outprefix, transcriptErrorLog)
 
-    print("Writing output to sam file and fasta file..................")
+    #print("Writing output to sam file and fasta file..................")
 
     # Generate the output files
-    writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
-    writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
+    #writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
+    #writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
 
-    oSam.close()
-    oFa.close()
-    transcriptLog.close()
-    transcriptErrorLog.close()
+    #oSam.close()
+    #oFa.close()
+    #transcriptLog.close()
+    #transcriptErrorLog.close()
 
-def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, transcriptLog, genome):
-    """Given a dict containing transcripts, write them to sam and fasta output files. Also write
-       a log file that tracks every transcript. """
+#def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, transcriptLog, genome):
+#    """Given a dict containing transcripts, write them to sam and fasta output files. Also write
+#       a log file that tracks every transcript. """
 
-    for t in transcripts.keys():
-        currTranscript = transcripts[t]
-        outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
-        outFa.write(Transcript2.printableFa(currTranscript) + "\n")
-        transcriptLog.write("\t".join([str(i) for i in currTranscript.logInfo]) + "\n")
-    return
+#    for t in transcripts.keys():
+#        currTranscript = transcripts[t]
+#        outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
+#        outFa.write(Transcript2.printableFa(currTranscript) + "\n")
+#        transcriptLog.write("\t".join([str(i) for i in currTranscript.logInfo]) + "\n")
+#    return
 
-def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog, primaryOnly):
-    """ Extracts the SAM header (for use in the output files at the end) and 
-    creates a Transcript object for every transcript in the SAM file. 
-    Transcripts are returned two separate dicts: one for canonical transcripts 
-    and one for noncanonical. Some transcripts are unmapped or are non-primary 
-    multimapping alignments. These are outputted directly and are not corrected."""
+#def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog, primaryOnly):
+#    """ Extracts the SAM header (for use in the output files at the end) and 
+#    creates a Transcript object for every transcript in the SAM file. 
+#    Transcripts are returned two separate dicts: one for canonical transcripts 
+#    and one for noncanonical. Some transcripts are unmapped or are non-primary 
+#    multimapping alignments. These are outputted directly and are not corrected."""
 
-    canTranscripts = {}
-    noncanTranscripts = {}
+#    canTranscripts = {}
+#    noncanTranscripts = {}
 
-    with open(sam, 'r') as f:
-        for line in f:
-            line = line.strip()
+#    with open(sam, 'r') as f:
+#        for line in f:
+#            line = line.strip()
 
-            if line.startswith("@"): # header line
-                outSam.write(line + "\n")
-                continue
+#            if line.startswith("@"): # header line
+#                outSam.write(line + "\n")
+#                continue
             
-            t = Transcript2(line, genome, spliceAnnot)
+#            t = Transcript2(line, genome, spliceAnnot)
 
             # Unmapped/multimapper cases
-            if t.mapping != 1:
-                if primaryOnly == True:
-                    continue
-                if t.mapping == 0:
-                    logInfo = [t.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
-                    outFa.write(Transcript2.printableFa(t) + "\n")
-                elif t.mapping == 2:
-                    logInfo = [t.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]               
-                outSam.write(Transcript2.printableSAM(t, genome, spliceAnnot) + "\n")
-                outTLog.write("\t".join(logInfo) + "\n") 
-                continue
+#            if t.mapping != 1:
+#                if primaryOnly == True:
+#                    continue
+#                if t.mapping == 0:
+#                    logInfo = [t.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+#                    outFa.write(Transcript2.printableFa(t) + "\n")
+#                elif t.mapping == 2:
+#                    logInfo = [t.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]               
+#                outSam.write(Transcript2.printableSAM(t, genome, spliceAnnot) + "\n")
+#                outTLog.write("\t".join(logInfo) + "\n") 
+#                continue
 
             # Assign to canonical or noncanonical group based on splice jns
-            if t.isCanonical == True:
-                canTranscripts[t.QNAME] = t
-            elif t.isCanonical == False:
-                noncanTranscripts[t.QNAME] = t
+#            if t.isCanonical == True:
+#                canTranscripts[t.QNAME] = t
+#            elif t.isCanonical == False:
+#                noncanTranscripts[t.QNAME] = t
 
-    return canTranscripts, noncanTranscripts 
+#    return canTranscripts, noncanTranscripts 
 
 def processSpliceAnnotation(annotFile, outprefix):
     """ Reads in the tab-separated STAR splice junction file and creates a 
@@ -392,102 +465,109 @@ def processVCF(vcf, maxLen):
 
     return SNPs, insertions, deletions
 
-def correctInsertions(transcripts, genome, variants, maxLen, transcriptErrorLog):
+def correctInsertions(transcript, genome, variants, maxLen, logInfo, outfiles):
     """ Corrects insertions up to size maxLen using the reference genome. 
         If a variant file was provided, correction will be SNP-aware. """
 
-    for t in transcripts.keys():
-        t = transcripts[t]
-  
-        # Only correct primary mapping transcripts
-        if t.mapping != 1: continue
+    eL = outfiles.TElog
+    logInfo.uncorrected_insertions = 0
+    logInfo.corrected_insertions = 0
 
-        origSeq = t.SEQ
-        origCIGAR = t.CIGAR
+    origSeq = transcript.SEQ
+    origCIGAR = transcript.CIGAR
+    transcript_ID = transcript.QNAME    
+ 
+    cigarOps,cigarCounts = transcript.splitCIGAR() 
+
+    # Check for insertions. If none are present, we can skip this transcript
+    if "I" not in origCIGAR: return
+
+    newCIGAR = ""
+    newSeq = ""
+    MVal = 0
+    seqPos = 0
+
+    # Start at position in the genome where the transcript starts.
+    genomePos = transcript.POS 
+
+    # Iterate over operations to sequence and repair insertions
+    for op,ct in zip(cigarOps, cigarCounts):
+
+        currPos = transcript.CHROM + ":" + str(genomePos) + "-" + \
+                  str(genomePos + ct - 1)          
+
+        if op == "M":
+             newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+             MVal += ct
+             seqPos += ct
+             genomePos += ct
          
-        cigarOps,cigarCounts = t.splitCIGAR() 
+        if op == "I":
+            ID = "_".join([transcript.CHROM, str(genomePos), 
+                           str(genomePos + ct - 1)])
 
-        # Check for insertions. If none are present, we can skip this transcript
-        if "I" not in origCIGAR : continue
+            # Only insertions of a given size are corrected
+            if ct <= maxLen:
+                # Check if the insertion is in the optional variant catalog.
+                if ID in variants:
+                    # The insertion perfectly matches a variant position. 
+                    # Leave the sequence alone if it matches an allele sequence.
+                    currSeq = origSeq[seqPos:seqPos + ct]
+                    if currSeq in variants[ID]:
+                        logInfo.variant_insertions += 1
+                        #Transcript2.addVariantInsertion(t)
+                        errorEntry = "\t".join([transcript_ID, ID, "Insertion", 
+                                                str(ct), "Uncorrected", 
+                                                "VariantMatch"])
+                        eL.write(errorEntry + "\n")  
 
-        newCIGAR = ""
-        newSeq = ""
-        MVal = 0
-        seqPos = 0
+                        # Leave insertion in 
+                        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                        newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                        newCIGAR = newCIGAR + str(ct) + op
+                        seqPos += ct
+                        continue
 
-        # Start at position in the genome where the transcript starts.
-        genomePos = t.POS 
-    
-        # Iterate over operations to sequence and repair insertions
-        for op,ct in zip(cigarOps, cigarCounts):
- 
-            currPos = t.CHROM + ":" + str(genomePos) + "-" + str(genomePos + ct - 1)          
-  
-            if op == "M":
-                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                 MVal += ct
-                 seqPos += ct
-                 genomePos += ct
-             
-            if op == "I":
-                ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1)])
+                # Correct insertion
+                errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
+                                        "Corrected", "NA"])
+                logInfo.corrected_insertions += 1
+                eL.write(errorEntry + "\n")
 
-                # Only insertions of a given size are corrected
-                if ct <= maxLen:
-                    # Check if the insertion is in the optional variant catalog.
-                    if ID in variants:
-                        # The insertion perfectly matches a variant position. 
-                        # Leave the sequence alone if it matches an allele sequence.
-                        currSeq = origSeq[seqPos:seqPos + ct]
-                        if currSeq in variants[ID]:
-                            Transcript2.addVariantInsertion(t)
-                            errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Uncorrected", "VariantMatch"])
-                            transcriptErrorLog.write(errorEntry + "\n")  
- 
-                            # Leave insertion in 
-                            MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                            newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                            newCIGAR = newCIGAR + str(ct) + op
-                            seqPos += ct
-                            continue
-
-                    # Correct insertion
-                    errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Corrected", "NA"])
-                    Transcript2.addCorrectedInsertion(t)
-                    transcriptErrorLog.write(errorEntry + "\n")
-                    # Subtract the inserted bases by skipping them. 
-                    # GenomePos stays the same, as does MVal
-                    seqPos += ct
-                else: # Move on without correcting insertion because it is too big
-                    errorEntry = "\t".join([t.QNAME, ID, "Insertion", str(ct), "Uncorrected", "TooLarge"])
-                    Transcript2.addUncorrectedInsertion(t)
-                    transcriptErrorLog.write(errorEntry + "\n")
-                    MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                    newCIGAR = newCIGAR + str(ct) + op
-                    seqPos += ct
-
-            if op == "S":
-                # End any ongoing match
+                # Subtract the inserted bases by skipping them. 
+                # GenomePos stays the same, as does MVal
+                seqPos += ct
+            else: # Move on without correcting insertion because it is too big
+                errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
+                                        "Uncorrected", "TooLarge"])
+                logInfo.uncorrected_insertions += 1
+                eL.write(errorEntry + "\n")
                 MVal, newCIGAR = endMatch(MVal, newCIGAR)
                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                 newCIGAR = newCIGAR + str(ct) + op
                 seqPos += ct
 
-            # N, H, and D operations are cases where the transcript sequence 
-            # is missing bases that are in the reference genome.
-            if op in ["N", "H", "D"]:
-                # End any ongoing match
-                MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                genomePos += ct
-                newCIGAR = newCIGAR + str(ct) + op
+        if op == "S":
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+            newCIGAR = newCIGAR + str(ct) + op
+            seqPos += ct
 
-        # End any ongoing match
-        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+        # N, H, and D operations are cases where the transcript sequence 
+        # is missing bases that are in the reference genome.
+        if op in ["N", "H", "D"]:
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            genomePos += ct
+            newCIGAR = newCIGAR + str(ct) + op
 
-        # Update transcript 
-        t.CIGAR = newCIGAR
-        t.SEQ = newSeq
+    # End any ongoing match
+    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+    # Update transcript 
+    transcript.CIGAR = newCIGAR
+    transcript.SEQ = newSeq
         
     return    
 
@@ -545,7 +625,7 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
                     # Correct deletion if we're not in variant-aware mode
                     errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Corrected", "NA"])
                     Transcript2.addCorrectedDeletion(t)
-                    transcriptErrorLog.write(errorEntry + "\n")
+                    #transcriptErrorLog.write(errorEntry + "\n")
 
                     # Add the missing reference bases
                     refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
@@ -557,7 +637,7 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
                 else:
                     errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
                     Transcript2.addUncorrectedDeletion(t)
-                    transcriptErrorLog.write(errorEntry + "\n")
+                    #transcriptErrorLog.write(errorEntry + "\n")
 
                     # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -588,84 +668,94 @@ def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
     return 
 
 
-def correctMismatches(transcripts, genome, variants, transcriptErrorLog):
-    """ This function corrects mismatches in the sequences. If a variant file was
-        provided, correction will be SNP-aware."""
+def correctMismatches(transcript, genome, variants, logInfo, outfiles):
+    """ This function corrects mismatches in the provided transcript. If a 
+        variant file was provided, correction will be variant-aware."""
    
-    for transcript in transcripts.keys():
-        transcript = transcripts[transcript]
+    eL = outfiles.TElog
+    logInfo.uncorrected_mismatches = 0
+    logInfo.corrected_mismatches = 0
 
-        origSeq = transcript.SEQ
-        origCIGAR = transcript.CIGAR
-        origMD = transcript.MD
+    origSeq = transcript.SEQ
+    origCIGAR = transcript.CIGAR
+    origMD = transcript.MD
 
-        # Check for mismatches. If none are present, we can skip this transcript
-        if any(i in origMD.upper() for i in 'ACTGN') == False : continue
-        newCIGAR = ""
-        newSeq = ""
-        MVal = 0
-        seqPos = 0
-        genomePos = transcript.POS
+    # Check for mismatches. If none are present, we can skip this transcript
+    if any(i in origMD.upper() for i in 'ACTGN') == False : 
+        return
+        
+    newCIGAR = ""
+    newSeq = ""
+    MVal = 0
+    seqPos = 0
+    genomePos = transcript.POS
 
-        # Merge CIGAR and MD tag information so that we have the locations of all insertions, deletions, and mismatches
-        mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
+    # Merge CIGAR and MD tag information so that we have the locations of all 
+    # insertions, deletions, and mismatches
+    mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
 
-        # Iterate over operations to sequence and repair mismatches and microindels
-        for op,ct in zip(mergeOperations, mergeCounts):
-            if op == "M":
-                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                 MVal += ct
-                 seqPos += ct
-                 genomePos += ct
+    # Iterate over operations to sequence and repair mismatches and microindels
+    for op,ct in zip(mergeOperations, mergeCounts):
+        if op == "M":
+             newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+             MVal += ct
+             seqPos += ct
+             genomePos += ct
 
-            # This denotes a mismatch
-            if op == "X":
-                # Check if the position matches a variant in the optional variant catalog. 
-                ID = transcript.CHROM + "_" + str(genomePos)
-                if ID in variants:
-                # Mismatch position matches a known variant. If the base matches an alternative allele, do not correct it.
-                    currBase = origSeq[seqPos]
-                    if currBase in variants[ID]: 
-                        errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", str(ct), "Uncorrected", "VariantMatch"])
-                        transcriptErrorLog.write(errorEntry + "\n")
-                        Transcript2.addVariantMismatch(transcript)
+        # This denotes a mismatch
+        if op == "X":
+            # Check if the position matches a variant in the optional variant catalog. 
+            ID = transcript.CHROM + "_" + str(genomePos)
+            if ID in variants:
+            # Mismatch position matches a known variant. If the base matches an alternative allele, do not correct it.
+                currBase = origSeq[seqPos]
+                if currBase in variants[ID]: 
+                    errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
+                                            str(ct), "Uncorrected", 
+                                            "VariantMatch"])
+                    eL.write(errorEntry + "\n")
+                    logInfo.uncorrected_mismatches += 1
 
-                        # Keep the base as-is
-                        newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                        MVal += ct
-                        seqPos += ct
-                        genomePos += ct
-                        continue
-                # Otherwise, correct the mismatch to reference base
-                errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", str(ct), "Corrected", "NA"])
-                transcriptErrorLog.write(errorEntry + "\n")
-                Transcript2.addCorrectedMismatch(transcript)
+                    # Keep the base as-is
+                    newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+                    MVal += ct
+                    seqPos += ct
+                    genomePos += ct
+                    continue
+            # Otherwise, correct the mismatch to reference base
+            errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
+                                    str(ct), "Corrected", "NA"])
+            eL.write(errorEntry + "\n")
+            logInfo.corrected_mismatches += 1
 
-                # Change sequence base to the reference base at this position
-                newSeq = newSeq + genome.sequence({'chr': transcript.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                seqPos += ct # skip the original sequence base
-                genomePos += ct # advance the genome position
-                MVal += ct
+            # Change sequence base to the reference base at this position
+            newSeq = newSeq + genome.sequence({'chr': transcript.CHROM, 
+                                               'start': genomePos, 
+                                               'stop': genomePos + ct - 1}, 
+                                               one_based=True)
+            seqPos += ct # skip the original sequence base
+            genomePos += ct # advance the genome position
+            MVal += ct
 
-            if op in ["S", "I"]:
-                # End any ongoing match
-                MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                newCIGAR = newCIGAR + str(ct) + op
-                seqPos += ct
+        if op in ["S", "I"]:
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+            newCIGAR = newCIGAR + str(ct) + op
+            seqPos += ct
 
-            if op in ["N", "H", "D"]:
-                # End any ongoing match
-                MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                genomePos += ct
-                newCIGAR = newCIGAR + str(ct) + op
+        if op in ["N", "H", "D"]:
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            genomePos += ct
+            newCIGAR = newCIGAR + str(ct) + op
 
-        # End any ongoing match
-        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+    # End any ongoing match
+    MVal, newCIGAR = endMatch(MVal, newCIGAR)
 
-        transcript.CIGAR = newCIGAR
-        transcript.SEQ = newSeq
-        transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
+    transcript.CIGAR = newCIGAR
+    transcript.SEQ = newSeq
+    transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     return 
 
                         
@@ -1023,7 +1113,7 @@ def init_log_info():
     logInfo.uncorrected_insertions = "NA"
     logInfo.variant_insertions = "NA"
     logInfo.corrected_mismatches = "NA"
-    logInfo.variant_mismatches = "NA"
+    logInfo.uncorrected_mismatches = "NA"
     logInfo.corrected_NC_SJs = "NA"
     logInfo.uncorrected_NC_SJs = "NA"
 
@@ -1040,7 +1130,7 @@ def write_to_transcript_log(logInfo, tL):
                                      logInfo.uncorrected_insertions,
                                      logInfo.variant_insertions,
                                      logInfo.corrected_mismatches,
-                                     logInfo.variant_mismatches,
+                                     logInfo.uncorrected_mismatches,
                                      logInfo.corrected_NC_SJs,
                                      logInfo.uncorrected_NC_SJs] ]
 
@@ -1056,7 +1146,7 @@ def dryRun(sam, outfiles, refs):
     tL = outfiles.log
     eL = outfiles.TElog
     genome = refs.genome
-    spliceAnnot = None
+    spliceAnnot = {}
 
     with open(sam, 'r') as f:
         for line in f:
@@ -1083,7 +1173,7 @@ def dryRun(sam, outfiles, refs):
             logInfo.Mapping = "primary" 
             logInfo.uncorrected_deletions = 0
             logInfo.uncorrected_insertions = 0
-            logInfo.corrected_mismatches = 0
+            logInfo.uncorrected_mismatches = 0
 
             # Iterate over CIGAR to catalogue indels and mismatches
             seqPos = 0
@@ -1100,7 +1190,7 @@ def dryRun(sam, outfiles, refs):
                                    str(genomePos + ct - 1)])
                     eL.write("\t".join([transcript.QNAME, ID, "Mismatch", 
                                         str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo.corrected_mismatches += 1
+                    logInfo.uncorrected_mismatches += 1
                     seqPos += ct
                     genomePos += ct
 
