@@ -12,9 +12,33 @@ class TestFindNCSJ(object):
         """ In this test, we check whether TC correctly detects the junction
             and labels it canonical.
 
-            Toy transcript with sequence |, where the splice motif (GT-AG)
+            Toy transcript with sequence AAG|GAA, where the splice motif (GT-AG)
             is canonical.
-            chr1:  - .  """
+            chr1: 23,071,357 - 23,072,126 """
+
+        sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "3M764N3M", "*",
+                      "0", "0", "AAGGAA", "*",  "NM:i:0", "MD:Z:6"])
+
+        genome = Fasta("input_files/hg38_chr1.fa")
+        maxLen = 5
+        spliceAnnot = {}
+        variants = {}
+
+        # Init transcript object
+        transcript = t2.Transcript2(sam_fields, genome, spliceAnnot)
+
+        # Check if the intron bounds are correct
+        intronBounds = transcript.getAllIntronBounds()
+        assert intronBounds[0].pos == 23071360
+        assert intronBounds[1].pos == 23072123
+        assert intronBounds[0].isCanonical == True
+        assert intronBounds[1].isCanonical == True
+
+        # Check if the overall junction is labeled correctly
+        assert (transcript.spliceJunctions[0]).isCanonical == True
+
+        # Check if the overall transcript is labeled correctly
+        assert transcript.isCanonical == True
 
     def test_mark_noncanonical(self):
         """ In this test, we check whether TC correctly detects the junction 
@@ -25,7 +49,7 @@ class TestFindNCSJ(object):
             chr1: 23,072,197 - 23,073,291.  """
 
         sam_fields = "\t".join(["test_read", "0", "chr1", "23072197", "255", "3M1091N3M", "*",
-                      "0", "0", "GGTGTG", "*",	"NM:i:2", "MD:Z:5"])
+                      "0", "0", "GGTGTG", "*",	"NM:i:0", "MD:Z:6"])
 
         genome = Fasta("input_files/hg38_chr1.fa")
         maxLen = 5
