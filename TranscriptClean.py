@@ -85,7 +85,7 @@ def prep_refs(orig_options):
     outprefix = options.outprefix
 
     # Container for references
-    refs = {}
+    refs = dstruct.Struct()
 
     # Read in the reference genome.
     print("Reading genome ..............................")
@@ -120,13 +120,39 @@ def cleanup_options(options):
     return options
 
 def setup_outfiles(options, process = ""):
-    # TODO
     """ Set up output files. If running in parallel, label with a process ID """
+
+    outfiles = dstruct.Struct()
+    outprefix = options.outprefix
+    
+    # Open sam, fasta, and log  outfiles
+    oSam = open(outprefix + "_clean" + process + ".sam", 'w')
+    oFa = open(outprefix + "_clean" + process + ".fa", 'w')
+    transcriptLog = open(outprefix + "_clean" + process + ".log", 'w')
+    transcriptErrorLog = open(options.outprefix + "_clean" + process + ".TE.log", 'w')
+
+    # Add headers to logs
+    transcriptLog.write("\t".join(["TranscriptID", "Mapping", 
+                        "corrected_deletions", "uncorrected_deletions", 
+                        "variant_deletions", "corrected_insertions", 
+                        "uncorrected_insertions", "variant_insertions", \
+                        "corrected_mismatches", "variant_mismatches", \
+                        "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
+
+    transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", 
+                             "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
+    
+    outfiles.sam = oSam
+    outfiles.fasta = oFa
+    outfiles.log = transcriptLog
+    outfiles.TElog = transcriptErrorLog
+
+    return outfiles
 
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
-    print(options.maxLenIndel)
+    outfiles = setup_outfiles(options, process = "")
     exit()
 
     samFile = options.sam
