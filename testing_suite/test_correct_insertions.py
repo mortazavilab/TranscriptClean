@@ -21,19 +21,18 @@ class TestInsertionCorr(object):
         spliceAnnot = None
         variants = {}
         transcriptErrorLog = open("scratch/TE.log", 'w')
+        logInfo = TC.init_log_info()
     
         # Init transcript object
         transcript = t2.Transcript2(sam_fields, genome, spliceAnnot)
-        transcripts = {}
-        transcripts["test_read"] = transcript       
 
         # Run correction
-        TC.correctInsertions(transcripts, genome, variants, maxLen, transcriptErrorLog)
+        TC.correctInsertions(transcript, genome, variants, maxLen, logInfo,
+                             transcriptErrorLog)
     
         # Check to see if correction was successful
-        corr = transcripts["test_read"]
-        assert corr.SEQ == "AAAGA"
-        assert corr.CIGAR == "5M"
+        assert transcript.SEQ == "AAAGA"
+        assert transcript.CIGAR == "5M"
 
         transcriptErrorLog.close()
 
@@ -50,19 +49,18 @@ class TestInsertionCorr(object):
         spliceAnnot = None
         variants = {}
         transcriptErrorLog = open("scratch/TE.log", 'w')
+        logInfo = TC.init_log_info()
 
         # Init transcript object
         transcript = t2.Transcript2(sam_fields, genome, spliceAnnot)
-        transcripts = {}
-        transcripts["test_read"] = transcript
 
         # Run correction
-        TC.correctInsertions(transcripts, genome, variants, maxLen, transcriptErrorLog)
+        TC.correctInsertions(transcript, genome, variants, maxLen, logInfo,
+                             transcriptErrorLog)
 
         # Check to see if correction was successful
-        corr = transcripts["test_read"]
-        assert corr.SEQ == "AAATTGA"
-        assert corr.CIGAR == "3M2I2M"
+        assert transcript.SEQ == "AAATTGA"
+        assert transcript.CIGAR == "3M2I2M"
 
         transcriptErrorLog.close()
          
