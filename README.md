@@ -14,7 +14,7 @@ In addition, R (v.3.3.2 recommended) is needed to run the visualization script, 
 To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. Alternately, you can download a specific version of the program from the Releases tab. The TranscriptClean script can now be run directly from the command line- just include the path. 
 
 ## Usage 
-TranscriptClean is run from the command line as follows. For additional details and examples, please see the Wiki section.
+TranscriptClean is run from the command line as follows. **For additional details and examples, please see the Wiki section.**
 
 `python TranscriptClean.py --sam transcripts.sam --genome hg38.fa --outprefix /my/path/outfile`
 
