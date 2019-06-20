@@ -94,9 +94,11 @@ def prep_refs(orig_options):
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
-        refs["annotatedSpliceJns"], refs["sjDict"] = processSpliceAnnotation(sjFile, outprefix)
+        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, outprefix)
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
+        refs.donors = None
+        refs.acceptors = None
         refs["sjDict"] = {}
 
     # Read in variants
@@ -217,13 +219,17 @@ def correct_transcript(transcript_line, options, refs, outfiles):
         if options.indelCorrection == "true":
             # Insertion correction
             correctInsertions(transcript, refs.genome, refs.insertions,
-                              options.maxLenIndel, logInfo, outfiles)
+                              options.maxLenIndel, logInfo, outfiles.TElog)
 
             # Deletion correction
             correctDeletions(transcript, refs.genome, refs.deletions,
-                              options.maxLenIndel, logInfo, outfiles)
+                              options.maxLenIndel, logInfo, outfiles.TElog)
 
         # NCSJ correction
+        if refs.sjDict != {} and transcript.isCanonical == False:
+            cleanNoncanonical(noncanTranscripts, refs.annotatedSpliceJns, refs.genome, 
+                              maxSJOffset, refs.sjDict, logInfo, outfiles.TElog)
+
         print(logInfo)
         exit()
     
@@ -292,68 +298,7 @@ def main():
                 print("Rescuing noncanonical junctions.............")
                 cleanNoncanonical(noncanTranscripts, annotatedSpliceJns, genome, maxSJOffset, sjDict, outprefix, transcriptErrorLog)
 
-    #print("Writing output to sam file and fasta file..................")
 
-    # Generate the output files
-    #writeTranscriptOutput(canTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
-    #writeTranscriptOutput(noncanTranscripts, sjDict, oSam, oFa, transcriptLog, genome)
-
-    #oSam.close()
-    #oFa.close()
-    #transcriptLog.close()
-    #transcriptErrorLog.close()
-
-#def writeTranscriptOutput(transcripts, spliceAnnot, outSam, outFa, transcriptLog, genome):
-#    """Given a dict containing transcripts, write them to sam and fasta output files. Also write
-#       a log file that tracks every transcript. """
-
-#    for t in transcripts.keys():
-#        currTranscript = transcripts[t]
-#        outSam.write(Transcript2.printableSAM(currTranscript, genome, spliceAnnot) + "\n")
-#        outFa.write(Transcript2.printableFa(currTranscript) + "\n")
-#        transcriptLog.write("\t".join([str(i) for i in currTranscript.logInfo]) + "\n")
-#    return
-
-#def processSAM(sam, genome, spliceAnnot, outSam, outFa, outTLog, primaryOnly):
-#    """ Extracts the SAM header (for use in the output files at the end) and 
-#    creates a Transcript object for every transcript in the SAM file. 
-#    Transcripts are returned two separate dicts: one for canonical transcripts 
-#    and one for noncanonical. Some transcripts are unmapped or are non-primary 
-#    multimapping alignments. These are outputted directly and are not corrected."""
-
-#    canTranscripts = {}
-#    noncanTranscripts = {}
-
-#    with open(sam, 'r') as f:
-#        for line in f:
-#            line = line.strip()
-
-#            if line.startswith("@"): # header line
-#                outSam.write(line + "\n")
-#                continue
-            
-#            t = Transcript2(line, genome, spliceAnnot)
-
-            # Unmapped/multimapper cases
-#            if t.mapping != 1:
-#                if primaryOnly == True:
-#                    continue
-#                if t.mapping == 0:
-#                    logInfo = [t.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
-#                    outFa.write(Transcript2.printableFa(t) + "\n")
-#                elif t.mapping == 2:
-#                    logInfo = [t.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]               
-#                outSam.write(Transcript2.printableSAM(t, genome, spliceAnnot) + "\n")
-#                outTLog.write("\t".join(logInfo) + "\n") 
-#                continue
-
-            # Assign to canonical or noncanonical group based on splice jns
-#            if t.isCanonical == True:
-#                canTranscripts[t.QNAME] = t
-#            elif t.isCanonical == False:
-#                noncanTranscripts[t.QNAME] = t
-
-#    return canTranscripts, noncanTranscripts 
 
 def processSpliceAnnotation(annotFile, outprefix):
     """ Reads in the tab-separated STAR splice junction file and creates a 
@@ -361,10 +306,11 @@ def processSpliceAnnotation(annotFile, outprefix):
         to find out if a splice junction is annotated or not """
 
     bedstr = ""
-    annot = {}
-    fName = outprefix + "_ref_splice_jns_tmp.bed"
-    fNameSorted = outprefix + "_ref_splice_jns_tmp.sorted.bed"
-    o = open(fName, 'w')
+    annot = set()
+    donor_file = outprefix + "_ref_splice_donors_tmp.bed"
+    acceptor_file = outprefix + "_ref_splice_acceptors_tmp.bed"
+    o_donor = open(donor_file, 'w')
+    o_acceptor = open(acceptor_file, 'w')
     with open(annotFile, 'r') as f:
         for line in f:
             fields = line.strip().split("\t")
@@ -382,23 +328,41 @@ def processSpliceAnnotation(annotFile, outprefix):
             multiReads = fields[7]
             maxOverhang = fields[8]
 
-            # Process only canonical splice junctions or annotated noncanonical junctions
-            if (intronMotif != 0) or (intronMotif == 0 and annotated == 1):
-                # Make one bed entry for each end of the junction
-                bed1 = "\t".join([chrom, str(start - 1), str(start), ".", uniqueReads, strand])
-                bed2 = "\t".join([chrom, str(end - 1), str(end), ".", uniqueReads, strand])
-                o.write(bed1 + "\n")
-                o.write(bed2 + "\n")
+            # ID the splice donor/acceptor identity
+            if strand == "+":
+                file1 = o_donor
+                file2 = o_acceptor
+                type1 = "donor"
+                type2 = "acceptor"
+            elif strand == "-":
+                file1 = o_acceptor
+                file2 = o_donor
+                type1 = "acceptor"
+                type2 = "donor"
 
-                annot["_".join([chrom, str(start)])] = 1
-                annot["_".join([chrom, str(end)])] = 1
-    o.close()
+            # Make one bed entry for each end of the junction and write to
+            # splice donor and acceptor files
+            bed1 = "\t".join([chrom, str(start - 1), str(start), ".", uniqueReads, strand])
+            bed2 = "\t".join([chrom, str(end - 1), str(end), ".", uniqueReads, strand])
+            file1.write(bed1 + "\n")
+            file2.write(bed2 + "\n")
 
-    # Convert bed file into BedTool object
-    os.system('bedtools sort -i ' + fName + ' >' + fNameSorted)
-    spliceJnBedTool = pybedtools.BedTool(fNameSorted)
-    os.system("rm " + fName)
-    return spliceJnBedTool, annot
+            annot.add("_".join([chrom, str(start), strand, type1]))
+            annot.add("_".join([chrom, str(end), strand, type2]))
+    o_donor.close()
+    o_acceptor.close()
+
+    # Convert bed files into BedTool objects
+    donor_sorted = outprefix + "_ref_splice_donors_tmp.sorted.bed"
+    acceptor_sorted = outprefix + "_ref_splice_acceptors_tmp.sorted.bed"
+    os.system('bedtools sort -i ' + donor_file + ' >' + donor_sorted)
+    os.system('bedtools sort -i ' + acceptor_file + ' >' + acceptor_sorted)
+    #spliceJnBedTool = pybedtools.BedTool(fNameSorted)
+    splice_donor_bedtool = pybedtools.BedTool(donor_sorted)
+    splice_acceptor_bedtool = pybedtools.BedTool(acceptor_sorted)
+    os.system("rm " + donor_file)
+    os.system("rm " + acceptor_file)
+    return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
 def processVCF(vcf, maxLen):
     """ This function reads in variants from a VCF file and stores them. SNPs 
@@ -465,11 +429,10 @@ def processVCF(vcf, maxLen):
 
     return SNPs, insertions, deletions
 
-def correctInsertions(transcript, genome, variants, maxLen, logInfo, outfiles):
+def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
     """ Corrects insertions up to size maxLen using the reference genome. 
         If a variant file was provided, correction will be SNP-aware. """
 
-    eL = outfiles.TElog
     logInfo.uncorrected_insertions = 0
     logInfo.corrected_insertions = 0
 
@@ -571,108 +534,111 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, outfiles):
         
     return    
 
-def correctDeletions(transcripts, genome, variants, maxLen, transcriptErrorLog):
+def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
     """ Corrects deletions up to size maxLen using the reference genome. 
-        If a variant file was provided, correction will be SNP-aware."""
+        If a variant file was provided, correction will be variant-aware."""
 
-    for t in transcripts.keys():
-        t = transcripts[t]
+    logInfo.uncorrected_deletions = 0
+    logInfo.corrected_deletions = 0
 
-        origSeq = t.SEQ
-        origCIGAR = t.CIGAR
+    transcript_ID = transcript.QNAME
+    chrom = transcript.CHROM
+    origSeq = transcript.SEQ
+    origCIGAR = transcript.CIGAR
 
-        cigarOps,cigarCounts = t.splitCIGAR()
+    cigarOps,cigarCounts = transcript.splitCIGAR()
 
-        # Check for deletions. If none are present, we can skip this transcript
-        if "D" not in origCIGAR : continue
+    # Check for deletions. If none are present, we can skip this transcript
+    if "D" not in origCIGAR: 
+        return
 
-        newCIGAR = ""
-        newSeq = ""
-        MVal = 0
-        seqPos = 0
+    newCIGAR = ""
+    newSeq = ""
+    MVal = 0
+    seqPos = 0
 
-        # Start at position in the genome where the transcript starts.
-        genomePos = t.POS
+    # Start at position in the genome where the transcript starts.
+    genomePos = transcript.POS
 
-        # Iterate over operations to sequence and repair mismatches and microindels
-        for op,ct in zip(cigarOps, cigarCounts):
- 
-            currPos = t.CHROM + ":" + str(genomePos) + "-" + str(genomePos + ct - 1) 
+    # Iterate over operations to sequence and repair mismatches and microindels
+    for op,ct in zip(cigarOps, cigarCounts):
 
-            if op == "M":
-                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                 MVal += ct
-                 seqPos += ct
-                 genomePos += ct
+        currPos = chrom + ":" + str(genomePos) + "-" + \
+                  str(genomePos + ct - 1) 
 
-            if op == "D":
-                ID = "_".join([t.CHROM, str(genomePos), str(genomePos + ct - 1)])
-                if ct <= maxLen:
+        if op == "M":
+             newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+             MVal += ct
+             seqPos += ct
+             genomePos += ct
 
-                    # Check if the deletion is in the optional variant catalog.
-                    if ID in variants:
-                        # The deletion perfectly matches a deletion variant. Leave the deletion in.
-                        currSeq = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                        errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Uncorrected", "VariantMatch"])
-                        Transcript2.addVariantDeletion(t)
-                        transcriptErrorLog.write(errorEntry + "\n")
+        if op == "D":
+            ID = "_".join([chrom, str(genomePos), str(genomePos + ct - 1)])
+            if ct <= maxLen:
 
-                        MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                        genomePos += ct
-                        newCIGAR = newCIGAR + str(ct) + op
-                        continue
+                # Check if the deletion is in the optional variant catalog.
+                if ID in variants:
+                    # The deletion perfectly matches a deletion variant. Leave the deletion in.
+                    currSeq = genome.sequence({'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "VariantMatch"])
+                    logInfo.variant_deletions += 1
+                    eL.write(errorEntry + "\n")
 
-                    # Correct deletion if we're not in variant-aware mode
-                    errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Corrected", "NA"])
-                    Transcript2.addCorrectedDeletion(t)
-                    #transcriptErrorLog.write(errorEntry + "\n")
-
-                    # Add the missing reference bases
-                    refBases = genome.sequence({'chr': t.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
-                    newSeq = newSeq + refBases
-                    genomePos += ct
-                    MVal += ct
-
-                # Deletion is too big to fix
-                else:
-                    errorEntry = "\t".join([t.QNAME, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
-                    Transcript2.addUncorrectedDeletion(t)
-                    #transcriptErrorLog.write(errorEntry + "\n")
-
-                    # End any ongoing match
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                    newCIGAR = newCIGAR + str(ct) + op
                     genomePos += ct
+                    newCIGAR = newCIGAR + str(ct) + op
+                    continue
 
-            # S and I operations are cases where the transcript sequence contains bases that are not in the reference genome. 
-            if op in ["S", "I"]:
-                # End any ongoing match
-                MVal, newCIGAR = endMatch(MVal, newCIGAR)
-                newSeq = newSeq + origSeq[seqPos:seqPos + ct]
-                newCIGAR = newCIGAR + str(ct) + op
-                seqPos += ct
+                # Correct deletion if we're not in variant-aware mode
+                errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Corrected", "NA"])
+                logInfo.corrected_deletions += 1
+                eL.write(errorEntry + "\n")
 
-            # N and H operations are cases where the transcript sequence is missing bases that are in the reference genome. 
-            if op in ["N", "H"]:
-                # End any ongoing match
-                MVal, newCIGAR = endMatch(MVal, newCIGAR)
+                # Add the missing reference bases
+                refBases = genome.sequence({'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                newSeq = newSeq + refBases
                 genomePos += ct
+                MVal += ct
+
+            # Deletion is too big to fix
+            else:
+                errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
+                logInfo.uncorrected_deletion += 1
+                eL.write(errorEntry + "\n")
+
+                # End any ongoing match
+                MVal, newCIGAR = endMatch(MVal, newCIGAR)
                 newCIGAR = newCIGAR + str(ct) + op
+                genomePos += ct
 
-        # End any ongoing match
-        MVal, newCIGAR = endMatch(MVal, newCIGAR)
+        # S and I operations are cases where the transcript sequence contains bases that are not in the reference genome. 
+        if op in ["S", "I"]:
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            newSeq = newSeq + origSeq[seqPos:seqPos + ct]
+            newCIGAR = newCIGAR + str(ct) + op
+            seqPos += ct
 
-        t.CIGAR = newCIGAR
-        t.SEQ = newSeq
-        t.NM, t.MD = t.getNMandMDFlags(genome)
+        # N and H operations are cases where the transcript sequence is missing bases that are in the reference genome. 
+        if op in ["N", "H"]:
+            # End any ongoing match
+            MVal, newCIGAR = endMatch(MVal, newCIGAR)
+            genomePos += ct
+            newCIGAR = newCIGAR + str(ct) + op
+
+    # End any ongoing match
+    MVal, newCIGAR = endMatch(MVal, newCIGAR)
+
+    transcript.CIGAR = newCIGAR
+    transcript.SEQ = newSeq
+    transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     return 
 
 
-def correctMismatches(transcript, genome, variants, logInfo, outfiles):
+def correctMismatches(transcript, genome, variants, logInfo, eL):
     """ This function corrects mismatches in the provided transcript. If a 
         variant file was provided, correction will be variant-aware."""
    
-    eL = outfiles.TElog
     logInfo.uncorrected_mismatches = 0
     logInfo.corrected_mismatches = 0
 
@@ -773,7 +739,64 @@ def endMatch(MVal, newCIGAR):
 
     return MVal, newCIGAR
 
-def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, outprefix, transcriptErrorLog):
+def cleanNoncanonical(transcript, ref_SJ_bedtool, sjDict, genome, maxSJOffset, 
+                      logInfo, TElog):
+
+    if transcript.isCanonical() == True:
+        return
+
+    # Iterate over all junctions and attempt to correct
+    for splice_jn_num in range(0,length(transcript.spliceJns)):
+        junction = transcript.spliceJns[splice_jn_num]
+        if junction.isCanonical:
+            continue
+        else:
+            attempt_jn_correction(transcript, splice_jn_num)
+
+def find_closest_bound(sj_bound, ref_bounds):
+    """ Given one side of a splice junction, find the closest reference """
+
+    # Create a Bedtool object for the bound
+    bed_pos = pybedtools.BedTool(sj_bound.getBED(), from_string=True)
+
+    # Run Bedtools Closest operation
+    closest = bed_pos.closest(ref_bounds, s=True, D="ref", t="first")[0]
+
+    # Create an object to represent the closest match
+    # Coordinates are 0-based since they are coming from BED
+    obj_closest = dstruct.Struct()
+    obj_closest.chrom = closest[6]
+    obj_closest.start = int(closest[7])
+    obj_closest.end = int(closest[8])
+    obj_closest.dist = int(closest[-1])
+     
+    return obj_closest
+
+def find_closest_ref_junction(junction, ref_donors, ref_acceptors):
+    """ Given a splice junction object and a splice reference, locate the 
+        closest junction in the provided splice reference BedTool object"""
+
+    # Get the splice donor and acceptor of the junction
+    donor = junction.get_splice_donor()
+    acceptor = junction.get_splice_acceptor()
+
+    # Find the closest match for each
+    closest_ref_donor = find_closest_bound(donor, ref_donors)
+    closest_ref_acceptor = find_closest_bound(acceptor, ref_acceptors)
+
+    # Compute the overall distance of the original junction from the reference
+    combined_dist = combinedJunctionDist(dist, dist_1) 
+
+def attempt_jn_correction(transcript, splice_jn_num):
+    """ Given a noncanonical splice junction, try to correct it by locating 
+        a nearby annotated junction within the allowable distance """
+
+    junction = transcript.spliceJns[splice_jn_num]
+    
+    # Find the closest reference junction
+
+
+def cleanNoncanonical_orig(transcripts, annotatedJunctions, genome, n, spliceAnnot, outprefix, transcriptErrorLog):
     """ Iterate over noncanonical transcripts. Determine whether each end is 
         within n basepairs of an annotated junction. If it is, run the rescue 
         function on it. If not, discard the transcript."""

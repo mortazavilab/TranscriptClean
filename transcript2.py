@@ -13,10 +13,6 @@ class Transcript2:
     def __init__(self, sam, genome, spliceAnnot):
         samFields = sam.strip().split('\t')
 
-        # Keep track of changes for log file
-        #self.log = []
-        #self.transcriptErrors = []
-
         # These eleven attributes are initialized directly from the input 
         # SAM entry and are mandatory 
         self.QNAME = samFields[0]
@@ -83,55 +79,6 @@ class Transcript2:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome)            
 
-    def addCorrectedDeletion(self):
-        """ Add a corrected deletion to log"""
-        self.logInfo[2] += 1
-        return    
-
-    def addUncorrectedDeletion(self):
-        """ Add an uncorrected deletion to log"""
-        self.logInfo[3] += 1
-        return
-
-    def addVariantDeletion(self):
-        """ Add a variant deletion to log"""
-        self.logInfo[4] += 1
-        return
-
-    def addCorrectedInsertion(self):
-        """ Add a corrected insertion to log"""
-        self.logInfo[5] += 1
-        return    
-
-    def addUncorrectedInsertion(self):
-        """ Add an uncorrected insertion to log"""
-        self.logInfo[6] += 1
-        return
-
-    def addVariantInsertion(self):
-        """ Add a variant insertion to log"""
-        self.logInfo[7] += 1
-        return
-
-    def addCorrectedMismatch(self):
-        """ Add a corrected mismatch to log"""
-        self.logInfo[8] += 1
-        return
-
-    def addVariantMismatch(self):
-        """ Add a variant mismatch to log"""
-        self.logInfo[9] += 1
-        return
-
-    def addCorrected_NC_SJ(self):
-        """ Add a corrected noncanonical SJ to log"""
-        self.logInfo[10] += 1
-        return
-
-    def addUncorrected_NC_SJ(self):
-        """ Add an uncorrected noncanonical SJ to log"""
-        self.logInfo[11] += 1
-        return
     
     def recheckCanonical(self):
         """ Check each splice junction. If one or more junctions are
@@ -419,12 +366,18 @@ class Transcript2:
             if op == "N":
                 # This is an intron
                 intronStart = genomePos
-                startBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + 1}, one_based=True)
+                startBases = genome.sequence({'chr': self.CHROM, 
+                                              'start': genomePos, 
+                                              'stop': genomePos + 1}, 
+                                              one_based=True)
                 intronEnd = genomePos + ct - 1
-                endBases = genome.sequence({'chr': self.CHROM, 'start': intronEnd - 1, 'stop': intronEnd}, one_based=True)
+                endBases = genome.sequence({'chr': self.CHROM, 
+                                            'start': intronEnd - 1, 
+                                            'stop': intronEnd}, one_based=True)
              
                 # Check if junction is annotated
-                if (self.CHROM + "_" + str(intronStart)) in spliceAnnot and (self.CHROM + "_" + str(intronEnd)) in spliceAnnot:
+                if (self.CHROM + "_" + str(intronStart)) in spliceAnnot and \
+                   (self.CHROM + "_" + str(intronEnd)) in spliceAnnot:
                     motifCode = 20 + getSJMotifCode(startBases, endBases)
                 else: 
                     motifCode = getSJMotifCode(startBases, endBases)
@@ -551,4 +504,5 @@ def reverseComplement(seq):
     reverseComplement = complement[::-1]
 
     return reverseComplement
+
 

@@ -9,7 +9,7 @@ import TranscriptClean as TC
 import dstruct as dstruct
 @pytest.mark.unit
 
-class TestFindClosestSJ(object):
+class TestFindClosestBound(object):
 
     def test_find_closest_splice_donor_plus(self):
         """ For a toy case with multiple donors and acceptors in close 
@@ -76,7 +76,8 @@ class TestFindClosestSJ(object):
         assert closest_donor.dist == 0
 
     def test_find_closest_splice_acceptor_plus(self):
-        """ """
+        """ Find the closest splice acceptor, which is 17 bp upstream.
+            Plus strand."""
         
         # Process reference junctions
         sjFile = "input_files/test_junctions.txt"
@@ -102,7 +103,34 @@ class TestFindClosestSJ(object):
         assert closest_acceptor.end == 23072123
         assert closest_acceptor.dist == -17
 
+    def test_find_closest_splice_acceptor_minus(self):
+        """ Find the closest splice acceptor, which is 1 bp downstream.
+            Minus strand. Note that dist is relative to the genome, not to
+            the direction of the transcript."""
 
+        # Process reference junctions
+        sjFile = "input_files/test_junctions.txt"
+        outprefix = "scratch/test"
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+
+        # Intron bound info
+        transcriptID = "test_read"
+        jnNumber = 0
+        chrom = "chr1"
+        start = 22071331
+        end = 22073331
+        strand = "-"
+        jnStr = "25"
+        genome = Fasta("input_files/hg38_chr1.fa")
+
+        junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
+                                     start, end, strand, jnStr, genome)
+
+        acceptor = junction.get_splice_acceptor()
+        closest_acceptor = TC.find_closest_bound(acceptor, acceptors)
+        assert closest_acceptor.start == 22071329
+        assert closest_acceptor.end == 22071330
+        assert closest_acceptor.dist == -1
          
         
          

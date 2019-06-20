@@ -29,6 +29,20 @@ class SpliceJunction:
     #            
     #    return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
+    def get_splice_donor(self):
+        """ Return the IntronBound object that is the splice donor """
+        if self.strand == "+":
+            return self.bounds[0]
+        elif self.strand == "-":
+            return self.bounds[1]
+
+    def get_splice_acceptor(self):
+        """ Return the IntronBound object that is the splice acceptor """
+        if self.strand == "+":
+            return self.bounds[1]
+        elif self.strand == "-":
+            return self.bounds[0]
+
     def recheckPosition(self):
         """ Get start and end position from its intron bounds """
         self.start = self.bounds[0].pos
