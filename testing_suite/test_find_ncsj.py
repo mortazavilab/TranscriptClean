@@ -31,8 +31,6 @@ class TestFindNCSJ(object):
         intronBounds = transcript.getAllIntronBounds()
         assert intronBounds[0].pos == 23071360
         assert intronBounds[1].pos == 23072123
-        assert intronBounds[0].isCanonical == True
-        assert intronBounds[1].isCanonical == True
 
         # Check if the overall junction is labeled correctly
         assert (transcript.spliceJunctions[0]).isCanonical == True
@@ -63,15 +61,10 @@ class TestFindNCSJ(object):
         intronBounds = transcript.getAllIntronBounds() 
         assert intronBounds[0].pos == 23072200
         assert intronBounds[1].pos == 23073290
-        assert intronBounds[0].isCanonical == False
-        assert intronBounds[1].isCanonical == False
 
         # Check if the overall junction is labeled correctly
         assert (transcript.spliceJunctions[0]).isCanonical == False
         
         # Check if the overall transcript is labeled correctly
         assert transcript.isCanonical == False
-
-         
-        
          

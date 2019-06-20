@@ -19,15 +19,11 @@ class SpliceJunction:
             self.isCanonical = True   
         
         # Create an intronBound object for each end of the junction
-        left = IntronBound(self.transcriptID, self.jnNumber, "0", self.chrom, self.start, self.strand, jnStr, genome)
-        right = IntronBound(self.transcriptID, self.jnNumber, "1", self.chrom, self.end, self.strand, jnStr, genome)
+        left = IntronBound(self.transcriptID, self.jnNumber, "0", self.chrom, 
+                           self.start, self.strand)
+        right = IntronBound(self.transcriptID, self.jnNumber, "1", self.chrom, 
+                            self.end, self.strand)
         self.bounds = [left, right]
-
-    #def isCanonical(self):
-    #    """ If both intron bounds of the junction are canonical, then so is the 
-    #        splice junction as a whole."""
-    #            
-    #    return self.bounds[0].isCanonical and self.bounds[1].isCanonical
 
     def get_splice_donor(self):
         """ Return the IntronBound object that is the splice donor """
