@@ -751,7 +751,15 @@ def cleanNoncanonical(transcript, ref_SJ_bedtool, sjDict, genome, maxSJOffset,
         if junction.isCanonical:
             continue
         else:
-            attempt_jn_correction(transcript, splice_jn_num)
+            temp_transcript = copy.copy(transcript)
+            
+            try:
+                attempt_jn_correction(temp_transcript, splice_jn_num)
+
+                # Check validity of the new CIGAR string to make sure
+                # no inconsistencies were introduced
+            except:
+                pass    
 
 def find_closest_bound(sj_bound, ref_bounds):
     """ Given one side of a splice junction, find the closest reference """
@@ -784,17 +792,37 @@ def find_closest_ref_junction(junction, ref_donors, ref_acceptors):
     closest_ref_donor = find_closest_bound(donor, ref_donors)
     closest_ref_acceptor = find_closest_bound(acceptor, ref_acceptors)
 
-    # Compute the overall distance of the original junction from the reference
-    combined_dist = combinedJunctionDist(dist, dist_1) 
+    return closest_ref_donor, closest_ref_acceptor
 
-def attempt_jn_correction(transcript, splice_jn_num):
+
+def attempt_jn_correction(transcript, splice_jn_num, ref_donors, ref_acceptors,
+                          maxDist):
     """ Given a noncanonical splice junction, try to correct it by locating 
-        a nearby annotated junction within the allowable distance """
+        a nearby annotated junction within the allowable distance.
 
-    junction = transcript.spliceJns[splice_jn_num]
+        Returns:
+            Corrected (True/False)
+            Reason for no correction ("NA"/"TooFarFromAnnotJn"/"Other")
+            CombinedDist
+     """
+
+    junction = transcript.spliceJunctions[splice_jn_num]
     
     # Find the closest reference junction
+    ref_donor, ref_acceptor = find_closest_ref_junction(junction, ref_donors, 
+                                                         ref_acceptors)
 
+    # Compute the overall distance of the original junction from the reference
+    combined_dist = combinedJunctionDist(ref_donor.dist, ref_acceptor.dist)
+
+    # Only attempt to rescue junction boundaries that are within maxDist bp of 
+    # an annotated junction
+    if combined_dist > maxDist or abs(ref_donor.dist) > 2*maxDist or \
+                                  abs(ref_acceptor.dist) > 2*maxDist:
+        return False, "TooFarFromAnnotJn", combined_dist
+
+    return True, "", combined_dist 
+    
 
 def cleanNoncanonical_orig(transcripts, annotatedJunctions, genome, n, spliceAnnot, outprefix, transcriptErrorLog):
     """ Iterate over noncanonical transcripts. Determine whether each end is 

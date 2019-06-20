@@ -61,18 +61,18 @@ class Transcript2:
             self.mapping = 0
             self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
 
-        # If the jM and jI fields are missing, compute them here.
-        if (self.jM == self.jI == "") and self.mapping == 1:
-            self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
-
-        self.otherFields = "\t".join(otherFields)        
-
         # These attributes are set by parsing the inputs
         self.spliceJunctions = []
         self.isCanonical = True
         self.strand = "+"        
         if int(self.FLAG) == 16 or int(self.FLAG) == 272: 
             self.strand = "-"
+
+        # If the jM and jI fields are missing, compute them here.
+        if (self.jM == self.jI == "") and self.mapping == 1:
+            self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
+
+        self.otherFields = "\t".join(otherFields)
 
         # Only run this section if there are splice junctions
         if self.jM != "" and "-1" not in self.jM:
@@ -376,8 +376,15 @@ class Transcript2:
                                             'stop': intronEnd}, one_based=True)
              
                 # Check if junction is annotated
-                if (self.CHROM + "_" + str(intronStart)) in spliceAnnot and \
-                   (self.CHROM + "_" + str(intronEnd)) in spliceAnnot:
+                if self.strand == "+":
+                    type1 = "donor"
+                    type2 = "acceptor"
+                elif self.strand == "-":
+                    type1 = "acceptor"
+                    type2 = "donor"
+
+                if ("_".join([self.CHROM, str(intronStart), self.strand, type1])) in spliceAnnot and \
+                   ("_".join([self.CHROM, str(intronEnd), self.strand, type2])) in spliceAnnot:
                     motifCode = 20 + getSJMotifCode(startBases, endBases)
                 else: 
                     motifCode = getSJMotifCode(startBases, endBases)
