@@ -995,24 +995,22 @@ def combinedJunctionDist(dist_0, dist_1):
     return combined_dist
 
 
-def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d, 
-                             genome, seq, oldCIGAR):
-    """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
-        Rechecks junction motif and updates the transcript. NM and MD are not updated-
-        this happens in cleanNoncanonical, the function that calls this one."""
-
-    # If d = 0, then the bound already matches the annotation. 
-
+def group_CIGAR_by_exon_and_intron(CIGAR, seq):
+    """ Given a CIGAR string, group all of the operations by exon or intron, 
+        resulting in one string per exon/intron. Also, subdivide the provided
+        sequence by exon as well."""
+    
+    # Inits
     currExonStr = ""
     currExonCIGAR = ""
     currSeqIndex = 0
-    operations, counts = splitCIGAR(oldCIGAR)
+    operations, counts = splitCIGAR(CIGAR)
+
+    # Outputs
     exonSeqs = []
     exonCIGARs = []
     intronCIGARs = []
 
-    # First, use the old CIGAR string to segment the sequence by exon
-    # Also, group the CIGAR string by exon
     for op, ct in zip(operations, counts):
         if op == "N":
             exonSeqs.append(currExonStr)
@@ -1029,6 +1027,23 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
     # Append last exon entries
     exonSeqs.append(currExonStr)
     exonCIGARs.append(currExonCIGAR)
+
+    return exonCIGARs, intronCIGARs, exonSeqs
+
+def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d, 
+                             genome, seq, oldCIGAR):
+    """ Corrects one side of a noncanonical splice junction by the specified 
+        number of bases. This involves modifying the sequence and CIGAR string.
+
+        Returns modified CIGAR string and sequence
+    """
+
+    # If d = 0, then the bound already matches the annotation. 
+    if d == 0:
+        return seq, oldCIGAR
+
+    # First, split CIGAR by exon/intron, as well as the sequence
+    exonCIGARs, intronCIGARs, exonSeqs = group_CIGAR_by_exon_and_intron(oldCIGAR, seq)
 
     # Now go and fix the specific splice junction piece
     if intronBound.bound == 0:
@@ -1071,15 +1086,7 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
         newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
     newCIGAR = newCIGAR + exonCIGARs[-1]
 
-    # Check the validity of the new CIGAR string
-    #if check_CIGAR_validity(newCIGAR) == True:
-    #    intronBound.isCanonical = True
-    #    SpliceJunction.recheckPosition(spliceJn)
-    #    SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot)
     return newSeq, newCIGAR
-
-    #else:
-    #    return False, seq, oldCIGAR
 
 
 def rescueNoncanonicalJunction_old(transcript, spliceJn, intronBound, d, genome, \
