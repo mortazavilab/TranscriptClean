@@ -754,12 +754,22 @@ def cleanNoncanonical(transcript, ref_SJ_bedtool, sjDict, genome, maxSJOffset,
             temp_transcript = copy.copy(transcript)
             
             try:
-                attempt_jn_correction(temp_transcript, splice_jn_num)
+                correction_status, reason, dist = attempt_jn_correction(temp_transcript, 
+                                                                        splice_jn_num,
+                                                                        donors,
+                                                                        acceptors,
+                                                                        maxDist)
 
                 # Check validity of the new CIGAR string to make sure
-                # no inconsistencies were introduced
+                # no inconsistencies were introduced. If there are no problems,
+                # replace the original transcript with the modified copy.
+                # TODO
             except:
-                pass    
+                correction_status = False
+                reason = "Other"
+                dist = "NA"
+
+            # TODO update log outputs
 
 def find_closest_bound(sj_bound, ref_bounds):
     """ Given one side of a splice junction, find the closest reference """
@@ -820,6 +830,21 @@ def attempt_jn_correction(transcript, splice_jn_num, ref_donors, ref_acceptors,
     if combined_dist > maxDist or abs(ref_donor.dist) > 2*maxDist or \
                                   abs(ref_acceptor.dist) > 2*maxDist:
         return False, "TooFarFromAnnotJn", combined_dist
+
+    # For appropriate distances, perform correction
+    # It is possible for one side of the junction to match the
+    # annotation. If so, do not change this side
+    donor = junction.get_splice_donor()
+    acceptor = junction.get_splice_acceptor()
+    #if  == 0:
+    #                    currIntronBound.isCanonical = True
+    #                    SpliceJunction.recheckPosition(currJunction)
+    #                    SpliceJunction.recheckJnStr(currJunction, genome, spliceAnnot)
+    #                    corrected.append(True)
+    #                else: # Try correction
+    rescueNoncanonicalJunction(transcript, junction, donor, ref_donor.dist,
+                               genome, spliceAnnot, 2*maxDist, currSeq, currCIGAR)
+
 
     return True, "", combined_dist 
     
@@ -970,7 +995,94 @@ def combinedJunctionDist(dist_0, dist_1):
     return combined_dist
 
 
-def rescueNoncanonicalJunction(transcript, spliceJn, intronBound, d, genome, \
+def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d, 
+                             genome, seq, oldCIGAR):
+    """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
+        Rechecks junction motif and updates the transcript. NM and MD are not updated-
+        this happens in cleanNoncanonical, the function that calls this one."""
+
+    # If d = 0, then the bound already matches the annotation. 
+
+    currExonStr = ""
+    currExonCIGAR = ""
+    currSeqIndex = 0
+    operations, counts = splitCIGAR(oldCIGAR)
+    exonSeqs = []
+    exonCIGARs = []
+    intronCIGARs = []
+
+    # First, use the old CIGAR string to segment the sequence by exon
+    # Also, group the CIGAR string by exon
+    for op, ct in zip(operations, counts):
+        if op == "N":
+            exonSeqs.append(currExonStr)
+            intronCIGARs.append(ct)
+            exonCIGARs.append(currExonCIGAR)
+            currExonStr = ""
+            currExonCIGAR = ""
+        elif op in [ "M", "S", "I"]:
+            currExonStr = currExonStr + str(seq[currSeqIndex:currSeqIndex+ct])
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+            currSeqIndex += ct
+        else:
+            currExonCIGAR = currExonCIGAR + str(ct) + op
+    # Append last exon entries
+    exonSeqs.append(currExonStr)
+    exonCIGARs.append(currExonCIGAR)
+
+    # Now go and fix the specific splice junction piece
+    if intronBound.bound == 0:
+        targetExon = jn_number
+        exon = exonSeqs[targetExon]
+        if d > 0: # Need to add d bases from reference to end of exon. Case 1.
+            # For CIGAR string,
+            exonEnd = intronBound.pos - 1
+            seqIndex = exonEnd - transcript_start + 1
+            refAdd = genome.sequence({'chr': chrom, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            exonSeqs[targetExon] = exon + refAdd
+            intronBound.pos += d
+        if d < 0: # Need to subtract from end of exon sequence. Case 3
+            exonSeqs[targetExon] = exon[0:d]
+            intronBound.pos += d
+        intronCIGARs[jn_number] -= d
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], -1, d)
+    else:
+        targetExon = jn_number + 1
+        exon = exonSeqs[targetExon]
+        if d < 0: # Need to add d bases from reference to start of exon sequence. Case 2.
+            exonStart = intronBound.pos + 1
+            seqIndex = exonStart - transcript_start + 1
+            refAdd = genome.sequence({'chr': chrom, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            exonSeqs[targetExon] = refAdd + exon
+            intronBound.pos += d
+        if d > 0: # Need to subtract from start of exon sequence. Case 4
+            exonSeqs[targetExon] = exon[d:]
+            intronBound.pos += d
+
+        # Modify exon string
+        exonCIGARs[targetExon] = editExonCIGAR(exonCIGARs[targetExon], 0, -d)
+        intronCIGARs[jn_number] += d
+
+    newSeq = str(''.join(exonSeqs))
+
+    # Paste together the new CIGAR string
+    newCIGAR = ""
+    for i in range(0,len(intronCIGARs)):
+        newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
+    newCIGAR = newCIGAR + exonCIGARs[-1]
+
+    # Check the validity of the new CIGAR string
+    #if check_CIGAR_validity(newCIGAR) == True:
+    #    intronBound.isCanonical = True
+    #    SpliceJunction.recheckPosition(spliceJn)
+    #    SpliceJunction.recheckJnStr(spliceJn, genome, spliceAnnot)
+    return newSeq, newCIGAR
+
+    #else:
+    #    return False, seq, oldCIGAR
+
+
+def rescueNoncanonicalJunction_old(transcript, spliceJn, intronBound, d, genome, \
                                spliceAnnot, maxDist, seq, oldCIGAR):
     """ Corrects a noncanonical splice junction, including the sequence and CIGAR string.
         Rechecks junction motif and updates the transcript. NM and MD are not updated-
