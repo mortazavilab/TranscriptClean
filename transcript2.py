@@ -20,7 +20,7 @@ class Transcript2:
         self.CHROM = samFields[2]
         self.POS = int(samFields[3])
         self.MAPQ = samFields[4]
-        self.CIGAR = samFields[5]
+        self.CIGAR = str(samFields[5])
         self.RNEXT = samFields[6]
         self.PNEXT = samFields[7]
         self.TLEN = samFields[8]
@@ -32,10 +32,10 @@ class Transcript2:
         self.mapping = 1
         if self.CHROM == "*" or int(self.FLAG) == 4: 
             self.mapping = 0
-            self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+            #self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
         elif int(self.FLAG) > 16:
             self.mapping = 2
-            self.logInfo = [self.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+            #self.logInfo = [self.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
 
         # If the sam entry contains additional optional fields, process them 
         self.NM = ""
@@ -59,25 +59,32 @@ class Transcript2:
         # problem somewhere in the read. Consider such reads unmapped.
         if self.NM == None and self.MD == None:
             self.mapping = 0
-            self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+            #self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", 
+            #                "NA", "NA", "NA", "NA", "NA"]
 
         # These attributes are set by parsing the inputs
-        self.spliceJunctions = []
-        self.isCanonical = True
         self.strand = "+"        
         if int(self.FLAG) == 16 or int(self.FLAG) == 272: 
             self.strand = "-"
 
+        # Process splice junctions
+        if (self.jI == ""):
+                self.jI = self.compute_jI()
+
+        if "N" in self.CIGAR and self.mapping == 1:
+            # Create an object for each splice junction
+            self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
+            self.isCanonical = self.recheckCanonical()
+            
+        else:
+            self.spliceJunctions = []
+            self.isCanonical = True    
+
         # If the jM and jI fields are missing, compute them here.
-        if (self.jM == self.jI == "") and self.mapping == 1:
-            self.jM, self.jI = self.getjMandjITags(genome, spliceAnnot)
+        if (self.jM == "") and self.mapping == 1:
+            self.jM, self.jI = self.get_jM_jI_tags_from_sjs()
 
         self.otherFields = "\t".join(otherFields)
-
-        # Only run this section if there are splice junctions
-        if self.jM != "" and "-1" not in self.jM:
-            # Create an object for each splice junction
-            self.spliceJunctions = self.parseSpliceJunctions(genome)            
 
     
     def recheckCanonical(self):
@@ -209,21 +216,20 @@ class Transcript2:
         return mergeOperations, mergeCounts
 
 
-    def parseSpliceJunctions(self, genome):
+    def parseSpliceJunctions(self, genome, spliceAnnot):
         """ Takes the splice junction information from the SAM input and 
             creates a SpliceJunction object for each junction."""
 
-        spliceJns = ((self.jM).split(":")[-1]).split(",")[1:]
         intronBounds = ((self.jI).split(":")[-1]).split(",")[1:]
 
         count = 0
         jnNum = 0
         jnObjects = [] 
-        for entry in spliceJns:
+        while count < len(intronBounds):
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
             sj = SpliceJunction(self.QNAME, jnNum, self.CHROM, start, end, \
-                 self.strand, entry, genome)
+                 self.strand, genome, spliceAnnot)
             jnObjects.append(sj)
 
             # Check if junction is canonical or not. 
@@ -278,7 +284,6 @@ class Transcript2:
             STAR codes"""
         result = []
         for jn in self.spliceJunctions:
-            #SpliceJunction.recheckJnStr(jn, genome, spliceAnnot)
             result.append(jn.jnStr)
         return result
  
@@ -305,7 +310,8 @@ class Transcript2:
             if op == "M":
                 for i in range(0,ct):
                     currBase = self.SEQ[seqPos]
-                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos}, one_based=True) 
+                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos, 
+                                               'stop': genomePos}, one_based=True) 
                     if refBase == "":
                         return None, None
                    
@@ -326,7 +332,8 @@ class Transcript2:
                 # End any match we have going and add the missing reference bases
                 MD = MD + str(MVal)  
                 MVal = 0
-                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos, 
+                                            'stop': genomePos + ct - 1}, one_based=True)
                 if refBases == "":
                     return None, None
                 MD = MD + "^" + str(refBases)
@@ -341,6 +348,63 @@ class Transcript2:
             
         if MVal > 0: MD = MD + str(MVal) 
         return "NM:i:" + str(NM), MD
+
+    def get_jM_jI_tags_from_sjs(self):
+        """ Create jM and jI tags by traversing the splice junction strings """
+
+        if self.mapping != 1:
+            return "",""
+
+        jM = ["jM:B:c"]
+        jI = ["jI:B:i"]
+
+        for sj in self.spliceJunctions:
+            intron_start = sj.bounds[0].pos
+            intron_end = sj.bounds[1].pos
+            motif_code = sj.motif_code
+            jM.append(str(motif_code))
+            jI.append(str(intron_start))
+            jI.append(str(intron_end))
+
+        # If the transcript has no introns, we need to add -1 to the tags
+        if len(jM) == len(jI) == 1:
+            jM.append("-1")
+            jI.append("-1")
+
+        jMstr = ",".join(jM)
+        jIstr = ",".join(jI)
+
+        return jMstr, jIstr
+
+    def compute_jI(self):
+        """ Use the CIGAR string to compute where the introns are """
+
+        if self.mapping != 1:
+            return "",""
+
+        operations, counts = self.splitCIGAR()
+        jI = ["jI:B:i"]
+        genomePos = self.POS
+
+        # Iterate over operations
+        for op,ct in zip(operations, counts):
+            if op == "N":
+                # This is an intron
+                intronStart = genomePos
+                intronEnd = genomePos + ct - 1
+                jI.append(str(intronStart))
+                jI.append(str(intronEnd))
+
+            if op not in ["S", "I"]:
+                 genomePos += ct
+
+        # If the transcript has no introns, we need to add -1 to the tags
+        if len(jI) == 1:
+            jI.append("-1")
+
+        jIstr = ",".join(jI)
+
+        return jIstr
 
     def getjMandjITags(self, genome, spliceAnnot):
         """ If the input sam file doesn't have the custom STARlong-derived jM 

@@ -23,11 +23,10 @@ class TestFetchDonorAcceptor(object):
         start = 23071360
         end = 23072123
         strand = "+"
-        jnStr = "21"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom, 
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, {})
 
         donor = junction.get_splice_donor()
         acceptor = junction.get_splice_acceptor()
@@ -45,11 +44,10 @@ class TestFetchDonorAcceptor(object):
         start = 23071360
         end = 23072123
         strand = "-"
-        jnStr = "25"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, {})
 
         donor = junction.get_splice_donor()
         acceptor = junction.get_splice_acceptor()

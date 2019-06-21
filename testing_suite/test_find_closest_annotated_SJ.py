@@ -25,11 +25,10 @@ class TestFindClosestSJ(object):
         start = 23071350
         end = 23072124
         strand = "+"
-        jnStr = "21"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, sjDict)
 
         closest_donor, closest_acceptor = TC.find_closest_ref_junction(junction, donors, acceptors)
         assert closest_donor.end == 23071360
