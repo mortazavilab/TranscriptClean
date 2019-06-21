@@ -778,13 +778,14 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, spliceDict):
     """
     junction = transcript.spliceJunctions[splice_jn_num]
     junction.recheckPosition()
-    junction.recheckJnStr(genome, spliceDict)
+    junction.checkSpliceMotif(genome, spliceDict)
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
-    self.jM, self.jI = self.getjMandjITags() 
+    transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
+    transcript.isCanonical = transcript.recheckCanonical()
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, ref_donors, ref_acceptors,
-                          maxDist):
+                          spliceDict, maxDist):
     """ Given a noncanonical splice junction, try to correct it by locating 
         a nearby annotated junction within the allowable distance.
 
@@ -824,14 +825,10 @@ def attempt_jn_correction(transcript, splice_jn_num, ref_donors, ref_acceptors,
                                            acceptor, ref_acceptor.dist, genome,
                                            transcript.SEQ, transcript.CIGAR)
         # Now, perform updates:
-        update_intron_bound(donor, )
+        update_post_ncsj_correction(transcript, splice_jn_num, genome, spliceDict)
 
     except:
         return False, "Other", combined_dist
-
-    #validate_correction()
-
-
 
     return True, "NA", combined_dist 
     

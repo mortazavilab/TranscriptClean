@@ -39,6 +39,7 @@ class TestAttemptJnCorrection(object):
                                                                    jnNumber, 
                                                                    donors, 
                                                                    acceptors,
+                                                                   sjDict,
                                                                    maxDist)
         assert correction_status == False
         assert reason == "TooFarFromAnnotJn"
