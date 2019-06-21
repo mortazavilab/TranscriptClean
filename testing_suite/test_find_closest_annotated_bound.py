@@ -31,11 +31,10 @@ class TestFindClosestBound(object):
         start = 23071360
         end = 23072123
         strand = "+"
-        jnStr = "21"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, sjDict)
 
         donor = junction.get_splice_donor()
         closest_donor = TC.find_closest_bound(donor, donors)
@@ -63,11 +62,10 @@ class TestFindClosestBound(object):
         start = 23070360
         end = 23071360
         strand = "-"
-        jnStr = "25"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, sjDict)
 
         donor = junction.get_splice_donor()
         closest_donor = TC.find_closest_bound(donor, donors)
@@ -91,11 +89,10 @@ class TestFindClosestBound(object):
         start = 23071360
         end = 23072140
         strand = "+"
-        jnStr = "25"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, sjDict)
 
         acceptor = junction.get_splice_acceptor()
         closest_acceptor = TC.find_closest_bound(acceptor, acceptors)
@@ -120,11 +117,10 @@ class TestFindClosestBound(object):
         start = 22071331
         end = 22073331
         strand = "-"
-        jnStr = "25"
         genome = Fasta("input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
-                                     start, end, strand, jnStr, genome)
+                                     start, end, strand, genome, sjDict)
 
         acceptor = junction.get_splice_acceptor()
         closest_acceptor = TC.find_closest_bound(acceptor, acceptors)
