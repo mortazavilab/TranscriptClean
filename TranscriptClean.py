@@ -707,6 +707,8 @@ def cleanNoncanonical(transcript, ref_SJ_bedtool, sjDict, genome, maxSJOffset,
                       logInfo, TElog):
 
     if transcript.isCanonical() == True:
+        logInfo.corrected_NC_SJs = 0
+        logInfo.uncorrected_NC_SJs = 0
         return
 
     # Iterate over all junctions and attempt to correct
@@ -716,24 +718,31 @@ def cleanNoncanonical(transcript, ref_SJ_bedtool, sjDict, genome, maxSJOffset,
             continue
         else:
             temp_transcript = copy.copy(transcript)
-            
-            try:
-                correction_status, reason, dist = attempt_jn_correction(temp_transcript, 
-                                                                        splice_jn_num,
-                                                                        donors,
-                                                                        acceptors,
-                                                                        maxDist)
+            ID = "_".join([junction.chrom, junction.start), junction.end)]) 
+            correction_status, reason, dist = attempt_jn_correction(temp_transcript, 
+                                                                    splice_jn_num,
+                                                                    donors,
+                                                                    acceptors,
+                                                                    sjDict,
+                                                                    maxDist)
 
-                # Check validity of the new CIGAR string to make sure
-                # no inconsistencies were introduced. If there are no problems,
-                # replace the original transcript with the modified copy.
-                # TODO
-            except:
-                correction_status = False
-                reason = "Other"
-                dist = "NA"
+            # If there were no problems during correction, replace the original 
+            # transcript with the modified copy. 
+            if correction_status == True:
+                transcript = temp_transcript
+                logInfo.corrected_NC_SJs += 1
+                status = "Corrected"
+                TElog.write()
+            else:
+                logInfo.uncorrected_NC_SJs += 1
+                status = "Uncorrected"
+                
+            # Update transcript error log
+            errorEntry = "\t".join([transcript.QNAME, ID, "NC_SJ_boundary",
+                                    str(dist), status, reason])
+            TElog.write(errorEntry + "\n")
 
-            # TODO update log outputs
+    return
 
 def find_closest_bound(sj_bound, ref_bounds):
     """ Given one side of a splice junction, find the closest reference """
