@@ -187,7 +187,7 @@ def transcript_init(transcript_line, options, refs, outfiles):
         # Only output the transcript if Primary Only option is off
         if primaryOnly == "false":
             outSam.write(transcript_line + "\n")
-            outFa.write(Transcript2.printableFa(t) + "\n")
+            outFa.write(Transcript2.printableFa(transcript) + "\n")
 
         return None, logInfo
     else:
@@ -201,6 +201,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
         options.
     """
     outSam = outfiles.sam
+    outFa = outfiles.fasta
 
     if transcript_line.startswith("@"): # header line
         outSam.write(transcript_line + "\n")
@@ -210,12 +211,12 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     
     # Correct the transcript 
     if transcript != None:
+        print(transcript.QNAME)
 
-        #TODO: surround with try-except
         # Mismatch correction
         if options.mismatchCorrection == "true":
             correctMismatches(transcript, refs.genome, refs.snps, 
-                              logInfo, outfiles)
+                              logInfo, outfiles.TElog)
         
         if options.indelCorrection == "true":
             # Insertion correction
@@ -228,19 +229,53 @@ def correct_transcript(transcript_line, options, refs, outfiles):
 
         # NCSJ correction
         if refs.sjDict != {} and transcript.isCanonical == False:
-            cleanNoncanonical(noncanTranscripts, refs.annotatedSpliceJns, refs.genome, 
-                              maxSJOffset, refs.sjDict, logInfo, outfiles.TElog)
-
-        print(logInfo)
-        exit()
+            transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
+                                           logInfo, outfiles.TElog)
     
     # Output transcript log entry 
     write_to_transcript_log(logInfo, outfiles.log)
-    
+
+    # Write transcript to sam and fasta file
+    outSam.write(transcript.printableSAM() + "\n")
+    outFa.write(transcript.printableFa() + "\n")
+    return    
+
+def validate_chroms(genome, sam):
+    """ Make sure that every chromosome in the SAM file also exists in the
+        reference genome. This is a common source of crashes """
+
+    fasta_chroms = set(genome.keys())
+    sam_chroms = set()
+    with open(sam, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("@"):
+                continue
+            else:
+                chrom = line.split("\t")[2]
+                sam_chroms.add(chrom)
+
+    # Check whether all of the sam chromosomes are in the fasta file. 
+    # If not, raise an error
+    if not sam_chroms.issubset(fasta_chroms):
+        sam_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in sam_chroms]) + '}'
+        fasta_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in fasta_chroms]) + '}'
+        print(sam_chroms)
+        print(fasta_chroms)
+        error_msg = "One or more SAM chromosomes were not found in the " +\
+                    "fasta reference.\n" + \
+                    "SAM chromosomes:\n" + sam_chroms + "\n" + \
+                    "FASTA chromosomes:\n" + fasta_chroms + "\n" + \
+                    "One common cause is when the fasta headers contain more than " +\
+                    "one word. If this is the case, try trimming the headers " + \
+                    "to only the chromosome name (i.e. '>chr1')."
+        raise ValueError(error_msg)
+    return
 
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
+    validate_chroms(refs.genome, options.sam)
     outfiles = setup_outfiles(options)
     samFile = options.sam
     
@@ -249,20 +284,13 @@ def main():
         close_outfiles(outfiles)
         return
 
-    #close_outfiles(outfiles)
-
-    # TODO: Iterate over individual sam transcripts
-
     print("Processing transcripts in SAM file .........................")
 
     with open(samFile, 'r') as f:
         for transcript_line in f:
             correct_transcript(transcript_line, options, refs, outfiles)            
-            close_outfiles(outfiles)
-            exit()
 
     close_outfiles(outfiles)
-    exit()
 
 
 def processSpliceAnnotation(annotFile, outprefix):
@@ -568,7 +596,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
             # Deletion is too big to fix
             else:
                 errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
-                logInfo.uncorrected_deletion += 1
+                logInfo.uncorrected_deletions += 1
                 eL.write(errorEntry + "\n")
 
                 # End any ongoing match
@@ -731,7 +759,6 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
             # If there were no problems during correction, replace the original 
             # transcript with the modified copy. 
             if correction_status == True:
-                print(transcript.SEQ)
                 transcript = temp_transcript
                 logInfo.corrected_NC_SJs += 1
                 status = "Corrected"
@@ -744,7 +771,6 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
                                     str(dist), status, reason])
             TElog.write(errorEntry + "\n")
 
-    print(transcript.SEQ)
     return transcript
 
 def find_closest_bound(sj_bound, ref_bounds):
