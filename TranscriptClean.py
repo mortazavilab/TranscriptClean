@@ -190,7 +190,7 @@ def transcript_init(transcript_line, options, refs, outfiles):
             logInfo.Mapping = "non-primary"
 
         # Only output the transcript if Primary Only option is off
-        if primaryOnly == "false":
+        if options.primaryOnly == "false":
             outSam.write(transcript_line + "\n")
             outFa.write(Transcript2.printableFa(transcript) + "\n")
 
