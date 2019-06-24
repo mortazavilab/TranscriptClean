@@ -27,15 +27,12 @@ class Transcript2:
         self.SEQ = samFields[9]
         self.QUAL = "*"
 
-        self.logInfo = [self.QNAME, "primary", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] 
         # Check if read is unmapped (0), uniquely mapped (1), multimapped (2)
         self.mapping = 1
         if self.CHROM == "*" or int(self.FLAG) == 4: 
             self.mapping = 0
-            #self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
         elif int(self.FLAG) > 16:
             self.mapping = 2
-            #self.logInfo = [self.QNAME, "non-primary", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
 
         # If the sam entry contains additional optional fields, process them 
         self.NM = ""
@@ -59,8 +56,6 @@ class Transcript2:
         # problem somewhere in the read. Consider such reads unmapped.
         if self.NM == None and self.MD == None:
             self.mapping = 0
-            #self.logInfo = [self.QNAME, "unmapped", "NA", "NA", "NA", "NA", "NA", 
-            #                "NA", "NA", "NA", "NA", "NA"]
 
         # These attributes are set by parsing the inputs
         self.strand = "+"        
@@ -239,12 +234,8 @@ class Transcript2:
         
         return jnObjects
 
-    def printableSAM(self, genome, spliceAnnot):
+    def printableSAM(self):
         """ Returns a SAM-formatted string representation of the transcript"""
-        if len(self.spliceJunctions) > 0:
-            self.jI = "jI:B:i," + ",".join(str(i.pos) for i in self.getAllIntronBounds())
-            self.jM = "jM:B:c," + ",".join(str(i) for i in self.getAllSJMotifs(genome, spliceAnnot))
-        self.NM, self.MD = self.getNMandMDFlags(genome)        
         fields = [ self.QNAME, self.FLAG, self.CHROM, self.POS, self.MAPQ, self.CIGAR, \
                    self.RNEXT, self.PNEXT, self.TLEN, self.SEQ, self.QUAL, self.otherFields, \
                    self.NM, self.MD, self.jM, self.jI ]

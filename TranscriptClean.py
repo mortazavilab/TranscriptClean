@@ -15,6 +15,8 @@ import pybedtools
 import dstruct
 from pyfasta import Fasta
 import os
+import multiprocessing
+import math
 import re
 import copy
 
@@ -121,28 +123,31 @@ def cleanup_options(options):
 
     return options
 
-def setup_outfiles(options, process = ""):
+def setup_outfiles(options, process = "1"):
     """ Set up output files. If running in parallel, label with a process ID """
 
+    # Place files in a tmp directory
+    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/tmp/"
+    os.system("mkdir -p " + tmp_dir)
+
     outfiles = dstruct.Struct()
-    outprefix = options.outprefix
     
     # Open sam, fasta, and log  outfiles
-    oSam = open(outprefix + "_clean" + process + ".sam", 'w')
-    oFa = open(outprefix + "_clean" + process + ".fa", 'w')
-    transcriptLog = open(outprefix + "_clean" + process + ".log", 'w')
-    transcriptErrorLog = open(options.outprefix + "_clean" + process + ".TE.log", 'w')
+    oSam = open(tmp_dir + "clean_" + process + ".sam", 'w')
+    oFa = open(tmp_dir + "clean_" + process + ".fa", 'w')
+    transcriptLog = open(tmp_dir + "clean_" + process + ".log", 'w')
+    transcriptErrorLog = open(tmp_dir + "clean_" + process + ".TElog", 'w')
 
     # Add headers to logs
-    transcriptLog.write("\t".join(["TranscriptID", "Mapping", 
-                        "corrected_deletions", "uncorrected_deletions", 
-                        "variant_deletions", "corrected_insertions", 
-                        "uncorrected_insertions", "variant_insertions", \
-                        "corrected_mismatches", "uncorrected_mismatches", \
-                        "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
+    #transcriptLog.write("\t".join(["TranscriptID", "Mapping", 
+    #                    "corrected_deletions", "uncorrected_deletions", 
+    #                    "variant_deletions", "corrected_insertions", 
+    #                    "uncorrected_insertions", "variant_insertions", \
+    #                    "corrected_mismatches", "uncorrected_mismatches", \
+    #                    "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
 
-    transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", 
-                             "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
+    #transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", 
+    #                         "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     
     outfiles.sam = oSam
     outfiles.fasta = oFa
@@ -152,7 +157,7 @@ def setup_outfiles(options, process = ""):
     return outfiles
 
 def close_outfiles(outfiles):
-    """ Close all of the outout files """
+    """ Close all of the output files """
 
     for f in list(outfiles.values()):
         f.close()
@@ -169,13 +174,21 @@ def transcript_init(transcript_line, options, refs, outfiles):
     outFa = outfiles.fasta
 
     if transcript_line.startswith("@"): # header line
-        outSam.write(transcript_line + "\n")
+        #outSam.write(transcript_line + "\n")
         return None
     
     # Init transcript object and log entry
-    transcript = Transcript2(transcript_line, refs.genome, refs.sjDict)
-    logInfo = init_log_info()
-    logInfo.TranscriptID = transcript.QNAME
+    try:
+        transcript = Transcript2(transcript_line, refs.genome, refs.sjDict)
+        logInfo = init_log_info()
+        logInfo.TranscriptID = transcript.QNAME
+    except:
+        QNAME = transcript_line.split("\t")[0]
+        print("Problem parsing transcript with ID '" + QNAME + "'")
+        if primaryOnly == "false":
+            outSam.write(transcript_line + "\n")
+            outFa.write(Transcript2.printableFa(transcript) + "\n")
+        return None, None        
 
     # Unmapped/multimapper cases
     if transcript.mapping != 1:
@@ -203,41 +216,44 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     outSam = outfiles.sam
     outFa = outfiles.fasta
 
-    if transcript_line.startswith("@"): # header line
-        outSam.write(transcript_line + "\n")
-        return
-
     transcript, logInfo = transcript_init(transcript_line, options, refs, outfiles)
     
     # Correct the transcript 
     if transcript != None:
-        print(transcript.QNAME)
 
-        # Mismatch correction
-        if options.mismatchCorrection == "true":
-            correctMismatches(transcript, refs.genome, refs.snps, 
-                              logInfo, outfiles.TElog)
+        try:
+            # Mismatch correction
+            if options.mismatchCorrection == "true":
+                correctMismatches(transcript, refs.genome, refs.snps, 
+                                  logInfo, outfiles.TElog)
         
-        if options.indelCorrection == "true":
-            # Insertion correction
-            correctInsertions(transcript, refs.genome, refs.insertions,
-                              options.maxLenIndel, logInfo, outfiles.TElog)
+            if options.indelCorrection == "true":
+                # Insertion correction
+                correctInsertions(transcript, refs.genome, refs.insertions,
+                                  options.maxLenIndel, logInfo, outfiles.TElog)
 
-            # Deletion correction
-            correctDeletions(transcript, refs.genome, refs.deletions,
-                              options.maxLenIndel, logInfo, outfiles.TElog)
+                # Deletion correction
+                correctDeletions(transcript, refs.genome, refs.deletions,
+                                 options.maxLenIndel, logInfo, outfiles.TElog)
 
-        # NCSJ correction
-        if refs.sjDict != {} and transcript.isCanonical == False:
-            transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
-                                           logInfo, outfiles.TElog)
-    
+            # NCSJ correction
+            if refs.sjDict != {} and transcript.isCanonical == False:
+                transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
+                                               logInfo, outfiles.TElog)
+        
+            # Write transcript to sam and fasta file
+            outSam.write(transcript.printableSAM() + "\n")
+            outFa.write(transcript.printableFa() + "\n")
+
+        except:
+            print("Problem encountered while correcting transcript " + \
+                  " with ID '" + transcript.QNAME + "'. Skipping output.")
+            return
+
     # Output transcript log entry 
-    write_to_transcript_log(logInfo, outfiles.log)
+    if logInfo != None:
+        write_to_transcript_log(logInfo, outfiles.log)
 
-    # Write transcript to sam and fasta file
-    outSam.write(transcript.printableSAM() + "\n")
-    outFa.write(transcript.printableFa() + "\n")
     return    
 
 def validate_chroms(genome, sam):
@@ -260,8 +276,6 @@ def validate_chroms(genome, sam):
     if not sam_chroms.issubset(fasta_chroms):
         sam_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in sam_chroms]) + '}'
         fasta_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in fasta_chroms]) + '}'
-        print(sam_chroms)
-        print(fasta_chroms)
         error_msg = "One or more SAM chromosomes were not found in the " +\
                     "fasta reference.\n" + \
                     "SAM chromosomes:\n" + sam_chroms + "\n" + \
@@ -272,26 +286,94 @@ def validate_chroms(genome, sam):
         raise ValueError(error_msg)
     return
 
+def split_SAM(samFile):
+    """ Given a sam file, separate the header line from the remaining entries
+    """
+    header = []
+    transcript_lines = []
+ 
+    with open(samFile, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('@'):
+                header.append(line)
+            else:
+                transcript_lines.append(line)
+    return header, transcript_lines
+
+def split_input(my_list, n):
+    """ Splits input into n sublists of roughly equal size"""
+    chunks = []
+    index = 0
+    batch_size = math.ceil(len(my_list)/n)
+    while index < len(my_list):
+        try:
+            batch = my_list[index:index + batch_size]
+        except:
+            batch = my_list[index:]
+        chunks.append(batch)
+        index += batch_size
+
+    return chunks
+
+def run_chunk(transcripts, options, refs):
+    """ Contains everything needed to run a subset of the transcript input 
+        on its own core """
+
+    # Set up the outfiles
+    outfiles = setup_outfiles(options, str(os.getpid()))
+
+    # Iterate over transcripts and correct them
+    for transcript in transcripts:
+        correct_transcript(transcript, options, refs, outfiles)
+
+    # Close up the outfiles
+    close_outfiles(outfiles)
+
+    return
+
+def run_chunk_dryRun(transcripts, options, refs):
+    """ Run dryRun mode on a set of transcripts on one core """
+
+    # Set up the outfiles
+    outfiles = setup_outfiles(options, str(os.getpid()))
+
+    # Run dryRun mode
+    dryRun(transcripts, options, outfiles, refs)
+
+    # Close up the outfiles
+    close_outfiles(outfiles)
+
+    return
+
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
     validate_chroms(refs.genome, options.sam)
-    outfiles = setup_outfiles(options)
-    samFile = options.sam
-    
+    header, sam_lines = split_SAM(options.sam)
+
+    # Split up the sam lines to run on different processes if possible
+    n_cpus = len(os.sched_getaffinity(0))
+    sam_chunks = split_input(sam_lines, n_cpus)
+
+    # Run the processes. Outfiles are created within each process
     if options.dryRun == True:
-        dryRun(samFile, outfiles, refs)
-        close_outfiles(outfiles)
-        return
+        processes = [ multiprocessing.Process(target=run_chunk_dryRun,
+                                              args=(chunk,options,refs)) \
+                                              for chunk in sam_chunks ]
 
-    print("Processing transcripts in SAM file .........................")
+    else:
+        processes = [ multiprocessing.Process(target=run_chunk, 
+                                              args=(chunk,options,refs)) \
+                                              for chunk in sam_chunks ]
 
-    with open(samFile, 'r') as f:
-        for transcript_line in f:
-            correct_transcript(transcript_line, options, refs, outfiles)            
+    for p in processes:  p.start()
+    for p in processes:  p.join()
 
-    close_outfiles(outfiles)
 
+    #print("Writing final outputs.......................................")
+    # TODO: Write sam header to outfile. Also write headers to log files
+    # TODO: When the processes have finished, combine the outputs together.
 
 def processSpliceAnnotation(annotFile, outprefix):
     """ Reads in the tab-separated STAR splice junction file and creates a 
@@ -1107,7 +1189,7 @@ def write_to_transcript_log(logInfo, tL):
     return
 
 
-def dryRun(sam, outfiles, refs):
+def dryRun(sam, options, outfiles, refs):
     """Records all mismatches, insertions, and deletions in the transcripts,
        but does not correct them """
 
@@ -1117,74 +1199,67 @@ def dryRun(sam, outfiles, refs):
     genome = refs.genome
     spliceAnnot = {}
 
-    with open(sam, 'r') as f:
-        for line in f:
-            line = line.strip()
-
-            if line.startswith("@"): # header line
-                continue
-
-            # Set up log entry for transcript
-            transcript = Transcript2(line, genome, spliceAnnot)
-            logInfo = init_log_info()
-            logInfo.TranscriptID = transcript.QNAME
-            
-            if transcript.mapping == 0:
-                logInfo.Mapping = "unmapped"
-                write_to_transcript_log(logInfo, tL)
-                continue
-            if transcript.mapping == 2:
-                logInfo.Mapping = "non-primary"
-                write_to_transcript_log(logInfo, tL)
-                continue
-
-            # For primary alignments, modify logInfo
-            logInfo.Mapping = "primary" 
-            logInfo.uncorrected_deletions = 0
-            logInfo.uncorrected_insertions = 0
-            logInfo.uncorrected_mismatches = 0
-
-            # Iterate over CIGAR to catalogue indels and mismatches
-            seqPos = 0
-            genomePos = transcript.POS
-            mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
-
-            for op,ct in zip(mergeOperations, mergeCounts):
-                if op == "M":
-                    seqPos += ct
-                    genomePos += ct
-               
-                if op == "X":
-                    ID = "_".join([transcript.CHROM, str(genomePos), 
-                                   str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Mismatch", 
-                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo.uncorrected_mismatches += 1
-                    seqPos += ct
-                    genomePos += ct
-
-                if op == "D":
-                    ID = "_".join([transcript.CHROM, str(genomePos), 
-                                   str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Deletion", 
-                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo.uncorrected_deletions += 1
-                    genomePos += ct
-                   
-                if op == "I":
-                    ID = "_".join([transcript.CHROM, str(genomePos), 
-                                   str(genomePos + ct - 1)])
-                    eL.write("\t".join([transcript.QNAME, ID, "Insertion", 
-                                        str(ct), "Uncorrected", "DryRun"]) + "\n")
-                    logInfo.uncorrected_insertions += 1
-                    seqPos += ct
- 
-                if op == "S":
-                    seqPos += ct
-
-                if op in ["N", "H"]:
-                    genomePos += ct
+    for line in sam:
+        # Set up log entry for transcript
+        transcript = transcript_init(transcript_line, options, refs, outfiles)
+        #logInfo.TranscriptID = transcript.QNAME
+        
+        if transcript.mapping == 0:
+            #logInfo.Mapping = "unmapped"
             write_to_transcript_log(logInfo, tL)
+            continue
+        if transcript.mapping == 2:
+            #logInfo.Mapping = "non-primary"
+            write_to_transcript_log(logInfo, tL)
+            continue
+
+        # For primary alignments, modify logInfo
+        #logInfo.Mapping = "primary" 
+        logInfo.uncorrected_deletions = 0
+        logInfo.uncorrected_insertions = 0
+        logInfo.uncorrected_mismatches = 0
+
+        # Iterate over CIGAR to catalogue indels and mismatches
+        seqPos = 0
+        genomePos = transcript.POS
+        mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
+
+        for op,ct in zip(mergeOperations, mergeCounts):
+            if op == "M":
+                seqPos += ct
+                genomePos += ct
+           
+            if op == "X":
+                ID = "_".join([transcript.CHROM, str(genomePos), 
+                               str(genomePos + ct - 1)])
+                eL.write("\t".join([transcript.QNAME, ID, "Mismatch", 
+                                    str(ct), "Uncorrected", "DryRun"]) + "\n")
+                logInfo.uncorrected_mismatches += 1
+                seqPos += ct
+                genomePos += ct
+
+            if op == "D":
+                ID = "_".join([transcript.CHROM, str(genomePos), 
+                               str(genomePos + ct - 1)])
+                eL.write("\t".join([transcript.QNAME, ID, "Deletion", 
+                                    str(ct), "Uncorrected", "DryRun"]) + "\n")
+                logInfo.uncorrected_deletions += 1
+                genomePos += ct
+               
+            if op == "I":
+                ID = "_".join([transcript.CHROM, str(genomePos), 
+                               str(genomePos + ct - 1)])
+                eL.write("\t".join([transcript.QNAME, ID, "Insertion", 
+                                    str(ct), "Uncorrected", "DryRun"]) + "\n")
+                logInfo.uncorrected_insertions += 1
+                seqPos += ct
+ 
+            if op == "S":
+                seqPos += ct
+
+            if op in ["N", "H"]:
+                genomePos += ct
+        write_to_transcript_log(logInfo, tL)
     return 
 
 if __name__ == '__main__':

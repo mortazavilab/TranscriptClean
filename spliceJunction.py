@@ -22,7 +22,7 @@ class SpliceJunction:
         self.bounds = [left, right]
 
         # Get splice motif
-        #self.motif_code = self.isCanonical = None
+        self.motif_code = self.isCanonical = None
         self.checkSpliceMotif(genome, spliceAnnot)
         
     def get_splice_donor(self):
@@ -46,7 +46,7 @@ class SpliceJunction:
 
     def checkSpliceMotif(self, genome, spliceAnnot):
         """ Check the splice junction sequence motif to determine whether the 
-            jnStr should be changed"""
+            motif_code should be changed"""
 
         startBases = IntronBound.getSpliceMotif(self.bounds[0], genome) 
         endBases = IntronBound.getSpliceMotif(self.bounds[1], genome).upper()        
