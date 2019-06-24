@@ -81,6 +81,8 @@ def prep_refs(orig_options):
     """ Process input files and store them in a reference dict """
 
     options = cleanup_options(orig_options)
+    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    os.system("mkdir -p %s" % tmp_dir)
     genomeFile = options.refGenome
     variantFile = options.variantFile
     sjFile = options.spliceAnnot
@@ -261,6 +263,10 @@ def validate_chroms(genome, sam):
                 chrom = line.split("\t")[2]
                 sam_chroms.add(chrom)
 
+    # Remove '*' from sam chromosome set if present
+    if "*" in sam_chroms:
+        sam_chroms.remove("*")
+
     # Check whether all of the sam chromosomes are in the fasta file. 
     # If not, raise an error
     if not sam_chroms.issubset(fasta_chroms):
@@ -421,8 +427,10 @@ def processSpliceAnnotation(annotFile, outprefix):
 
     bedstr = ""
     annot = set()
-    donor_file = outprefix + "_ref_splice_donors_tmp.bed"
-    acceptor_file = outprefix + "_ref_splice_acceptors_tmp.bed"
+    tmp_dir = "/".join((outprefix).split("/")[0:-1]) + "/TC_tmp/"
+
+    donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
+    acceptor_file = tmp_dir + "ref_splice_acceptors_tmp.bed"
     o_donor = open(donor_file, 'w')
     o_acceptor = open(acceptor_file, 'w')
     with open(annotFile, 'r') as f:
