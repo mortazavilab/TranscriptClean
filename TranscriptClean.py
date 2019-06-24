@@ -127,7 +127,7 @@ def setup_outfiles(options, process = "1"):
     """ Set up output files. If running in parallel, label with a process ID """
 
     # Place files in a tmp directory
-    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/tmp/"
+    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
     os.system("mkdir -p " + tmp_dir)
 
     outfiles = dstruct.Struct()
@@ -138,16 +138,6 @@ def setup_outfiles(options, process = "1"):
     transcriptLog = open(tmp_dir + "clean_" + process + ".log", 'w')
     transcriptErrorLog = open(tmp_dir + "clean_" + process + ".TElog", 'w')
 
-    # Add headers to logs
-    #transcriptLog.write("\t".join(["TranscriptID", "Mapping", 
-    #                    "corrected_deletions", "uncorrected_deletions", 
-    #                    "variant_deletions", "corrected_insertions", 
-    #                    "uncorrected_insertions", "variant_insertions", \
-    #                    "corrected_mismatches", "uncorrected_mismatches", \
-    #                    "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
-
-    #transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType", 
-    #                         "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     
     outfiles.sam = oSam
     outfiles.fasta = oFa
@@ -237,7 +227,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
                                  options.maxLenIndel, logInfo, outfiles.TElog)
 
             # NCSJ correction
-            if refs.sjDict != {} and transcript.isCanonical == False:
+            if refs.sjDict != {}:
                 transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
                                                logInfo, outfiles.TElog)
         
@@ -346,6 +336,57 @@ def run_chunk_dryRun(transcripts, options, refs):
 
     return
 
+def combine_outputs(sam_header, options):
+    """ Combine sam, fasta, and log outputs from separate sub-runs into the
+        final output files. Then, remove the temporary directory.
+    """
+    
+    outprefix = options.outprefix
+    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+
+    # Make filenames
+    sam = outprefix + "_clean.sam"
+    fasta = outprefix + "_clean.fa"
+    log = outprefix + "_clean.log"
+    TElog = outprefix + "_clean.TElog"
+
+    # Open sam and log outfiles
+    oSam = open(sam, 'w')
+    transcriptLog = open(log, 'w')
+    transcriptErrorLog = open(TElog, 'w')
+
+    # Add headers to logs
+    transcriptLog.write("\t".join(["TranscriptID", "Mapping",
+                        "corrected_deletions", "uncorrected_deletions",
+                        "variant_deletions", "corrected_insertions",
+                        "uncorrected_insertions", "variant_insertions", \
+                        "corrected_mismatches", "uncorrected_mismatches", \
+                        "corrected_NC_SJs", "uncorrected_NC_SJs"]) + "\n")
+
+    transcriptErrorLog.write("\t".join(["TranscriptID", "Position", "ErrorType",
+                             "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
+    
+    # Add header to sam file
+    for line in sam_header:
+        oSam.write(line + "\n")
+
+    # Close files
+    oSam.close()
+    transcriptLog.close()
+    transcriptErrorLog.close()
+
+    # Now combine the subfiles
+    if options.dryRun == False:
+        os.system("cat %s/*.sam >> %s" % (tmp_dir, sam))  
+        os.system("cat %s/*.fa > %s" % (tmp_dir, fasta))
+    os.system("cat %s/*.log >> %s" % (tmp_dir, log))
+    os.system("cat %s/*.TElog >> %s" % (tmp_dir, TElog))
+
+    # Clean up the temporary directory
+    os.system("rm %s" % tmp_dir)
+
+    return
+
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
@@ -370,10 +411,8 @@ def main():
     for p in processes:  p.start()
     for p in processes:  p.join()
 
-
-    #print("Writing final outputs.......................................")
-    # TODO: Write sam header to outfile. Also write headers to log files
-    # TODO: When the processes have finished, combine the outputs together.
+    # When the processes have finished, combine the outputs together.
+    combine_outputs(header, options)
 
 def processSpliceAnnotation(annotFile, outprefix):
     """ Reads in the tab-separated STAR splice junction file and creates a 
