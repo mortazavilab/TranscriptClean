@@ -383,7 +383,7 @@ def combine_outputs(sam_header, options):
     os.system("cat %s/*.TElog >> %s" % (tmp_dir, TElog))
 
     # Clean up the temporary directory
-    os.system("rm %s" % tmp_dir)
+    os.system("rm -r %s" % tmp_dir)
 
     return
 
