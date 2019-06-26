@@ -240,6 +240,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
         except:
             print("Problem encountered while correcting transcript " + \
                   " with ID '" + transcript.QNAME + "'. Skipping output.")
+            raise ValueError()
             return
 
     # Output transcript log entry 
@@ -404,6 +405,7 @@ def main():
     sam_chunks = split_input(sam_lines, n_cpus)
 
     # Run the processes. Outfiles are created within each process
+    multiprocessing.set_start_method('spawn')
     if options.dryRun == True:
         processes = [ multiprocessing.Process(target=run_chunk_dryRun,
                                               args=(chunk,options,refs)) \
@@ -557,6 +559,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
 
     logInfo.uncorrected_insertions = 0
     logInfo.corrected_insertions = 0
+    logInfo.variant_insertions = 0
 
     origSeq = transcript.SEQ
     origCIGAR = transcript.CIGAR
@@ -662,6 +665,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
 
     logInfo.uncorrected_deletions = 0
     logInfo.corrected_deletions = 0
+    logInfo.variant_deletions = 0
 
     transcript_ID = transcript.QNAME
     chrom = transcript.CHROM
