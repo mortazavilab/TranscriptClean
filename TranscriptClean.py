@@ -15,10 +15,34 @@ import pybedtools
 import dstruct
 from pyfasta import Fasta
 import os
-import multiprocessing
+import multiprocessing as mp
 import math
 import re
 import copy
+from functools import partial
+
+def main():
+    orig_options = getOptions()
+    options, refs = prep_refs(orig_options)
+    validate_chroms(refs.genome, options.sam)
+    header, sam_lines = split_SAM(options.sam)
+
+    # Split up the sam lines to run on different processes if possible
+    n_cpus = int(len(os.sched_getaffinity(0)))
+    #sam_chunks = split_input(sam_lines, n_cpus)
+
+    # Run the processes. Outfiles are created within each process
+    print("Running correction....................................")
+    pool = mp.Pool(processes=n_cpus)
+    if options.dryRun == True:
+        pool.map(run_chunk_dryRun, ((sams, options, refs) for sams in sam_lines))
+
+    else:
+        pool.map(partial(run_chunk, options=options, refs=refs), test)
+
+    # When the processes have finished, combine the outputs together.
+    combine_outputs(header, options)
+
 
 def getOptions():
     parser = OptionParser()
@@ -394,33 +418,6 @@ def combine_outputs(sam_header, options):
 
     return
 
-def main():
-    orig_options = getOptions()
-    options, refs = prep_refs(orig_options)
-    validate_chroms(refs.genome, options.sam)
-    header, sam_lines = split_SAM(options.sam)
-
-    # Split up the sam lines to run on different processes if possible
-    n_cpus = len(os.sched_getaffinity(0))
-    sam_chunks = split_input(sam_lines, n_cpus)
-
-    # Run the processes. Outfiles are created within each process
-    multiprocessing.set_start_method('spawn')
-    if options.dryRun == True:
-        processes = [ multiprocessing.Process(target=run_chunk_dryRun,
-                                              args=(chunk,options,refs)) \
-                                              for chunk in sam_chunks ]
-
-    else:
-        processes = [ multiprocessing.Process(target=run_chunk, 
-                                              args=(chunk,options,refs)) \
-                                              for chunk in sam_chunks ]
-
-    for p in processes:  p.start()
-    for p in processes:  p.join()
-
-    # When the processes have finished, combine the outputs together.
-    combine_outputs(header, options)
 
 def processSpliceAnnotation(annotFile, outprefix):
     """ Reads in the tab-separated STAR splice junction file and creates a 
