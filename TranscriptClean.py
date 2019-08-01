@@ -29,16 +29,28 @@ def main():
 
     # Split up the sam lines to run on different processes if possible
     n_cpus = int(len(os.sched_getaffinity(0)))
-    #sam_chunks = split_input(sam_lines, n_cpus)
+    sam_chunks = split_input(sam_lines, n_cpus)
 
     # Run the processes. Outfiles are created within each process
     print("Running correction....................................")
-    pool = mp.Pool(processes=n_cpus)
-    if options.dryRun == True:
-        pool.map(run_chunk_dryRun, ((sams, options, refs) for sams in sam_lines))
+    #pool = mp.Pool(processes=n_cpus)
+    processes = [ ]
 
-    else:
-        pool.map(partial(run_chunk, options=options, refs=refs), test)
+    for i in range(n_cpus):
+        if options.dryRun == True:
+            #pool.map(run_chunk_dryRun, ((sams, options, refs) for sams in sam_lines))
+            raise ValueError("Not implemented yet")
+        else:
+            #pool.map(partial(run_chunk, options=options, refs=refs), test)
+            t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, refs))
+
+        # Run the process
+        processes.append(t)
+        t.start()
+
+    # Wait for all processes to finish
+    for one_process in processes:
+        one_process.join()
 
     # When the processes have finished, combine the outputs together.
     combine_outputs(header, options)
