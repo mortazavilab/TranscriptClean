@@ -211,7 +211,7 @@ def transcript_init(transcript_line, options, refs, outfiles):
     except:
         QNAME = transcript_line.split("\t")[0]
         print("Problem parsing transcript with ID '" + QNAME + "'")
-        if primaryOnly == "false":
+        if options.primaryOnly == "false":
             outSam.write(transcript_line + "\n")
             outFa.write(Transcript2.printableFa(transcript) + "\n")
         return None, None        
