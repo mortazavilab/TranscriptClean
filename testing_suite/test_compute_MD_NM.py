@@ -17,7 +17,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:155"
         correct_NM = "NM:i:0"
@@ -34,7 +33,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:3400"
         correct_NM = "NM:i:0"
@@ -51,7 +49,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:2G2813"
         correct_NM = "NM:i:1"
@@ -68,7 +65,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:2629^G377"
         correct_NM = "NM:i:1"
@@ -85,7 +81,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:3069"
         correct_NM = "NM:i:2"
@@ -102,7 +97,6 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
         correct_MD = "MD:Z:475C0A0C0C0A1082^C1347G17C205"
         correct_NM = "NM:i:9"
@@ -120,14 +114,9 @@ class TestComputeMD(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, {})
-            transcript.getNMandMDFlags(genome)
 
-        sam_line = sam_line.split("\t")
         correct_MD = "MD:Z:414G0A450^C405^C2435"
         correct_NM = "NM:i:5"
-        ops, cts = transcript.splitCIGAR()
-        for a,b in zip(ops,cts):
-            print(str(a)+str(b))
         assert transcript.MD == correct_MD
         assert transcript.NM == correct_NM
         
