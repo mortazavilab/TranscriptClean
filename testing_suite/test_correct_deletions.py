@@ -14,7 +14,7 @@ class TestDeletionCorr(object):
             chr1: 202,892,094 - 202,892,098. Deletion is at 202,892,096 """
 
         sam_fields = "\t".join(["test_read", "0", "chr1", "202892094", "255", "2M1D2M", "*",
-                      "0", "0", "AAGA", "*",	"NM:i:1", "MD:Z:4", "jI:B:i,-1",
+                      "0", "0", "AAGA", "*",	"NM:i:1", "MD:Z:2^A2", "jI:B:i,-1",
                       "jM:B:c,-1" ])
 
         genome = Fasta("input_files/hg38_chr1.fa")
@@ -41,7 +41,7 @@ class TestDeletionCorr(object):
         """ Same deletion again, but correction cutoff set to 0 """
 
         sam_fields = "\t".join(["test_read", "0", "chr1", "202892094", "255", "2M1D2M", "*",
-                      "0", "0", "AAGA", "*",    "NM:i:1", "MD:Z:4", "jI:B:i,-1",
+                      "0", "0", "AAGA", "*",    "NM:i:1", "MD:Z:2^A2", "jI:B:i,-1",
                       "jM:B:c,-1" ])
 
         genome = Fasta("input_files/hg38_chr1.fa")
@@ -69,7 +69,7 @@ class TestDeletionCorr(object):
             location. Correct action is to leave the deletion in place """
 
         sam_fields = "\t".join(["test_read", "0", "chr1", "202892094", "255", "2M1D2M", "*",
-                      "0", "0", "AAGA", "*",    "NM:i:1", "MD:Z:4", "jI:B:i,-1",
+                      "0", "0", "AAGA", "*",    "NM:i:1", "MD:Z:2^A2", "jI:B:i,-1",
                       "jM:B:c,-1" ])
 
         genome = Fasta("input_files/hg38_chr1.fa")
