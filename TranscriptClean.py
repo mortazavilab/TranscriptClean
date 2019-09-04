@@ -446,6 +446,7 @@ def processSpliceAnnotation(annotFile, outprefix):
     bedstr = ""
     annot = set()
     tmp_dir = "/".join((outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    os.system("mkdir -p %s" % (tmp_dir))
 
     donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
     acceptor_file = tmp_dir + "ref_splice_acceptors_tmp.bed"
