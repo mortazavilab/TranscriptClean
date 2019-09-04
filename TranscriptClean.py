@@ -200,7 +200,6 @@ def transcript_init(transcript_line, options, refs, outfiles):
     outFa = outfiles.fasta
 
     if transcript_line.startswith("@"): # header line
-        #outSam.write(transcript_line + "\n")
         return None
     
     # Init transcript object and log entry
