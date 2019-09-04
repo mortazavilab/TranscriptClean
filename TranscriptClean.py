@@ -334,6 +334,7 @@ def split_SAM(samFile):
 
 def split_input(my_list, n):
     """ Splits input into n sublists of roughly equal size"""
+
     chunks = []
     index = 0
     batch_size = math.ceil(len(my_list)/n)
