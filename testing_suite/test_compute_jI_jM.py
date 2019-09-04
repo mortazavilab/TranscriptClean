@@ -94,41 +94,82 @@ class TestComputejIjM(object):
         assert transcript.jI == correct_jI
         assert transcript.jM == correct_jM
 
-#
-#    def test_insertion(self):
-#        """ Compute the correct jI/jM tag for a spliced transcript that contains an
-#            insertion. """
-#
-#        sam = "input_files/sams/insertion.sam"
-#        genome = Fasta("input_files/hg38_chr1.fa")
-#
-#        with open(sam, 'r') as f:
-#            sam_line = f.readline().strip()
-#            transcript = t2.Transcript2(sam_line, genome, {})
-#
-#
-#    def test_deletion_insertion_mismatch(self):
-#        """ Compute the correct jI/jM tag for a spliced transcript that contains an
-#            insertion, deletion, and mismatch. """
-#
-#        sam = "input_files/sams/deletion_insertion_mismatch.sam"
-#        genome = Fasta("input_files/hg38_chr1.fa")
-#
-#        with open(sam, 'r') as f:
-#            sam_line = f.readline().strip()
-#            transcript = t2.Transcript2(sam_line, genome, {})
-#
-#
-#    def test_insertion_deletion_mismatch_ncsj(self):
-#        """ Compute the correct jI/jM tag for a transcript that contains an 
-#           insertion, deletion, mismatch, and noncanonical splice junction in 
-#           it. """
-# 
-#        sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
-#        genome = Fasta("input_files/hg38_chr1.fa")
-#
-#        with open(sam, 'r') as f:
-#            sam_line = f.readline().strip()
-#            transcript = t2.Transcript2(sam_line, genome, {})
-#
-#        
+
+    def test_insertion(self):
+        """ Compute the correct jI/jM tag for a spliced transcript that contains an
+            insertion. """
+
+        sam = "input_files/sams/insertion.sam"
+        genome = Fasta("input_files/hg38_chr1.fa")
+        sjFile = "input_files/GM12878_SJs_chr1.tab"
+        outprefix = "scratch/test"
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+
+        with open(sam, 'r') as f:
+            sam_line = f.readline().strip()
+            transcript = t2.Transcript2(sam_line, genome, sjDict)
+
+        correct_jM = "jM:B:c,22,22,22,22,22,22,22,22,22,22,22"
+        correct_jI = ("jI:B:i,202892660,202893238,202893426,202894183,"
+                      "202894283,202894590,202894750,202895521,202895718,"
+                      "202896853,202896961,202909009,202909125,202911053,"
+                      "202911204,202918170,202918389,202919754,202919909,"
+                      "202924967,202925208,202927088")
+        assert transcript.jI == correct_jI
+        assert transcript.jM == correct_jM
+
+
+    def test_deletion_insertion_mismatch(self):
+        """ Compute the correct jI/jM tag for a spliced transcript that contains an
+            insertion, deletion, and mismatch. """
+
+        sam = "input_files/sams/deletion_insertion_mismatch.sam"
+        genome = Fasta("input_files/hg38_chr1.fa")
+        sjFile = "input_files/GM12878_SJs_chr1.tab"
+        outprefix = "scratch/test"
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+
+        with open(sam, 'r') as f:
+            sam_line = f.readline().strip()
+            transcript = t2.Transcript2(sam_line, genome, sjDict)
+
+        correct_jM ="jM:B:c,21,21,21,21,1,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21"
+        correct_jI = ("jI:B:i,154220976,154225083,154225214,154227281,"
+                      "154227360,154228614,154228726,154234590,154234715,"
+                      "154249375,154249438,154251040,154251319,154251480,"
+                      "154251654,154253899,154254090,154254835,154254891,"
+                      "154255151,154255327,154255682,154255756,154257062,"
+                      "154257259,154257345,154257435,154258976,154259031,"
+                      "154259947,154260030,154260891,154261110,154261591,"
+                      "154261698,154266500,154266569,154268759,154268955,"
+                      "154270199")
+        assert transcript.jI == correct_jI
+        assert transcript.jM == correct_jM
+
+
+    def test_insertion_deletion_mismatch_ncsj(self):
+        """ Compute the correct jI/jM tag for a transcript that contains an 
+           insertion, deletion, mismatch, and noncanonical splice junction in 
+           it. """
+ 
+        sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
+        genome = Fasta("input_files/hg38_chr1.fa")
+        sjFile = "input_files/GM12878_SJs_chr1.tab"
+        outprefix = "scratch/test"
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+
+        with open(sam, 'r') as f:
+            sam_line = f.readline().strip()
+            transcript = t2.Transcript2(sam_line, genome, sjDict)
+
+        correct_jM ="jM:B:c,21,21,21,0,21,21,21,21,21,21,21,21,21,21,21,21,21"
+        correct_jI = ("jI:B:i,150941429,150942562,150942689,150942851,150943054,"
+                      "150943919,150943994,150944918,150945109,150946885,"
+                      "150947013,150949121,150949279,150949366,150949526,"
+                      "150950457,150951091,150951364,150951482,150959177,"
+                      "150959348,150960562,150961192,150962129,150962159,"
+                      "150962586,150962720,150962973,150963140,150963529,"
+                      "150963742,150963994,150964084,150964246")
+        assert transcript.jI == correct_jI
+        assert transcript.jM == correct_jM
+
