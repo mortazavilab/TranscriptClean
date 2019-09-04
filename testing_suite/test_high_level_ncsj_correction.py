@@ -81,3 +81,4 @@ class TestNCSJCorrection(object):
         assert transcript.MD == "MD:Z:2473"
         assert logInfo.corrected_NC_SJs == 0
         assert logInfo.uncorrected_NC_SJs == 1
+

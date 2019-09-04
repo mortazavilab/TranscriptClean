@@ -46,3 +46,32 @@ class TestUpdatePostNCSJCorrection(object):
         assert junction.isCanonical == True
         assert transcript.MD == "MD:Z:6"
         assert transcript.isCanonical == True
+
+    def test_no_correction(self):
+        """ Make sure that the attributes stay the same if no correction 
+            was performed
+        """
+
+        # Process references
+        sjFile = "input_files/test_junctions.txt"
+        outprefix = "scratch/test"
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        genome = Fasta("input_files/hg38_chr1.fa")
+
+
+        # Init transcript object
+        sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
+                      "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"])
+        transcript = t2.Transcript2(sam_fields, genome, sjDict)
+        jnNumber = 0
+        maxDist = 5
+        donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
+
+        # Now test the update function
+        TC.update_post_ncsj_correction(transcript, jnNumber, genome, sjDict)
+
+        junction = transcript.spliceJunctions[jnNumber]
+        assert junction.motif_code == "0"
+        assert junction.isCanonical == False
+        assert transcript.MD == "MD:Z:4"
+        assert transcript.isCanonical == False

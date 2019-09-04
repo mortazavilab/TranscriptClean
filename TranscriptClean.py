@@ -32,16 +32,12 @@ def main():
     sam_chunks = split_input(sam_lines, n_cpus)
 
     # Run the processes. Outfiles are created within each process
-    print("Running correction....................................")
-    #pool = mp.Pool(processes=n_cpus)
     processes = [ ]
 
     for i in range(n_cpus):
         if options.dryRun == True:
-            #pool.map(run_chunk_dryRun, ((sams, options, refs) for sams in sam_lines))
-            raise ValueError("Not implemented yet")
+            t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, refs))
         else:
-            #pool.map(partial(run_chunk, options=options, refs=refs), test)
             t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, refs))
 
         # Run the process
@@ -118,6 +114,8 @@ def prep_refs(orig_options):
 
     options = cleanup_options(orig_options)
     tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    if os.path.exists(tmp_dir):
+        os.system("rm -r %s" % tmp_dir)
     os.system("mkdir -p %s" % tmp_dir)
     genomeFile = options.refGenome
     variantFile = options.variantFile
@@ -393,8 +391,12 @@ def combine_outputs(sam_header, options):
     log = outprefix + "_clean.log"
     TElog = outprefix + "_clean.TElog"
 
-    # Open sam and log outfiles
-    oSam = open(sam, 'w')
+    # Open log outfiles
+    if os.path.exists(log):
+        os.remove(log)
+    if os.path.exists(TElog):
+        os.remove(TElog)
+
     transcriptLog = open(log, 'w')
     transcriptErrorLog = open(TElog, 'w')
 
@@ -410,23 +412,28 @@ def combine_outputs(sam_header, options):
                              "Size", "Corrected", "ReasonNotCorrected"]) + "\n")
     
     # Add header to sam file
-    for line in sam_header:
-        oSam.write(line + "\n")
+    if options.dryRun != True:
+        if os.path.exists(sam):
+            os.remove(sam)
+
+        oSam = open(sam, 'w')
+        for line in sam_header:
+            oSam.write(line + "\n")
+        oSam.close()
 
     # Close files
-    oSam.close()
     transcriptLog.close()
     transcriptErrorLog.close()
 
     # Now combine the subfiles
-    if options.dryRun == False:
+    if options.dryRun != True:
         os.system("cat %s/*.sam >> %s" % (tmp_dir, sam))  
         os.system("cat %s/*.fa > %s" % (tmp_dir, fasta))
     os.system("cat %s/*.log >> %s" % (tmp_dir, log))
     os.system("cat %s/*.TElog >> %s" % (tmp_dir, TElog))
 
     # Clean up the temporary directory
-    os.system("rm -r %s" % tmp_dir)
+    #os.system("rm -r %s" % tmp_dir)
 
     return
 
