@@ -263,7 +263,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
                                  options.maxLenIndel, logInfo, outfiles.TElog)
 
             # NCSJ correction
-            if refs.sjDict != {}:
+            if refs.sjDict != {} and options.sjCorrection == "true":
                 transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
                                                logInfo, outfiles.TElog)
         
