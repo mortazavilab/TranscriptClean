@@ -142,7 +142,9 @@ def prep_refs(orig_options):
     # Read in variants
     if variantFile != None:
         print("Processing variant file .................")
-        refs["snps"], refs["insertions"], refs["deletions"] = processVCF(variantFile, options.maxLenIndel)
+        refs["snps"], refs["insertions"], refs["deletions"] = processVCF(variantFile, 
+                                                                         options.maxLenIndel, 
+                                                                         options.outprefix)
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
@@ -273,7 +275,6 @@ def correct_transcript(transcript_line, options, refs, outfiles):
         except:
             print("Problem encountered while correcting transcript " + \
                   " with ID '" + transcript.QNAME + "'. Skipping output.")
-            raise ValueError()
             return
 
     # Output transcript log entry 
@@ -306,8 +307,7 @@ def validate_chroms(genome, sam):
     if not sam_chroms.issubset(fasta_chroms):
         sam_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in sam_chroms]) + '}'
         fasta_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in fasta_chroms]) + '}'
-        error_msg = "One or more SAM chromosomes were not found in the " +\
-                    "fasta reference.\n" + \
+        error_msg = "One or more SAM chromosomes were not found in the fasta reference.\n" + \
                     "SAM chromosomes:\n" + sam_chroms + "\n" + \
                     "FASTA chromosomes:\n" + fasta_chroms + "\n" + \
                     "One common cause is when the fasta headers contain more than " +\
@@ -505,7 +505,7 @@ def processSpliceAnnotation(annotFile, outprefix):
     os.system("rm " + acceptor_file)
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
-def processVCF(vcf, maxLen):
+def processVCF(vcf, maxLen, outprefix):
     """ This function reads in variants from a VCF file and stores them. SNPs 
         are stored in a dictionary by position. Indels are stored in their own 
         dictionary by start and end position."""
@@ -515,7 +515,8 @@ def processVCF(vcf, maxLen):
 
     # Check if SNP file is gzipped. If it is, access contents with zcat
     if vcf.endswith(".gz"):
-        tmpFile = "tmp.snps"
+        tmp_dir = "/".join((outprefix).split("/")[0:-1]) + "/TC_tmp/"
+        tmpFile = tmp_dir + "tmp.snps"
         os.system("zcat " + vcf + " > " +  tmpFile)
         vcf = tmpFile
 
