@@ -113,7 +113,7 @@ def prep_refs(orig_options):
     """ Process input files and store them in a reference dict """
 
     options = cleanup_options(orig_options)
-    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
     if os.path.exists(tmp_dir):
         os.system("rm -r %s" % tmp_dir)
     os.system("mkdir -p %s" % tmp_dir)
@@ -165,7 +165,7 @@ def setup_outfiles(options, process = "1"):
     """ Set up output files. If running in parallel, label with a process ID """
 
     # Place files in a tmp directory
-    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
     os.system("mkdir -p " + tmp_dir)
 
     outfiles = dstruct.Struct()
@@ -383,7 +383,7 @@ def combine_outputs(sam_header, options):
     """
     
     outprefix = options.outprefix
-    tmp_dir = "/".join((options.outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
 
     # Make filenames
     sam = outprefix + "_clean.sam"
@@ -445,7 +445,7 @@ def processSpliceAnnotation(annotFile, outprefix):
 
     bedstr = ""
     annot = set()
-    tmp_dir = "/".join((outprefix).split("/")[0:-1]) + "/TC_tmp/"
+    tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
     os.system("mkdir -p %s" % (tmp_dir))
 
     donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
@@ -515,7 +515,7 @@ def processVCF(vcf, maxLen, outprefix):
 
     # Check if SNP file is gzipped. If it is, access contents with zcat
     if vcf.endswith(".gz"):
-        tmp_dir = "/".join((outprefix).split("/")[0:-1]) + "/TC_tmp/"
+        tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
         tmpFile = tmp_dir + "tmp.snps"
         os.system("zcat " + vcf + " > " +  tmpFile)
         vcf = tmpFile
