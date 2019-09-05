@@ -132,7 +132,7 @@ def prep_refs(orig_options):
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
-        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, outprefix)
+        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, tmp_dir)
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
         refs.donors = None
@@ -438,14 +438,14 @@ def combine_outputs(sam_header, options):
     return
 
 
-def processSpliceAnnotation(annotFile, outprefix):
+def processSpliceAnnotation(annotFile, tmp_dir):
     """ Reads in the tab-separated STAR splice junction file and creates a 
         bedtools object. Also creates a dict (annot) to allow easy lookup 
         to find out if a splice junction is annotated or not """
 
     bedstr = ""
     annot = set()
-    tmp_dir = "/".join((outprefix).split("/")[0:-1] + ["TC_tmp/"])
+    #tmp_dir = "/".join((outprefix).split("/")[0:-1] + ["TC_tmp/"])
     os.system("mkdir -p %s" % (tmp_dir))
 
     donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
@@ -494,11 +494,11 @@ def processSpliceAnnotation(annotFile, outprefix):
     o_acceptor.close()
 
     # Convert bed files into BedTool objects
-    donor_sorted = outprefix + "_ref_splice_donors_tmp.sorted.bed"
-    acceptor_sorted = outprefix + "_ref_splice_acceptors_tmp.sorted.bed"
+    donor_sorted = tmp_dir + "ref_splice_donors_tmp.sorted.bed"
+    acceptor_sorted = tmp_dir + "ref_splice_acceptors_tmp.sorted.bed"
     os.system('bedtools sort -i ' + donor_file + ' >' + donor_sorted)
     os.system('bedtools sort -i ' + acceptor_file + ' >' + acceptor_sorted)
-    #spliceJnBedTool = pybedtools.BedTool(fNameSorted)
+
     splice_donor_bedtool = pybedtools.BedTool(donor_sorted)
     splice_acceptor_bedtool = pybedtools.BedTool(acceptor_sorted)
     os.system("rm " + donor_file)
