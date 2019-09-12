@@ -726,6 +726,7 @@ def cleanNoncanonical(transcripts, annotatedJunctions, genome, n, spliceAnnot, o
                                              "Corrected", "NA"])
                         transcriptErrorLog.write(errorEntry + "\n")
                         currTranscript = temp_transcript
+                        transcripts[transcriptID] = currTranscript
                         Transcript2.addCorrected_NC_SJ(currTranscript)
                     #currTranscript.SEQ = currSeq
                     #currTranscript.CIGAR = currCIGAR
