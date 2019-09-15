@@ -1,10 +1,8 @@
 import pytest
-#from pyfasta import Fasta
 import sys
 import os
 sys.path.append("..")
 import TranscriptClean as TC
-#import dstruct as dstruct
 @pytest.mark.integration
 
 class TestProcessVCF(object):
@@ -27,3 +25,4 @@ class TestProcessVCF(object):
         assert "chr11_7992932" not in snps
         assert "chr18_80259190" not in snps
         assert "chr18_80259245" not in snps
+
