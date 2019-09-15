@@ -28,8 +28,9 @@ import sys
 def main():
     orig_options = getOptions()
     options, refs = prep_refs(orig_options)
-    validate_chroms(refs.genome, options.sam)
-    header, sam_lines = split_SAM(options.sam)
+    sam_file = options.sam
+    validate_chroms(refs.genome, sam_file)
+    header, sam_lines = split_SAM(sam_file)
 
     # Split up the sam lines to run on different processes if possible
     n_cpus = int(len(os.sched_getaffinity(0)))
@@ -131,10 +132,8 @@ def prep_refs(orig_options):
 
     # Read in the reference genome.
     print("Reading genome ..............................")
-    refs["genome"] = Fasta(genomeFile)
+    refs.genome = Fasta(genomeFile)
 
-    print(get_size(refs["genome"]))
- 
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
@@ -143,18 +142,27 @@ def prep_refs(orig_options):
         print("No splice annotation provided. Will skip splice junction correction.")
         refs.donors = None
         refs.acceptors = None
-        refs["sjDict"] = {}
+        refs.sjDict = {}
 
     # Read in variants
     if variantFile != None:
         print("Processing variant file .................")
-        refs["snps"], refs["insertions"], refs["deletions"] = processVCF(variantFile, 
-                                                                         options.maxLenIndel, 
-                                                                         options.outprefix)
+
+        # Check whether 'chr' should be added to chromosome names
+        chroms = sorted((refs.genome.keys()))
+        add_chr = chroms[0].startswith("chr")
+        refs.snps, refs.insertions, refs.deletions = processVCF(variantFile, 
+                                                                options.maxLenIndel, 
+                                                                tmp_dir,
+                                                                options.sam, 
+                                                                add_chr = add_chr)
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
-
+ 
+    print("Size of SNP reference: %d" %(len(refs["snps"])))
+    print("Size of insertion reference: %d" %(len(refs["insertions"])))
+    print("Size of deletion reference: %d" %(len(refs["deletions"])))
     return options, refs
 
 def cleanup_options(options):
@@ -513,25 +521,63 @@ def processSpliceAnnotation(annotFile, tmp_dir):
     #os.system("rm " + acceptor_file)
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
-def processVCF(vcf, maxLen, outprefix):
+def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
     """ This function reads in variants from a VCF file and stores them. SNPs 
         are stored in a dictionary by position. Indels are stored in their own 
-        dictionary by start and end position."""
+        dictionary by start and end position. A pre-filtering step ensures that
+        variants are included only if they overlap with the input SAM reads. 
+        This is a space-saving measure. If add_chr is set to 'True', the prefix
+        'chr' will be added to each chromosome name."""
     SNPs = {}
     insertions = {}
     deletions = {}
 
+    # Create a temporary BAM version of the input reads
+    bam = tmp_dir + "tmp_reads.bam"
+    try:
+        os.system("samtools view -bS %s | samtools sort > %s" % (sam_file, bam))
+    except Exception as e:
+        print(e)
+        raise RuntimeError(("Problem converting SAM file to BAM for variant "
+                          "prefiltering step. Please make sure that you have "
+                          "Samtools installed, and that your SAM "
+                          "file is properly formatted, including a header."))
+ 
     # Check if SNP file is gzipped. If it is, access contents with zcat
     if vcf.endswith(".gz"):
-        tmp_dir = "/".join((outprefix).split("/")[0:-1] + ["TC_tmp/"])
-        tmpFile = tmp_dir + "tmp.snps"
+        tmpFile = tmp_dir + "tmp.vcf"
         os.system("zcat " + vcf + " > " +  tmpFile)
         vcf = tmpFile
 
-    # TODO:Filter the VCF file to include only those variants that overlap the reads
+    # Add 'chr' to chromosome names if needed
+    if add_chr:
+        chr_vcf = tmp_dir + "tmp_chr.vcf"
+        os.system(('awk \'{if($0 !~ /^#/ && $0 !~ /^chr/) print "chr"$0; '
+                   'else print $0}\' %s > %s') % (vcf, chr_vcf))
+        vcf = chr_vcf
 
+    # Filter the VCF file to include only those variants that overlap the reads
+    filtered_vcf = tmp_dir + "filtered.vcf"
+    try:
+        os.system("bedtools intersect -a %s -b %s -u > %s" % \
+                   (vcf, bam, filtered_vcf))
+    except Exception as e: 
+        print(e)
+        raise RuntimeError(("Problem encountered while using Bedtools to "
+                          "intersect the reads with the VCF file. Please make "
+                          "sure that Bedtools is installed, and that your VCF "
+                          "file is properly formatted, including a header. "
+                          "If you are still experiencing problems, try "
+                          "pre-sorting the VCF file with Bedtools."))
 
-    with open(vcf, 'r') as f:
+    if os.path.getsize(filtered_vcf) == 0:
+        print(("Warning: none of variants provided overlapped the input reads. "
+               "If this is unexpected, make sure the chromosome notations in "
+               " the SAM file match those of the VCF."))
+        return SNPs, insertions, deletions
+
+    # Now parse the filtered VCF
+    with open(filtered_vcf, 'r') as f:
         for line in f:
             line = line.strip()
     
@@ -539,7 +585,7 @@ def processVCF(vcf, maxLen, outprefix):
             fields = line.split()
             
             chrom = fields[0]
-            if not chrom.startswith("chr"): chrom = "chr" + chrom
+            #if not chrom.startswith("chr"): chrom = "chr" + chrom
             pos = int(fields[1])
             ref = fields[3]
             alt = fields[4].split(",")
