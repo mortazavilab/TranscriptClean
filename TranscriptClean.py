@@ -16,10 +16,14 @@ import dstruct
 from pyfasta import Fasta
 import os
 import multiprocessing as mp
-import math
+from math import ceil
 import re
-import copy
+from copy import copy
 from functools import partial
+## Monory profiling
+import tracemalloc
+import linecache
+import sys
 
 def main():
     orig_options = getOptions()
@@ -129,6 +133,8 @@ def prep_refs(orig_options):
     print("Reading genome ..............................")
     refs["genome"] = Fasta(genomeFile)
 
+    print(get_size(refs["genome"]))
+ 
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
@@ -272,9 +278,10 @@ def correct_transcript(transcript_line, options, refs, outfiles):
             outSam.write(transcript.printableSAM() + "\n")
             outFa.write(transcript.printableFa() + "\n")
 
-        except:
+        except Exception as e:
             print("Problem encountered while correcting transcript " + \
                   " with ID '" + transcript.QNAME + "'. Skipping output.")
+            print(e)
             return
 
     # Output transcript log entry 
@@ -336,7 +343,7 @@ def split_input(my_list, n):
 
     chunks = []
     index = 0
-    batch_size = math.ceil(len(my_list)/n)
+    batch_size = ceil(len(my_list)/n)
     while index < len(my_list):
         try:
             batch = my_list[index:index + batch_size]
@@ -445,7 +452,6 @@ def processSpliceAnnotation(annotFile, tmp_dir):
 
     bedstr = ""
     annot = set()
-    #tmp_dir = "/".join((outprefix).split("/")[0:-1] + ["TC_tmp/"])
     os.system("mkdir -p %s" % (tmp_dir))
 
     donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
@@ -483,8 +489,8 @@ def processSpliceAnnotation(annotFile, tmp_dir):
 
             # Make one bed entry for each end of the junction and write to
             # splice donor and acceptor files
-            bed1 = "\t".join([chrom, str(start - 1), str(start), ".", uniqueReads, strand])
-            bed2 = "\t".join([chrom, str(end - 1), str(end), ".", uniqueReads, strand])
+            bed1 = "\t".join([chrom, str(start - 1), str(start), ".", "name", strand])
+            bed2 = "\t".join([chrom, str(end - 1), str(end), ".", "name", strand])
             file1.write(bed1 + "\n")
             file2.write(bed2 + "\n")
 
@@ -496,13 +502,15 @@ def processSpliceAnnotation(annotFile, tmp_dir):
     # Convert bed files into BedTool objects
     donor_sorted = tmp_dir + "ref_splice_donors_tmp.sorted.bed"
     acceptor_sorted = tmp_dir + "ref_splice_acceptors_tmp.sorted.bed"
-    os.system('bedtools sort -i ' + donor_file + ' >' + donor_sorted)
-    os.system('bedtools sort -i ' + acceptor_file + ' >' + acceptor_sorted)
+    #os.system('bedtools sort -i ' + donor_file + ' >' + donor_sorted)
+    os.system('sort -u %s | bedtools sort -i - > %s' % (donor_file, donor_sorted))
+    #os.system('bedtools sort -i ' + acceptor_file + ' >' + acceptor_sorted)
+    os.system('sort -u %s | bedtools sort -i - > %s' % (acceptor_file, acceptor_sorted))
 
     splice_donor_bedtool = pybedtools.BedTool(donor_sorted)
     splice_acceptor_bedtool = pybedtools.BedTool(acceptor_sorted)
-    os.system("rm " + donor_file)
-    os.system("rm " + acceptor_file)
+    #os.system("rm " + donor_file)
+    #os.system("rm " + acceptor_file)
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
 def processVCF(vcf, maxLen, outprefix):
@@ -519,6 +527,9 @@ def processVCF(vcf, maxLen, outprefix):
         tmpFile = tmp_dir + "tmp.snps"
         os.system("zcat " + vcf + " > " +  tmpFile)
         vcf = tmpFile
+
+    # TODO:Filter the VCF file to include only those variants that overlap the reads
+
 
     with open(vcf, 'r') as f:
         for line in f:
@@ -897,7 +908,7 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
         if junction.isCanonical:
             continue
         else:
-            temp_transcript = copy.copy(transcript)
+            temp_transcript = copy(transcript)
             ID = "_".join([junction.chrom, str(junction.start), str(junction.end)]) 
             correction_status, reason, dist = attempt_jn_correction(temp_transcript, 
                                                                     splice_jn_num,
@@ -1331,5 +1342,53 @@ def dryRun(sam, options, outfiles, refs):
         write_to_transcript_log(logInfo, tL)
     return 
 
+def display_top(snapshot, key_type='lineno', limit=10):
+    snapshot = snapshot.filter_traces((
+        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+        tracemalloc.Filter(False, "<unknown>"),
+    ))
+    top_stats = snapshot.statistics(key_type)
+
+    print("Top %s lines" % limit)
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        # replace "/path/to/module/file.py" with "module/file.py"
+        filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+        print("#%s: %s:%s: %.1f KiB"
+              % (index, filename, frame.lineno, stat.size / 1024))
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            print('    %s' % line)
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        print("%s other: %.1f KiB" % (len(other), size / 1024))
+    total = sum(stat.size for stat in top_stats)
+    print("Total allocated size: %.1f KiB" % (total / 1024))
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
 if __name__ == '__main__':
+    tracemalloc.start(50)
     main()
+    snapshot = tracemalloc.take_snapshot()
+    display_top(snapshot) 
