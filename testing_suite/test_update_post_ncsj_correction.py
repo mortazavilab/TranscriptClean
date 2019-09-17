@@ -18,8 +18,9 @@ class TestUpdatePostNCSJCorrection(object):
 
         # Process references
         sjFile = "input_files/test_junctions.txt"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test/TC_tmp/"
+        chroms = set(["chr1"])
+        donor, acceptor, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
 
@@ -54,8 +55,9 @@ class TestUpdatePostNCSJCorrection(object):
 
         # Process references
         sjFile = "input_files/test_junctions.txt"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test/TC_tmp/"
+        chroms = set(["chr1"])
+        donor, acceptor, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
 

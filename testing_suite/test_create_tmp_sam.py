@@ -15,7 +15,7 @@ class TestCreateTmpSamFile(object):
         sam_header = ["HLine1", "HLine2"]
         sam_transcripts = [ "\t".join(["read1", "mapping", "chr1", "..."]),
                             "\t".join(["read2", "mapping", "chr2", "..."]) ]
-        tmp_dir = "scratch/tmp_sam_test"                            
+        tmp_dir = "scratch/tmp_sam_test/"                            
 
         fname, chroms = TC.create_tmp_sam(sam_transcripts, sam_header, tmp_dir, 
                                           process = "test")

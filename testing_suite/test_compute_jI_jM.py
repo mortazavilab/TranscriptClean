@@ -14,8 +14,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
@@ -34,8 +36,10 @@ class TestComputejIjM(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
         outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
-
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
@@ -53,8 +57,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/mismatch.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
@@ -79,9 +85,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/deletion.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
-
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
             transcript = t2.Transcript2(sam_line, genome, sjDict)
@@ -102,8 +109,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/insertion.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
@@ -126,8 +135,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/deletion_insertion_mismatch.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
@@ -155,8 +166,10 @@ class TestComputejIjM(object):
         sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()

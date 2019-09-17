@@ -27,7 +27,7 @@ import sys
 
 def main():
     options = getOptions()
-    refs = prep_refs(options)
+    #refs = prep_refs(options)
     sam_file = options.sam
     validate_chroms(refs.genome, sam_file)
     header, sam_lines = split_SAM(sam_file)
@@ -41,9 +41,11 @@ def main():
 
     for i in range(n_cpus):
         if options.dryRun == True:
-            t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, refs))
+            #t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, refs))
+            t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, header))
         else:
-            t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, refs))
+            #t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, refs))
+            t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, header))
 
         # Run the process
         processes.append(t)
@@ -130,11 +132,12 @@ def cleanup_options(options):
 
     return options
 
-def prep_refs(options):
-    """ Process input files and store them in a reference dict """
+def prep_refs(options, transcripts, sam_header):
+    """ Process input files and store them in a reference dict.
+        SAM transcripts and header are needed if variants provided because
+        the variant file will be filtered to include only those that overlap
+        the SAM reads.  """
 
-    #options = cleanup_options(orig_options)
-    #tmp_dir = "/".join((orig_options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
     tmp_dir = options.tmp_dir
     if os.path.exists(tmp_dir):
         os.system("rm -r %s" % tmp_dir)
@@ -150,11 +153,17 @@ def prep_refs(options):
     # Read in the reference genome.
     print("Reading genome ..............................")
     refs.genome = Fasta(genomeFile)
+    ref_chroms = sorted((refs.genome.keys()))
+
+    # Create a tmp SAM file for the provided reads
+    read_chroms, tmp_sam = create_tmp_sam(options.sam, transcripts, 
+                                          options.tmp_dir, 
+                                          process = str(os.getpid()))
 
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
-        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, tmp_dir)
+        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, tmp_dir, read_chroms)
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
         refs.donors = None
@@ -166,8 +175,9 @@ def prep_refs(options):
         print("Processing variant file .................")
 
         # Check whether 'chr' should be added to chromosome names
-        chroms = sorted((refs.genome.keys()))
-        add_chr = chroms[0].startswith("chr")
+        add_chr = ref_chroms[0].startswith("chr")
+
+        # Create a temporary sam file for the provided reads
         refs.snps, refs.insertions, refs.deletions = processVCF(variantFile, 
                                                                 options.maxLenIndel, 
                                                                 tmp_dir,
@@ -182,15 +192,26 @@ def prep_refs(options):
     print("Size of deletion reference: %d" %(len(refs["deletions"])))
     return refs
 
-#def cleanup_options(options):
-#    """ Clean up input options by casting to appropriate types etc. """
-#    options.maxLenIndel = int(options.maxLenIndel)
-#    options.maxSJOffset = int(options.maxSJOffset)
-#    options.indelCorrection = (options.correctIndels).lower()
-#    options.mismatchCorrection = (options.correctMismatches).lower()
-#    options.sjCorrection = (options.correctSJs).lower()
-#
-#    return options
+def create_tmp_sam(transcripts, sam_header, tmp_dir, process = "1"):
+    """ Put the transcripts in the provided list into a temporary SAM file,
+        preceded by the provided header (list form). The file will be located in
+        a 'sams' subdir of the tmp_dir provided. Returns the name of the tmp 
+        file as well as """
+
+    sam_dir = tmp_dir + "split_uncorr_sams/"
+    sam_name = sam_dir + process + ".sam"
+    os.system("mkdir -p %s" % (sam_dir))
+
+    chroms = set()
+    
+    with open(sam_name, 'w') as f:
+        for item in sam_header:
+            f.write("%s\n" % item)
+        for read in transcripts:
+            f.write("%s\n" % item)
+            chroms.add(read.split('\t')[2])
+        
+    return sam_name, chroms
 
 def setup_outfiles(options, process = "1"):
     """ Set up output files. If running in parallel, label with a process ID """
@@ -380,9 +401,12 @@ def split_input(my_list, n):
 
     return chunks
 
-def run_chunk(transcripts, options, refs):
+def run_chunk(transcripts, options, sam_header):
     """ Contains everything needed to run a subset of the transcript input 
         on its own core """
+
+    # Prep the references (i.e. genome, sjs, variants)
+    refs = prep_refs(options, transcripts, sam_header)
 
     # Set up the outfiles
     outfiles = setup_outfiles(options, str(os.getpid()))
@@ -473,23 +497,27 @@ def combine_outputs(sam_header, options):
     return
 
 
-def processSpliceAnnotation(annotFile, tmp_dir):
+def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
     """ Reads in the tab-separated STAR splice junction file and creates a 
         bedtools object. Also creates a dict (annot) to allow easy lookup 
-        to find out if a splice junction is annotated or not """
+        to find out if a splice junction is annotated or not. Only junctions 
+        located on the provided chromosomes are included."""
 
     bedstr = ""
     annot = set()
     os.system("mkdir -p %s" % (tmp_dir))
 
-    donor_file = tmp_dir + "ref_splice_donors_tmp.bed"
-    acceptor_file = tmp_dir + "ref_splice_acceptors_tmp.bed"
+    donor_file = tmp_dir + "%s_ref_splice_donors_tmp.bed" % (process)
+    acceptor_file = tmp_dir + "%s_ref_splice_acceptors_tmp.bed" % (process)
     o_donor = open(donor_file, 'w')
     o_acceptor = open(acceptor_file, 'w')
     with open(annotFile, 'r') as f:
         for line in f:
             fields = line.strip().split("\t")
             chrom = fields[0]
+            if chrom not in read_chroms:
+                continue
+
             start = int(fields[1])
             end = int(fields[2])
 
@@ -528,17 +556,13 @@ def processSpliceAnnotation(annotFile, tmp_dir):
     o_acceptor.close()
 
     # Convert bed files into BedTool objects
-    donor_sorted = tmp_dir + "ref_splice_donors_tmp.sorted.bed"
-    acceptor_sorted = tmp_dir + "ref_splice_acceptors_tmp.sorted.bed"
-    #os.system('bedtools sort -i ' + donor_file + ' >' + donor_sorted)
+    donor_sorted = tmp_dir + "%s_ref_splice_donors_tmp.sorted.bed" % (process)
+    acceptor_sorted = tmp_dir + "%s_ref_splice_acceptors_tmp.sorted.bed" % (process)
     os.system('sort -u %s | bedtools sort -i - > %s' % (donor_file, donor_sorted))
-    #os.system('bedtools sort -i ' + acceptor_file + ' >' + acceptor_sorted)
     os.system('sort -u %s | bedtools sort -i - > %s' % (acceptor_file, acceptor_sorted))
 
     splice_donor_bedtool = pybedtools.BedTool(donor_sorted)
     splice_acceptor_bedtool = pybedtools.BedTool(acceptor_sorted)
-    #os.system("rm " + donor_file)
-    #os.system("rm " + acceptor_file)
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
 def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):

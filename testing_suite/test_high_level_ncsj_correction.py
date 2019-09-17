@@ -19,10 +19,11 @@ class TestNCSJCorrection(object):
 
         # Process references
         sjFile = "input_files/test_junctions.txt"
-        outprefix = "scratch/test"
-        TElog = open("scratch/test_clean.TE.log", 'w')
+        tmp_dir = "scratch/test/TC_tmp/"
+        TElog = open("scratch/TC_tmp/test_clean.TE.log", 'w')
         refs = dstruct.Struct()
-        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        chroms = set(["chr1"])
+        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         refs.genome = Fasta("input_files/hg38_chr1.fa")
 
         # Init transcript object
@@ -57,10 +58,11 @@ class TestNCSJCorrection(object):
 
         # Process references
         sjFile = "input_files/chr11_sjs.txt"
-        outprefix = "scratch/test"
-        TElog = open("scratch/test_clean.TE.log", 'w')
+        tmp_dir = "scratch/test/TC_tmp/"
+        TElog = open("scratch/TC_tmp/test_clean.TE.log", 'w')
         refs = dstruct.Struct()
-        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        chroms = set(["chr11"])
+        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         refs.genome = Fasta("input_files/hg38_chr11.fa")
 
         sam = "input_files/sams/microexon.sam"

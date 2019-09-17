@@ -16,8 +16,10 @@ class TestCorrectTranscripts(object):
         sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         outfiles = dstruct.Struct()
         outfiles.TElog = open("scratch/DIM_nc.TE.log", 'w')

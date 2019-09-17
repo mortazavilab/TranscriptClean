@@ -15,8 +15,10 @@ class TestFindClosestSJ(object):
 
         # Process reference junctions
         sjFile = "input_files/test_junctions.txt"
-        outprefix = "scratch/test"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
 
         # Intron bound info
         transcriptID = "test_read"

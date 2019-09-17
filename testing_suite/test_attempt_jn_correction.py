@@ -23,8 +23,10 @@ class TestAttemptJnCorrection(object):
 
         # Process references
         sjFile = "input_files/test_junctions.txt"
-        outprefix = "scratch/test_jns/"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jns/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
 
@@ -56,7 +58,10 @@ class TestAttemptJnCorrection(object):
         # Process references
         sjFile = "input_files/test_junctions.txt"
         outprefix = "scratch/test_jns/"
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, outprefix)
+        tmp_dir = "scratch/test_jns/TC_tmp/"
+        chroms = set(["chr1"])
+        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
 
