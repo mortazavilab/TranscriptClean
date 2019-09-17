@@ -3,6 +3,7 @@ import sys
 import os
 import subprocess
 import pybedtools
+import warnings
 sys.path.append("..")
 import TranscriptClean as TC
 @pytest.mark.unit
@@ -48,6 +49,18 @@ class TestProcessSpliceAnnot(object):
             acc_chroms.add(pos.chrom)
         assert acc_chroms == chroms
 
+    def test_chrom_warning(self):
+        """ Make sure the function prints a warning if no splice donors or 
+            acceptors are found on the provided chromosome. """
+
+        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        chroms = set(["chr18"])
+        tmp_dir = "scratch/sj_reading_test/"
+        os.system("mkdir -p " + tmp_dir)
+
+        assert pytest.warns(Warning, TC.processSpliceAnnotation, sj_file,  
+                            tmp_dir, chroms, process = "test")
+
     def test_splice_donors(self):
         """ Make sure that the correct positions got labeled as splice donors """
 
@@ -66,7 +79,7 @@ class TestProcessSpliceAnnot(object):
             donors.add(donor.start)
         assert donors == expected_donors
 
-    def test_splice_donors(self):
+    def test_splice_acceptors(self):
         """ Make sure that the correct positions got labeled as splice acceptors """
 
         sj_file = "input_files/toy_sjs_mixed_chroms.txt"

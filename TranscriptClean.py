@@ -20,6 +20,7 @@ from math import ceil
 import re
 from copy import copy
 from functools import partial
+import warnings
 ## Memory profiling
 import tracemalloc
 import linecache
@@ -164,6 +165,7 @@ def prep_refs(options, transcripts, sam_header):
     if sjFile != None:
         print("Processing annotated splice junctions ...")
         refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, tmp_dir, read_chroms)
+
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
         refs.donors = None
@@ -563,6 +565,13 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
 
     splice_donor_bedtool = pybedtools.BedTool(donor_sorted)
     splice_acceptor_bedtool = pybedtools.BedTool(acceptor_sorted)
+
+    # Raise a warning if there are no splice donors or acceptors
+    if len(splice_donor_bedtool) == 0 or len(splice_acceptor_bedtool) == 0:
+        warnings.warn(("Warning: No splice donors or acceptors found on "
+                       "chromosomes: %s. If this is unexpected, check your SJ "
+                       "annotation file." % (", ".join(read_chroms))))
+
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
 def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
