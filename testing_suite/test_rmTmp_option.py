@@ -6,7 +6,7 @@ import subprocess
 sys.path.append("..")
 @pytest.mark.integration
 
-class TestCorrectTranscripts(object):
+class TestRmOpt(object):
     def test_rm_option_set(self):
         """ Check that when the --deleteTmp option is set, the TC_tmp dir is in
             fact removed. """
