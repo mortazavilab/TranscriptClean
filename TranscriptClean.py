@@ -183,7 +183,7 @@ def prep_refs(options, transcripts, sam_header):
         refs.snps, refs.insertions, refs.deletions = processVCF(variantFile, 
                                                                 options.maxLenIndel, 
                                                                 tmp_dir,
-                                                                options.sam, 
+                                                                tmp_sam, 
                                                                 add_chr = add_chr)
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
@@ -266,7 +266,7 @@ def transcript_init(transcript_line, options, refs, outfiles):
         logInfo.TranscriptID = transcript.QNAME
     except:
         QNAME = transcript_line.split("\t")[0]
-        print("Problem parsing transcript with ID '" + QNAME + "'")
+        warnings.warn("Problem parsing transcript with ID '" + QNAME + "'")
         if options.primaryOnly == "false":
             outSam.write(transcript_line + "\n")
             outFa.write(Transcript2.printableFa(transcript) + "\n")
@@ -328,7 +328,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
             outFa.write(transcript.printableFa() + "\n")
 
         except Exception as e:
-            print("Problem encountered while correcting transcript " + \
+            warnings.warn("Problem encountered while correcting transcript " + \
                   " with ID '" + transcript.QNAME + "'. Skipping output.")
             print(e)
             return
@@ -624,7 +624,7 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
                           "pre-sorting the VCF file with Bedtools."))
 
     if os.path.getsize(filtered_vcf) == 0:
-        print(("Warning: none of variants provided overlapped the input reads. "
+        warnings.warn(("Warning: none of variants provided overlapped the input reads. "
                "If this is unexpected, make sure the chromosome notations in "
                " the SAM file match those of the VCF."))
         return SNPs, insertions, deletions
