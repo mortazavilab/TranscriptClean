@@ -30,13 +30,13 @@ def main():
     options = getOptions()
     #refs = prep_refs(options)
     sam_file = options.sam
-    validate_chroms(refs.genome, sam_file)
+    validate_chroms(options.refGenome, sam_file)
     header, sam_lines = split_SAM(sam_file)
 
     # Split up the sam lines to run on different processes if possible
     n_cpus = int(len(os.sched_getaffinity(0)))
     sam_chunks = split_input(sam_lines, n_cpus)
-
+    
     # Run the processes. Outfiles are created within each process
     processes = [ ]
 
@@ -57,7 +57,7 @@ def main():
         one_process.join()
 
     # When the processes have finished, combine the outputs together.
-    combine_outputs(header, options)
+    #combine_outputs(header, options)
 
 
 def getOptions():
@@ -131,6 +131,9 @@ def cleanup_options(options):
     options.sjCorrection = (options.correctSJs).lower()
     options.tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"]) 
 
+    #TODO: If the specified outprefix is a directory, add TC default prefix to 
+    # it
+
     return options
 
 def prep_refs(options, transcripts, sam_header):
@@ -146,25 +149,26 @@ def prep_refs(options, transcripts, sam_header):
     genomeFile = options.refGenome
     variantFile = options.variantFile
     sjFile = options.spliceAnnot
-    outprefix = options.outprefix
 
     # Container for references
     refs = dstruct.Struct()
-
+    
     # Read in the reference genome.
     print("Reading genome ..............................")
-    refs.genome = Fasta(genomeFile)
+    refs.genome = Fasta(options.refGenome)
     ref_chroms = sorted((refs.genome.keys()))
-
+   
     # Create a tmp SAM file for the provided reads
-    read_chroms, tmp_sam = create_tmp_sam(options.sam, transcripts, 
+    tmp_sam, read_chroms = create_tmp_sam(sam_header, transcripts, 
                                           options.tmp_dir, 
                                           process = str(os.getpid()))
 
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
-        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, tmp_dir, read_chroms)
+        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, 
+                                                   tmp_dir, read_chroms,
+                                                   process = str(os.getpid()))
 
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
@@ -189,12 +193,12 @@ def prep_refs(options, transcripts, sam_header):
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
  
-    print("Size of SNP reference: %d" %(len(refs["snps"])))
-    print("Size of insertion reference: %d" %(len(refs["insertions"])))
-    print("Size of deletion reference: %d" %(len(refs["deletions"])))
+    print("Size of SNP reference, job %d: %d" %(os.getpid(), len(refs["snps"])))
+    print("Size of insertion reference, job %d: %d" %(os.getpid(), len(refs["insertions"])))
+    print("Size of deletion reference, job %d: %d" %(os.getpid(), len(refs["deletions"])))
     return refs
 
-def create_tmp_sam(transcripts, sam_header, tmp_dir, process = "1"):
+def create_tmp_sam(sam_header, transcripts, tmp_dir, process = "1"):
     """ Put the transcripts in the provided list into a temporary SAM file,
         preceded by the provided header (list form). The file will be located in
         a 'sams' subdir of the tmp_dir provided. Returns the name of the tmp 
@@ -209,10 +213,10 @@ def create_tmp_sam(transcripts, sam_header, tmp_dir, process = "1"):
     with open(sam_name, 'w') as f:
         for item in sam_header:
             f.write("%s\n" % item)
-        for read in transcripts:
+        for transcript in transcripts:
             f.write("%s\n" % item)
-            chroms.add(read.split('\t')[2])
-        
+            chroms.add(transcript.split('\t')[2])
+
     return sam_name, chroms
 
 def setup_outfiles(options, process = "1"):
@@ -220,7 +224,6 @@ def setup_outfiles(options, process = "1"):
 
     # Place files in a tmp directory
     tmp_dir = options.tmp_dir
-    #tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
     os.system("mkdir -p " + tmp_dir)
 
     outfiles = dstruct.Struct()
@@ -299,7 +302,8 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     outFa = outfiles.fasta
 
     transcript, logInfo = transcript_init(transcript_line, options, refs, outfiles)
-    
+    # TODO: add buffered transcript output   
+ 
     # Correct the transcript 
     if transcript != None:
 
@@ -339,10 +343,11 @@ def correct_transcript(transcript_line, options, refs, outfiles):
 
     return    
 
-def validate_chroms(genome, sam):
+def validate_chroms(genome_file, sam):
     """ Make sure that every chromosome in the SAM file also exists in the
         reference genome. This is a common source of crashes """
 
+    genome = Fasta(genome_file)
     fasta_chroms = set(genome.keys())
     sam_chroms = set()
     with open(sam, 'r') as f:
@@ -409,7 +414,7 @@ def run_chunk(transcripts, options, sam_header):
 
     # Prep the references (i.e. genome, sjs, variants)
     refs = prep_refs(options, transcripts, sam_header)
-
+    
     # Set up the outfiles
     outfiles = setup_outfiles(options, str(os.getpid()))
 
@@ -1487,7 +1492,7 @@ def get_size(obj, seen=None):
     return size
 
 if __name__ == '__main__':
-    tracemalloc.start(50)
+    #tracemalloc.start(50)
     main()
-    snapshot = tracemalloc.take_snapshot()
-    display_top(snapshot) 
+    #snapshot = tracemalloc.take_snapshot()
+    #display_top(snapshot) 
