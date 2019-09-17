@@ -17,7 +17,7 @@ class TestCreateTmpSamFile(object):
                             "\t".join(["read2", "mapping", "chr2", "..."]) ]
         tmp_dir = "scratch/tmp_sam_test/"                            
 
-        fname, chroms = TC.create_tmp_sam(sam_transcripts, sam_header, tmp_dir, 
+        fname, chroms = TC.create_tmp_sam(sam_header, sam_transcripts, tmp_dir, 
                                           process = "test")
 
         assert fname == "scratch/tmp_sam_test/split_uncorr_sams/test.sam"
