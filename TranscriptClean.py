@@ -57,42 +57,46 @@ def main():
         one_process.join()
 
     # When the processes have finished, combine the outputs together.
-    #combine_outputs(header, options)
+    combine_outputs(header, options)
 
 
 def getOptions():
     parser = OptionParser()
     
     parser.add_option("--sam", "-s", dest = "sam", 
-                      help = "Input SAM file containing transcripts to correct",
+                      help = ("Input SAM file containing transcripts to "
+                              "correct. Must contain a header."),
                       metavar = "FILE", type = "string", default = "")
     parser.add_option("--genome", "-g", dest = "refGenome", 
-                      help = "Reference genome fasta file. Should be the \
-                      same one used during mapping to generate the sam file.",
+                      help = ("Reference genome fasta file. Should be the "
+                              "same one used during mapping to generate the "
+                              "provided SAM file."),
                       metavar = "FILE", type = "string", default = "")
     parser.add_option("--spliceJns", "-j", dest = "spliceAnnot", 
-                      help = "Splice junction file obtained by mapping Illumina\
-                       reads to the genome using STAR. More formats may be \
-                      supported in the future.",
+                      help = ("Splice junction file obtained by mapping "
+                              "Illumina reads to the genome using STAR, or "
+                              "alternately, extracted from a GTF using the "
+                              "accessory script. More formats may be "
+                              "supported in the future."),
                       metavar = "FILE", type = "string", default = None)
     parser.add_option("--variants", "-v", dest = "variantFile",
-                      help = "VCF formatted file of variants to avoid \
-                      correcting away in the data (optional).", 
+                      help = ("VCF formatted file of variants to avoid "
+                              "correcting away in the data (optional)."), 
                       metavar = "FILE", type = "string", default = None )
     parser.add_option("--maxLenIndel", dest = "maxLenIndel",
                       help = "Maximum size indel to correct (Default: 5 bp)", 
                       type = "int", default = 5 )
     parser.add_option("--maxSJOffset", dest = "maxSJOffset",
-                      help = "Maximum distance from annotated splice \
-                      junction to correct (Default: 5 bp)", 
+                      help = ("Maximum distance from annotated splice junction "
+                              "to correct (Default: 5 bp)"), 
                       type = "int", default = 5 )
     parser.add_option("--outprefix", "-o", dest = "outprefix",
-                      help = "output file prefix. '_clean' plus a file \
-                      extension will be added to the end.", 
-                      metavar = "FILE", type = "string", default = "out")
+                      help = ("Output file prefix. '_clean' plus a file "
+                              "extension will be added to the end."), 
+                      metavar = "FILE", type = "string", default = "TC")
     parser.add_option("--correctMismatches", "-m", dest = "correctMismatches",
-                      help = "If set to false, TranscriptClean will skip \
-                      mismatch correction. Default: True", 
+                      help = ("If set to false, TranscriptClean will skip "
+                              "mismatch correction. Default: True"), 
                       type = "string", default = "true" )
     parser.add_option("--correctIndels", "-i", dest = "correctIndels",
                       help = "If set to false, TranscriptClean will skip indel \
@@ -132,9 +136,9 @@ def cleanup_options(options):
     options.tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"]) 
 
     # If there is a tmp dir there already, remove it 
-    if os.path.exists(tmp_dir):
-        os.system("rm -r %s" % tmp_dir)
-    os.system("mkdir -p %s" % tmp_dir)
+    if os.path.exists(options.tmp_dir):
+        os.system("rm -r %s" % options.tmp_dir)
+    os.system("mkdir -p %s" % options.tmp_dir)
 
     #TODO: If the specified outprefix is a directory, add TC default prefix to 
     # it

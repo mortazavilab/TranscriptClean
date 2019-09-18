@@ -1,5 +1,6 @@
 import pytest
 from pyfasta import Fasta
+import os
 import sys
 sys.path.append("..")
 import transcript2 as t2
@@ -19,8 +20,9 @@ class TestNCSJCorrection(object):
 
         # Process references
         sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
-        TElog = open("scratch/TC_tmp/test_clean.TE.log", 'w')
+        tmp_dir = "scratch/test_ncsj/TC_tmp/"
+        os.system("mkdir -p %s" % tmp_dir)
+        TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr1"])
         refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
@@ -59,7 +61,8 @@ class TestNCSJCorrection(object):
         # Process references
         sjFile = "input_files/chr11_sjs.txt"
         tmp_dir = "scratch/test/TC_tmp/"
-        TElog = open("scratch/TC_tmp/test_clean.TE.log", 'w')
+        os.system("mkdir -p %s" % tmp_dir)
+        TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr11"])
         refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
