@@ -31,6 +31,7 @@ def main():
     sam_file = options.sam
     validate_chroms(options.refGenome, sam_file)
     header, sam_lines = split_SAM(sam_file)
+    # TODO: sort the input sam file
 
     # Split up the sam lines to run on different processes if possible
     n_cpus = int(len(os.sched_getaffinity(0)))
@@ -41,10 +42,8 @@ def main():
 
     for i in range(n_cpus):
         if options.dryRun == True:
-            #t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, refs))
             t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, header))
         else:
-            #t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, refs))
             t = mp.Process(target=run_chunk, args=(sam_chunks[i], options, header))
 
         # Run the process
@@ -172,17 +171,19 @@ def prep_refs(options, transcripts, sam_header):
                                           process = str(os.getpid()))
 
     # Read in splice junctions
-    if sjFile != None:
+    refs.donors = None
+    refs.acceptors = None
+    refs.sjAnnot = set()
+    if options.sjCorrection == "false":
+        print("SJ correction turned off in options. Will skip splice junction correction.")
+
+    elif sjFile != None:
         print("Processing annotated splice junctions ...")
         refs.donors, refs.acceptors, refs.sjAnnot = processSpliceAnnotation(sjFile, 
                                                    tmp_dir, read_chroms,
                                                    process = str(os.getpid()))
-
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
-        refs.donors = None
-        refs.acceptors = None
-        refs.sjAnnot = set()
 
     # Read in variants
     if variantFile != None:
@@ -443,7 +444,7 @@ def run_chunk(transcripts, options, sam_header):
 
 def run_chunk_dryRun(transcripts, options, refs):
     """ Run dryRun mode on a set of transcripts on one core """
-
+    # TODO: implement tests and update this
     # Set up the outfiles
     outfiles = setup_outfiles(options, str(os.getpid()))
 
@@ -522,8 +523,6 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
         bedtools object. Also creates a dict (annot) to allow easy lookup 
         to find out if a splice junction is annotated or not. Only junctions 
         located on the provided chromosomes are included."""
-    # TODO: change splcie dict- entries should represent entire jns, not 
-    # donors/acceptors. But sure to change classes too.
 
     bedstr = ""
     annot = set()
