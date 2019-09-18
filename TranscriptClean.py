@@ -28,7 +28,6 @@ import sys
 
 def main():
     options = getOptions()
-    #refs = prep_refs(options)
     sam_file = options.sam
     validate_chroms(options.refGenome, sam_file)
     header, sam_lines = split_SAM(sam_file)
@@ -196,7 +195,8 @@ def prep_refs(options, transcripts, sam_header):
                                                                 options.maxLenIndel, 
                                                                 tmp_dir,
                                                                 tmp_sam, 
-                                                                add_chr = add_chr)
+                                                                add_chr = add_chr
+                                                                process = str(os.getpid()))
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
@@ -587,7 +587,7 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
 
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
-def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
+def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True, process = "1"):
     """ This function reads in variants from a VCF file and stores them. SNPs 
         are stored in a dictionary by position. Indels are stored in their own 
         dictionary by start and end position. A pre-filtering step ensures that
@@ -595,14 +595,12 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
         This is a space-saving measure. If add_chr is set to 'True', the prefix
         'chr' will be added to each chromosome name."""
 
-    # TODO: add the process name to all of the output files to avoid thread conflicts
-
     SNPs = {}
     insertions = {}
     deletions = {}
 
     # Create a temporary BAM version of the input reads
-    bam = tmp_dir + "tmp_reads.bam"
+    bam = tmp_dir + "%s_tmp_reads.bam" % (process)
     try:
         os.system("samtools view -bS %s | samtools sort > %s" % (sam_file, bam))
     except Exception as e:
@@ -620,13 +618,13 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
 
     # Add 'chr' to chromosome names if needed
     if add_chr:
-        chr_vcf = tmp_dir + "tmp_chr.vcf"
+        chr_vcf = tmp_dir + "%s_tmp_chr.vcf" % (process)
         os.system(('awk \'{if($0 !~ /^#/ && $0 !~ /^chr/) print "chr"$0; '
                    'else print $0}\' %s > %s') % (vcf, chr_vcf))
         vcf = chr_vcf
 
     # Filter the VCF file to include only those variants that overlap the reads
-    filtered_vcf = tmp_dir + "filtered.vcf"
+    filtered_vcf = tmp_dir + "%s_filtered.vcf" % (process)
     try:
         os.system("bedtools intersect -a %s -b %s -u > %s" % \
                    (vcf, bam, filtered_vcf))
@@ -654,7 +652,6 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
             fields = line.split()
             
             chrom = fields[0]
-            #if not chrom.startswith("chr"): chrom = "chr" + chrom
             pos = int(fields[1])
             ref = fields[3]
             alt = fields[4].split(",")
