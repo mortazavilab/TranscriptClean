@@ -71,7 +71,7 @@ class TestPrepRefs(object):
        
         # Initialize options etc.
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        tmp_dir = "scratch/prep_refs/sjs/TC_tmp/"
+        tmp_dir = "scratch/prep_refs/sj_off/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
@@ -87,6 +87,34 @@ class TestPrepRefs(object):
 
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
+
+        # Check that SJ bedtools and annot lookup are empty
+        assert refs.donors == refs.acceptors == None
+        assert refs.sjAnnot == set()
+
+    def test_variants(self):
+        """ A variant file is provided """
+
+        # Initialize options etc.
+        sam = "input_files/vcf_test/read_with_snps.sam"
+        tmp_dir = "scratch/prep_refs/variant/TC_tmp/"
+        os.system("mkdir -p " + tmp_dir)
+
+        options = dstruct.Struct()
+        options.refGenome = "input_files/hg38_chr11.fa"
+        options.tmp_dir = tmp_dir
+        options.maxLenIndel = options.maxSJOffset = 5
+        options.sjCorrection = "false"
+        options.variantFile = "input_files/vcf_test/snps.vcf"
+        options.sjAnnotFile = None
+
+        header, sam_lines = TC.split_SAM(sam)
+        refs = TC.prep_refs(options, sam_lines, header)
+
+        # Check that variant deletion and insertion dicts are empty
+        assert len(refs.insertions) == 0
+        assert len(refs.deletions) == 0
+        assert len(refs.snps) > 0
 
         # Check that SJ bedtools and annot lookup are empty
         assert refs.donors == refs.acceptors == None
