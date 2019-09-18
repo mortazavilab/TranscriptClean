@@ -10,13 +10,12 @@ import itertools
 import string
 
 class Transcript2:
-    def __init__(self, sam, genome, spliceAnnot):
-        samFields = sam.strip().split('\t')
+    def __init__(self, samFields, genome, spliceAnnot):
 
         # These eleven attributes are initialized directly from the input 
         # SAM entry and are mandatory 
         self.QNAME = samFields[0]
-        self.FLAG = samFields[1]
+        self.FLAG = int(samFields[1])
         self.CHROM = samFields[2]
         self.POS = int(samFields[3])
         self.MAPQ = samFields[4]
@@ -26,13 +25,6 @@ class Transcript2:
         self.TLEN = samFields[8]
         self.SEQ = samFields[9]
         self.QUAL = "*"
-
-        # Check if read is unmapped (0), uniquely mapped (1), multimapped (2)
-        self.mapping = 1
-        if self.CHROM == "*" or int(self.FLAG) == 4: 
-            self.mapping = 0
-        elif int(self.FLAG) > 16:
-            self.mapping = 2
 
         # If the sam entry contains additional optional fields, process them 
         self.NM = ""
@@ -48,14 +40,10 @@ class Transcript2:
             elif field.startswith("jI"): self.jI = field
             else: otherFields.append(field)
 
-        # Compute NM and MD tags here.
-        if self.mapping == 1:
-            self.NM, self.MD = self.getNMandMDFlags(genome)
-
         # If the NM and MD tags are None, it means there was a reference genome
         # problem somewhere in the read. Consider such reads unmapped.
-        if self.NM == None and self.MD == None:
-            self.mapping = 0
+        if self.NM == "" and self.MD == "":
+            self.NM, self.MD = self.getNMandMDFlags(genome)    
 
         # These attributes are set by parsing the inputs
         self.strand = "+"        
@@ -66,7 +54,7 @@ class Transcript2:
         if (self.jI == ""):
                 self.jI = self.compute_jI()
 
-        if "N" in self.CIGAR and self.mapping == 1:
+        if "N" in self.CIGAR:# and self.mapping == 1:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
             self.isCanonical = self.recheckCanonical()
@@ -76,7 +64,7 @@ class Transcript2:
             self.isCanonical = True    
 
         # If the jM and jI fields are missing, compute them here.
-        if (self.jM == "") and self.mapping == 1:
+        if (self.jM == ""):# and self.mapping == 1:
             self.jM, self.jI = self.get_jM_jI_tags_from_sjs()
 
         self.otherFields = "\t".join(otherFields)
@@ -288,8 +276,8 @@ class Transcript2:
         seqPos = 0
         genomePos = self.POS
 
-        if self.mapping != 1:
-            return "",""
+        #if self.mapping != 1:
+        #    return "",""
 
         operations, counts = self.splitCIGAR()
 
@@ -344,8 +332,8 @@ class Transcript2:
     def get_jM_jI_tags_from_sjs(self):
         """ Create jM and jI tags by traversing the splice junction strings """
 
-        if self.mapping != 1:
-            return "",""
+        #if self.mapping != 1:
+        #    return "",""
 
         jM = ["jM:B:c"]
         jI = ["jI:B:i"]
@@ -371,8 +359,8 @@ class Transcript2:
     def compute_jI(self):
         """ Use the CIGAR string to compute where the introns are """
 
-        if self.mapping != 1:
-            return "",""
+        #if self.mapping != 1:
+        #    return "",""
 
         operations, counts = self.splitCIGAR()
         jI = ["jI:B:i"]
@@ -406,8 +394,8 @@ class Transcript2:
             the intron in the genome sequence to detemine whether they are 
             canonical. We also record the start and end position of the intron. """
 
-        if self.mapping != 1:
-            return "",""
+        #if self.mapping != 1:
+        #    return "",""
        
         seq = self.SEQ
         operations, counts = self.splitCIGAR()

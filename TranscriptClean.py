@@ -175,7 +175,7 @@ def prep_refs(options, transcripts, sam_header):
     refs.acceptors = None
     refs.sjAnnot = set()
     if options.sjCorrection == "false":
-        print("SJ correction turned off in options. Will skip splice junction correction.")
+        print("SJ correction turned off in options. Skipping reference SJ parsing.")
 
     elif sjFile != None:
         print("Processing annotated splice junctions ...")
@@ -260,52 +260,82 @@ def close_outfiles(outfiles):
 
     return
 
-def transcript_init(transcript_line, options, refs, outfiles):
-    """ Attempt to initialize a Transcript object from a SAM entry. If the
-        transcript alignment is unmapped or non-primary, then output that 
-        information to the outfiles, but return None. Otherwise, return the
-        transcript object. """
+def transcript_init(transcript_line, genome, sjAnnot):
+     """ Attempt to initialize a Transcript object from a SAM entry. First,
+         create a log object, and note the mapping status of the read. If the
+         transcript alignment is unmapped or non-primary, then create a log
+         entry for the transcript, but do not bother initializing a transcript
+         object. output that Otherwise, return the transcript object along with
+         the log. 
+ 
+         Input:
+             - Transcript SAM line (string)
+             - Reference genome (needed to determine canonical-ness of jns
+             - Splice annot set object (needed to look up whether a junction
+               is annotated or not)
+ 
+         Returns:
+             - Transcript object if primary alignment, None if not
+             - logInfo object
+      """
+
+     # Check mapping    
+     sam_fields = transcript_line.split('\t')
+     logInfo = init_log_info(sam_fields)
+ 
+     if logInfo.mapping != "primary":
+         return None, logInfo
+ 
+     try:
+         transcript = Transcript2(sam_fields, genome, sjAnnot)
+     except:
+         warnings.warn("Problem parsing transcript with ID '" + \
+                       logInfo.TranscriptID + "'")
+         return None, logInfo        
+
+     return transcript, logInfo 
+
+def batch_correct(transcripts, options, refs, outfiles, n = 1000):
+    """TODO: Correct and output n lines at a time in a batch. The purpose is 
+       to stagger when different threads are writing to disk. For a given
+       transcript, there can be only one sam, fasta, and log entry."""
 
     outSam = outfiles.sam
     outFa = outfiles.fasta
+    tL = outfiles.log
+    sam_lines = []
+    log_lines = []
+    fasta_lines = []  
 
-    if transcript_line.startswith("@"): # header line
-        return None
-    
-    # Init transcript object and log entry
-    try:
-        transcript = Transcript2(transcript_line, refs.genome, refs.sjAnnot)
-        logInfo = init_log_info()
-        logInfo.TranscriptID = transcript.QNAME
-    except:
-        QNAME = transcript_line.split("\t")[0]
-        warnings.warn("Problem parsing transcript with ID '" + QNAME + "'")
-        if options.primaryOnly == "false":
-            outSam.write(transcript_line + "\n")
-            outFa.write(Transcript2.printableFa(transcript) + "\n")
-        return None, None        
+    counter = 0
+    for transcript in transcripts:
+        curr_sam, curr_log, curr_fasta = correct_transcript(transcript_line, 
+                                                            options, refs, 
+                                                            outfiles)
+        if curr_sam != None:
+            sam_lines.append(curr_sam)
+        if curr_log != None:
+            log_lines += curr_log
+        if curr_fasta != None:
+            fasta_lines.append(curr_fasta)
 
-    # Unmapped/multimapper cases
-    if transcript.mapping != 1:
-        if transcript.mapping == 0:
-            logInfo.Mapping = "unmapped"
-        elif transcript.mapping == 2:
-            logInfo.Mapping = "non-primary"
+        # Check whether to empty the buffer
+        if counter > n:
+            outSam.write("\n".join([x for x in sam_lines]))
+            outFa.write("\n".join([x for x in fasta_lines]))
+            tL.write("\n".join(log_lines))
+            sam_lines = []
+            fasta_lines = []
+            log_lines = []
+            counter = 0
+        else:
+            counter += 1
 
-        # Only output the transcript if Primary Only option is off
-        if options.primaryOnly == "false":
-            outSam.write(transcript_line + "\n")
-            outFa.write(Transcript2.printableFa(transcript) + "\n")
-
-        return None, logInfo
-    else:
-        logInfo.Mapping = "primary"
-        return transcript, logInfo 
-
-def batch_correct():
-    """TODO: Correct and output n transcripts in a batch """
-    pass
-
+    # Print remaining lines
+    outSam.write("\n".join(sam_lines))
+    outFa.write("\n".join(fasta_lines))
+    tL.write("\n".join(log_lines))
+    return
 
 def correct_transcript(transcript_line, options, refs, outfiles):
     """ Given a line from a SAM file, create a transcript object. If it's a
@@ -315,7 +345,8 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     outSam = outfiles.sam
     outFa = outfiles.fasta
 
-    transcript, logInfo = transcript_init(transcript_line, options, refs, outfiles)
+    transcript, logInfo = transcript_init(transcript_line, refs.genome, 
+                                          refs.sjAnnot)
     # TODO: add buffered transcript output. Will require a batch function that
     # calls this one and then returns the result.   
  
@@ -343,8 +374,10 @@ def correct_transcript(transcript_line, options, refs, outfiles):
                                                logInfo, outfiles.TElog)
         
             # Write transcript to sam and fasta file
-            outSam.write(transcript.printableSAM() + "\n")
-            outFa.write(transcript.printableFa() + "\n")
+            logInfo_str = create_log_string(logInfo) 
+            return transcript.printableSAM(), logInfo_str, transcript.printableFa()
+            #outSam.write(transcript.printableSAM() + "\n")
+            #outFa.write(transcript.printableFa() + "\n")
 
         except Exception as e:
             warnings.warn("Problem encountered while correcting transcript " + \
@@ -352,9 +385,12 @@ def correct_transcript(transcript_line, options, refs, outfiles):
             print(e)
             return
 
+    #else:
+    
+
     # Output transcript log entry 
-    if logInfo != None:
-        write_to_transcript_log(logInfo, outfiles.log)
+    #if logInfo != None:
+    #    write_to_transcript_log(logInfo, outfiles.log)
 
     return    
 
@@ -1353,29 +1389,40 @@ def editExonCIGAR(exon, side, nBases):
         result = result + str(ct) + op
     return result
         
-def init_log_info():
-    """ Initialize a log_info struct to track the error types and correction
-        status for a single transcript """
+def init_log_info(sam_fields):
+     """ Initialize a log_info struct to track the error types and correction
+         status for a single transcript """
 
-    logInfo = dstruct.Struct()
-    logInfo.TranscriptID = None
-    logInfo.Mapping = None
-    logInfo.corrected_deletions = "NA"
-    logInfo.uncorrected_deletions = "NA"
-    logInfo.variant_deletions = "NA"
-    logInfo.corrected_insertions = "NA"
-    logInfo.uncorrected_insertions = "NA"
-    logInfo.variant_insertions = "NA"
-    logInfo.corrected_mismatches = "NA"
-    logInfo.uncorrected_mismatches = "NA"
-    logInfo.corrected_NC_SJs = "NA"
-    logInfo.uncorrected_NC_SJs = "NA"
+     transcript_id = sam_fields[0]
+     flag = int(sam_fields[1])
+     chrom = sam_fields[2]    
 
-    return logInfo
+     logInfo = dstruct.Struct()
+     logInfo.TranscriptID = transcript_id
 
-def write_to_transcript_log(logInfo, tL):
-    """ Write a transcript log entry to output """
+     # Check if read is unmapped, uniquely mapped, or multimapped
+     if chrom == "*" or flag == 4:
+         logInfo.mapping = "unmapped"
+     elif flag > 16:
+         logInfo.mapping = "non-primary"
+     else:
+         logInfo.mapping = "primary"
 
+     logInfo.corrected_deletions = "NA"
+     logInfo.uncorrected_deletions = "NA"
+     logInfo.variant_deletions = "NA"
+     logInfo.corrected_insertions = "NA"
+     logInfo.uncorrected_insertions = "NA"
+     logInfo.variant_insertions = "NA"
+     logInfo.corrected_mismatches = "NA"
+     logInfo.uncorrected_mismatches = "NA"
+     logInfo.corrected_NC_SJs = "NA"
+     logInfo.uncorrected_NC_SJs = "NA"
+
+     return logInfo
+
+def create_log_string(logInfo):
+    """ Create string version of logInfo struct """
     log_strings = [ str(x) for x in [logInfo.TranscriptID, logInfo.Mapping,
                                      logInfo.corrected_deletions,
                                      logInfo.uncorrected_deletions,
@@ -1387,8 +1434,25 @@ def write_to_transcript_log(logInfo, tL):
                                      logInfo.uncorrected_mismatches,
                                      logInfo.corrected_NC_SJs,
                                      logInfo.uncorrected_NC_SJs] ]
+    return "\t".join(log_strings)
 
-    tL.write("\t".join(log_strings) + "\n")
+def write_to_transcript_log(logInfo, tL):
+    """ Write a transcript log entry to output """
+
+#    log_strings = [ str(x) for x in [logInfo.TranscriptID, logInfo.Mapping,
+#                                     logInfo.corrected_deletions,
+#                                     logInfo.uncorrected_deletions,
+#                                     logInfo.variant_deletions,
+#                                     logInfo.corrected_insertions,
+#                                     logInfo.uncorrected_insertions,
+#                                     logInfo.variant_insertions,
+#                                     logInfo.corrected_mismatches,
+#                                     logInfo.uncorrected_mismatches,
+#                                     logInfo.corrected_NC_SJs,
+#                                     logInfo.uncorrected_NC_SJs] ]
+#
+    log_str = create_log_string(logInfo)
+    tL.write(log_str + "\n")
     return
 
 
