@@ -131,6 +131,11 @@ def cleanup_options(options):
     options.sjCorrection = (options.correctSJs).lower()
     options.tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"]) 
 
+    # If there is a tmp dir there already, remove it 
+    if os.path.exists(tmp_dir):
+        os.system("rm -r %s" % tmp_dir)
+    os.system("mkdir -p %s" % tmp_dir)
+
     #TODO: If the specified outprefix is a directory, add TC default prefix to 
     # it
 
@@ -143,8 +148,7 @@ def prep_refs(options, transcripts, sam_header):
         the SAM reads.  """
 
     tmp_dir = options.tmp_dir
-    if os.path.exists(tmp_dir):
-        os.system("rm -r %s" % tmp_dir)
+
     os.system("mkdir -p %s" % tmp_dir)
     genomeFile = options.refGenome
     variantFile = options.variantFile
@@ -586,6 +590,9 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True):
         variants are included only if they overlap with the input SAM reads. 
         This is a space-saving measure. If add_chr is set to 'True', the prefix
         'chr' will be added to each chromosome name."""
+
+    # TODO: add the process name to all of the output files to avoid thread conflicts
+
     SNPs = {}
     insertions = {}
     deletions = {}
