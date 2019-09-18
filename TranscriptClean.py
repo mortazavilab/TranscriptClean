@@ -195,7 +195,7 @@ def prep_refs(options, transcripts, sam_header):
                                                                 options.maxLenIndel, 
                                                                 tmp_dir,
                                                                 tmp_sam, 
-                                                                add_chr = add_chr
+                                                                add_chr = add_chr,
                                                                 process = str(os.getpid()))
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
