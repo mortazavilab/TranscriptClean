@@ -139,8 +139,9 @@ def cleanup_options(options):
         os.system("rm -r %s" % options.tmp_dir)
     os.system("mkdir -p %s" % options.tmp_dir)
 
-    #TODO: If the specified outprefix is a directory, add TC default prefix to 
-    # it
+    # If the specified outprefix is a directory, add TC default prefix to it
+    if os.path.isdir(options.outprefix):
+        options.outprefix = "/".join((options.outprefix).split("/") + "TC")
 
     return options
 
@@ -300,6 +301,10 @@ def transcript_init(transcript_line, options, refs, outfiles):
         logInfo.Mapping = "primary"
         return transcript, logInfo 
 
+def batch_correct():
+    """TODO: Correct and output n transcripts in a batch """
+    pass
+
 
 def correct_transcript(transcript_line, options, refs, outfiles):
     """ Given a line from a SAM file, create a transcript object. If it's a
@@ -310,7 +315,8 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     outFa = outfiles.fasta
 
     transcript, logInfo = transcript_init(transcript_line, options, refs, outfiles)
-    # TODO: add buffered transcript output   
+    # TODO: add buffered transcript output. Will require a batch function that
+    # calls this one and then returns the result.   
  
     # Correct the transcript 
     if transcript != None:
@@ -456,7 +462,6 @@ def combine_outputs(sam_header, options):
     
     outprefix = options.outprefix
     tmp_dir = options.tmp_dir
-    #tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"])
 
     # Make filenames
     sam = outprefix + "_clean.sam"
