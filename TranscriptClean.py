@@ -71,7 +71,7 @@ def getOptions():
                               "same one used during mapping to generate the "
                               "provided SAM file."),
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--spliceJns", "-j", dest = "spliceAnnot", 
+    parser.add_option("--spliceJns", "-j", dest = "sjAnnot", 
                       help = ("Splice junction file obtained by mapping "
                               "Illumina reads to the genome using STAR, or "
                               "alternately, extracted from a GTF using the "
@@ -156,7 +156,7 @@ def prep_refs(options, transcripts, sam_header):
     os.system("mkdir -p %s" % tmp_dir)
     genomeFile = options.refGenome
     variantFile = options.variantFile
-    sjFile = options.spliceAnnot
+    sjFile = options.sjAnnot
 
     # Container for references
     refs = dstruct.Struct()
@@ -174,7 +174,7 @@ def prep_refs(options, transcripts, sam_header):
     # Read in splice junctions
     if sjFile != None:
         print("Processing annotated splice junctions ...")
-        refs.donors, refs.acceptors, refs.sjDict = processSpliceAnnotation(sjFile, 
+        refs.donors, refs.acceptors, refs.sjAnnot = processSpliceAnnotation(sjFile, 
                                                    tmp_dir, read_chroms,
                                                    process = str(os.getpid()))
 
@@ -182,7 +182,7 @@ def prep_refs(options, transcripts, sam_header):
         print("No splice annotation provided. Will skip splice junction correction.")
         refs.donors = None
         refs.acceptors = None
-        refs.sjDict = {}
+        refs.sjAnnot = set()
 
     # Read in variants
     if variantFile != None:
@@ -273,7 +273,7 @@ def transcript_init(transcript_line, options, refs, outfiles):
     
     # Init transcript object and log entry
     try:
-        transcript = Transcript2(transcript_line, refs.genome, refs.sjDict)
+        transcript = Transcript2(transcript_line, refs.genome, refs.sjAnnot)
         logInfo = init_log_info()
         logInfo.TranscriptID = transcript.QNAME
     except:
@@ -337,7 +337,7 @@ def correct_transcript(transcript_line, options, refs, outfiles):
                                  options.maxLenIndel, logInfo, outfiles.TElog)
 
             # NCSJ correction
-            if refs.sjDict != {} and options.sjCorrection == "true":
+            if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
                 transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
                                                logInfo, outfiles.TElog)
         
@@ -522,6 +522,8 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
         bedtools object. Also creates a dict (annot) to allow easy lookup 
         to find out if a splice junction is annotated or not. Only junctions 
         located on the provided chromosomes are included."""
+    # TODO: change splcie dict- entries should represent entire jns, not 
+    # donors/acceptors. But sure to change classes too.
 
     bedstr = ""
     annot = set()
@@ -570,8 +572,13 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
             file1.write(bed1 + "\n")
             file2.write(bed2 + "\n")
 
-            annot.add("_".join([chrom, str(start), strand, type1]))
-            annot.add("_".join([chrom, str(end), strand, type2]))
+            # Add a record of the entire junction to the annot set to indicate
+            # that it is annotated
+            junction = "_".join([chrom, str(start), strand]) + "," + \
+                       "_".join([chrom, str(end), strand])
+            annot.add(junction)
+            #annot.add("_".join([chrom, str(start), strand, type1]))
+            #annot.add("_".join([chrom, str(end), strand, type2]))
     o_donor.close()
     o_acceptor.close()
 
@@ -1032,7 +1039,7 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
                                                                     refs.genome,
                                                                     refs.donors,
                                                                     refs.acceptors,
-                                                                    refs.sjDict,
+                                                                    refs.sjAnnot,
                                                                     maxDist)
 
             # If there were no problems during correction, replace the original 
@@ -1086,7 +1093,7 @@ def find_closest_ref_junction(junction, ref_donors, ref_acceptors):
     return closest_ref_donor, closest_ref_acceptor
 
 
-def update_post_ncsj_correction(transcript, splice_jn_num, genome, spliceDict):
+def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
     """ After correcting a noncanonical splice junction, perform the 
         following updates:
         - Reassign the position of the junction (based on its bounds)
@@ -1095,14 +1102,14 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, spliceDict):
     """
     junction = transcript.spliceJunctions[splice_jn_num]
     junction.recheckPosition()
-    junction.checkSpliceMotif(genome, spliceDict)
+    junction.checkSpliceMotif(genome, sjAnnot)
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
     transcript.isCanonical = transcript.recheckCanonical()
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors, 
-                          ref_acceptors, spliceDict, maxDist):
+                          ref_acceptors, sjAnnot, maxDist):
     """ Given a noncanonical splice junction, try to correct it by locating 
         a nearby annotated junction within the allowable distance.
 
@@ -1142,7 +1149,7 @@ def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors,
                                            acceptor, ref_acceptor.dist, genome,
                                            transcript.SEQ, transcript.CIGAR)
         # Now, perform updates:
-        update_post_ncsj_correction(transcript, splice_jn_num, genome, spliceDict)
+        update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot)
 
     except:
         return False, "Other", combined_dist
@@ -1394,7 +1401,7 @@ def dryRun(sam, options, outfiles, refs):
     tL = outfiles.log
     eL = outfiles.TElog
     genome = refs.genome
-    spliceAnnot = {}
+    sjAnnot = set()
 
     for line in sam:
         # Set up log entry for transcript
