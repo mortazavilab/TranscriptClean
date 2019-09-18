@@ -270,13 +270,14 @@ class Transcript2:
             result.append(b[1])
         return result
    
-    def getAllSJMotifs(self, genome, spliceAnnot):
-        """ Return all splice junction motifs translated into their numeric 
-            STAR codes"""
-        result = []
-        for jn in self.spliceJunctions:
-            result.append(jn.jnStr)
-        return result
+    #def getAllSJMotifs(self, genome): #, spliceAnnot):
+    #    """ Return all splice junction motifs translated into their numeric 
+    #        STAR codes"""
+    #    # TODO: I think spliceAnnot is redundant here
+    #    result = []
+    #    for jn in self.spliceJunctions:
+    #        result.append(jn.jnStr)
+    #    return result
  
     def getNMandMDFlags(self, genome):
         """ This function uses the transcript sequence, its CIGAR string, 

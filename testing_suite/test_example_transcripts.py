@@ -18,7 +18,7 @@ class TestCorrectTranscripts(object):
         sjFile = "input_files/GM12878_SJs_chr1.tab"
         tmp_dir = "scratch/test/TC_tmp/"
         chroms = set(["chr1"])
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+        donors, acceptors, sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
 
         outfiles = dstruct.Struct()
@@ -28,7 +28,7 @@ class TestCorrectTranscripts(object):
         outfiles.log = open("scratch/DIM_nc.log", 'w')
 
         refs = dstruct.Struct()
-        refs.sjDict = sjDict
+        refs.sjAnnot = sjAnnot
         refs.genome = genome
         refs.donors = donors
         refs.acceptors = acceptors
@@ -70,7 +70,7 @@ class TestCorrectTranscripts(object):
         # Read in transcript from outfile
         with open("scratch/DIM_nc_clean.sam", 'r') as f:
             sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            transcript = t2.Transcript2(sam_line, genome, sjAnnot)
         
         assert transcript.CIGAR == correct_CIGAR
         assert transcript.MD == correct_MD

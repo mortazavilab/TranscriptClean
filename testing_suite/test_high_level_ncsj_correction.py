@@ -25,13 +25,13 @@ class TestNCSJCorrection(object):
         TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr1"])
-        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
+        refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         refs.genome = Fasta("input_files/hg38_chr1.fa")
 
         # Init transcript object
         sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
                                 "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"])
-        transcript = t2.Transcript2(sam_fields, refs.genome, refs.sjDict)
+        transcript = t2.Transcript2(sam_fields, refs.genome, refs.sjAnnot)
         jnNumber = 0
         maxDist = 5
         logInfo = TC.init_log_info()
@@ -65,7 +65,7 @@ class TestNCSJCorrection(object):
         TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr11"])
-        refs.donors, refs.acceptors, refs.sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
+        refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
         refs.genome = Fasta("input_files/hg38_chr11.fa")
 
         sam = "input_files/sams/microexon.sam"
@@ -73,7 +73,7 @@ class TestNCSJCorrection(object):
             sam_line = f.readline().strip()
 
         # Init transcript object
-        transcript = t2.Transcript2(sam_line, refs.genome, refs.sjDict)
+        transcript = t2.Transcript2(sam_line, refs.genome, refs.sjAnnot)
         maxDist = 5
         logInfo = TC.init_log_info()
         logInfo.TranscriptID = transcript.QNAME

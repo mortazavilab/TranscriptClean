@@ -15,9 +15,6 @@ class IntronBound:
         self.chrom = chrom
         self.pos = int(pos)
         self.strand = strand
-        #self.isCanonical = True
-        #if int(jnStr) == 0:
-        #    self.isCanonical = False
 
     def getBED(self):
         """ Format the intron boundary with 0-based start and end. 

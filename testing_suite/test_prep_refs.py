@@ -15,7 +15,7 @@ class TestPrepRefs(object):
 
         # Initialize options etc.
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        tmp_dir = "scratch/prep_refs/TC_tmp/"
+        tmp_dir = "scratch/prep_refs/genome-only/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
@@ -24,7 +24,7 @@ class TestPrepRefs(object):
         options.maxLenIndel = options.maxSJOffset = 5
         options.sjCorrection = "false"
         options.variantFile = None
-        options.spliceAnnot = None
+        options.sjAnnotFile = None
 
         header, sam_lines = TC.split_SAM(sam)
         refs = TC.prep_refs(options, sam_lines, header) 
@@ -34,6 +34,32 @@ class TestPrepRefs(object):
 
         # Check that SJ bedtools and annot lookup are empty
         assert refs.donors == refs.acceptors == None
-        assert refs.sjDict == {}
+        assert refs.sjAnnot == set()
 
+    def test_sjs(self):
+        """ Genome and splice junction reference provided. Variant structs
+            should still be empty. """
+        
+        # Initialize options etc.
+        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        tmp_dir = "scratch/prep_refs/sjs/TC_tmp/"
+        os.system("mkdir -p " + tmp_dir)
 
+        options = dstruct.Struct()
+        options.refGenome = "input_files/hg38_chr1.fa"
+        options.tmp_dir = tmp_dir
+        options.maxLenIndel = options.maxSJOffset = 5
+        options.sjCorrection = "false"
+        options.variantFile = None
+        options.sjAnnotFile = "input_files/test_junctions.txt"
+
+        header, sam_lines = TC.split_SAM(sam)
+        refs = TC.prep_refs(options, sam_lines, header)
+
+        # Check that variant dicts are empty
+        assert refs.snps == refs.insertions == refs.deletions == {}
+
+        # Check SJ bedtools and annot lookup 
+        assert (refs.donors).count() == 3 
+        assert (refs.acceptors).count() == 2 # Same acceptor appears in 2 jns 
+        assert len(refs.sjAnnot) == 3

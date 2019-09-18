@@ -71,7 +71,7 @@ def getOptions():
                               "same one used during mapping to generate the "
                               "provided SAM file."),
                       metavar = "FILE", type = "string", default = "")
-    parser.add_option("--spliceJns", "-j", dest = "sjAnnot", 
+    parser.add_option("--spliceJns", "-j", dest = "sjAnnotFile", 
                       help = ("Splice junction file obtained by mapping "
                               "Illumina reads to the genome using STAR, or "
                               "alternately, extracted from a GTF using the "
@@ -156,7 +156,7 @@ def prep_refs(options, transcripts, sam_header):
     os.system("mkdir -p %s" % tmp_dir)
     genomeFile = options.refGenome
     variantFile = options.variantFile
-    sjFile = options.sjAnnot
+    sjFile = options.sjAnnotFile
 
     # Container for references
     refs = dstruct.Struct()

@@ -25,7 +25,7 @@ class TestAttemptJnCorrection(object):
         sjFile = "input_files/test_junctions.txt"
         tmp_dir = "scratch/test_jns/TC_tmp/"
         chroms = set(["chr1"])
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+        donors, acceptors, sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
@@ -33,7 +33,7 @@ class TestAttemptJnCorrection(object):
         # Init transcript object
         sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
                       "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:6"])
-        transcript = t2.Transcript2(sam_fields, genome, sjDict)
+        transcript = t2.Transcript2(sam_fields, genome, sjAnnot)
         jnNumber = 0
         maxDist = 1
 
@@ -42,7 +42,7 @@ class TestAttemptJnCorrection(object):
                                                                    genome, 
                                                                    donors, 
                                                                    acceptors,
-                                                                   sjDict,
+                                                                   sjAnnot,
                                                                    maxDist)
         assert correction_status == False
         assert reason == "TooFarFromAnnotJn"
@@ -60,7 +60,7 @@ class TestAttemptJnCorrection(object):
         outprefix = "scratch/test_jns/"
         tmp_dir = "scratch/test_jns/TC_tmp/"
         chroms = set(["chr1"])
-        donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
+        donors, acceptors, sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
         genome = Fasta("input_files/hg38_chr1.fa")
 
@@ -68,7 +68,7 @@ class TestAttemptJnCorrection(object):
         # Init transcript object
         sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
                       "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"])
-        transcript = t2.Transcript2(sam_fields, genome, sjDict)
+        transcript = t2.Transcript2(sam_fields, genome, sjAnnot)
         jnNumber = 0
         maxDist = 5
         donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
@@ -79,7 +79,7 @@ class TestAttemptJnCorrection(object):
                                                                    genome,
                                                                    donors,
                                                                    acceptors,
-                                                                   sjDict,
+                                                                   sjAnnot,
                                                                    maxDist)
 
         assert correction_status == True
