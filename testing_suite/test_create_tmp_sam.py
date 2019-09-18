@@ -23,7 +23,22 @@ class TestCreateTmpSamFile(object):
         assert fname == "scratch/tmp_sam_test/split_uncorr_sams/test.sam"
         assert chroms == set(["chr1", "chr2"])
 
-                    
+        # Now check the integrity of the output file
+        line_num = 0
+        with open(fname, 'r') as f:
+            for line in f:
+                line = line.strip() 
+                if line_num == 0:
+                    assert line == sam_header[0]
+                elif line_num == 1:
+                    assert line == sam_header[1]
+                elif line_num == 2:
+                    assert line == sam_transcripts[0]
+                elif line_num == 3:
+                    assert line == sam_transcripts[1]
+                else:
+                    pytest.fail("Output contains more lines than expected")
+                line_num += 1           
 
 
 

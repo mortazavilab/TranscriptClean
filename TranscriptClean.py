@@ -214,7 +214,7 @@ def create_tmp_sam(sam_header, transcripts, tmp_dir, process = "1"):
         for item in sam_header:
             f.write("%s\n" % item)
         for transcript in transcripts:
-            f.write("%s\n" % item)
+            f.write("%s\n" % transcript)
             chroms.add(transcript.split('\t')[2])
 
     return sam_name, chroms
