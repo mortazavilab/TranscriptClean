@@ -21,21 +21,23 @@ class TestDeletionCorr(object):
         maxLen = 5
         spliceAnnot = None
         variants = {}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctDeletions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctDeletions(transcript, genome, variants, maxLen, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAAGA"
         assert transcript.CIGAR == "5M"
 
-        transcriptErrorLog.close()
+        # Check TE log
+        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+                                 "Deletion", "1", "Corrected", "NA"]) 
+        
+        assert TE_entries[0] == expected_TE
 
     def test_not_correctable_deletion(self):
         """ Same deletion again, but correction cutoff set to 0 """
@@ -48,21 +50,23 @@ class TestDeletionCorr(object):
         maxLen = 0
         spliceAnnot = None
         variants = {}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctDeletions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctDeletions(transcript, genome, variants, maxLen, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAGA"
         assert transcript.CIGAR == "2M1D2M"
 
-        transcriptErrorLog.close()
+        # Check TE log
+        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+                                 "Deletion", "1", "Uncorrected", "TooLarge"])
+
+        assert TE_entries[0] == expected_TE
 
     def test_variant_deletion(self):
         """ Same deletion again, but with a matching variant at the same 
@@ -76,19 +80,20 @@ class TestDeletionCorr(object):
         maxLen = 5
         spliceAnnot = None
         variants = {"chr1_202892096_202892096": 1}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctDeletions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctDeletions(transcript, genome, variants, maxLen, logInfo)
 
         # Check to see if deletion is still there as expected
         assert transcript.SEQ == "AAGA"
         assert transcript.CIGAR == "2M1D2M"
 
-        transcriptErrorLog.close()
+        # Check TE log
+        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+                                 "Deletion", "1", "Uncorrected", "VariantMatch"])
 
+        assert TE_entries[0] == expected_TE
