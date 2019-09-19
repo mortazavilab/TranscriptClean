@@ -2,7 +2,7 @@ import pytest
 from pyfasta import Fasta
 import sys
 sys.path.append("..")
-import transcript2 as t2
+import transcript as t2
 import TranscriptClean as TC
 @pytest.mark.unit
 
@@ -15,8 +15,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:155"
         correct_NM = "NM:i:0"
@@ -31,8 +31,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:3400"
         correct_NM = "NM:i:0"
@@ -47,8 +47,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:2G2813"
         correct_NM = "NM:i:1"
@@ -63,8 +63,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:2629^G377"
         correct_NM = "NM:i:1"
@@ -79,8 +79,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:3069"
         correct_NM = "NM:i:2"
@@ -95,8 +95,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:475C0A0C0C0A1082^C1347G17C205"
         correct_NM = "NM:i:9"
@@ -112,8 +112,8 @@ class TestComputeMD(object):
         genome = Fasta("input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, {})
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, {})
 
         correct_MD = "MD:Z:414G0A450^C405^C2435"
         correct_NM = "NM:i:5"

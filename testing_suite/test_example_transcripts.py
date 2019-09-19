@@ -2,7 +2,7 @@ import pytest
 from pyfasta import Fasta
 import sys
 sys.path.append("..")
-import transcript2 as t2
+import transcript as t2
 import TranscriptClean as TC
 import dstruct as dstruct
 @pytest.mark.integration
@@ -70,7 +70,7 @@ class TestCorrectTranscripts(object):
         # Read in transcript from outfile
         with open("scratch/DIM_nc_clean.sam", 'r') as f:
             sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjAnnot)
+            transcript = t2.Transcript(sam_line, genome, sjAnnot)
         
         assert transcript.CIGAR == correct_CIGAR
         assert transcript.MD == correct_MD

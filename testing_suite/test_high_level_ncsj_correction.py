@@ -3,7 +3,7 @@ from pyfasta import Fasta
 import os
 import sys
 sys.path.append("..")
-import transcript2 as t2
+import transcript as t2
 import spliceJunction as sj
 import intronBound as ib
 import TranscriptClean as TC
@@ -29,14 +29,12 @@ class TestNCSJCorrection(object):
         refs.genome = Fasta("input_files/hg38_chr1.fa")
 
         # Init transcript object
-        sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
-                                "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"])
-        transcript = t2.Transcript2(sam_fields, refs.genome, refs.sjAnnot)
+        sam_fields = ["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
+                                "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"]
+        transcript = t2.Transcript(sam_fields, refs.genome, refs.sjAnnot)
         jnNumber = 0
         maxDist = 5
-        logInfo = TC.init_log_info()
-        logInfo.TranscriptID = transcript.QNAME
-        logInfo.Mapping = "primary"
+        logInfo = TC.init_log_info(sam_fields)
 
         assert transcript.isCanonical == False
 
@@ -70,14 +68,12 @@ class TestNCSJCorrection(object):
 
         sam = "input_files/sams/microexon.sam"
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
+            sam_line = f.readline().strip().split('\t')
 
         # Init transcript object
-        transcript = t2.Transcript2(sam_line, refs.genome, refs.sjAnnot)
+        transcript = t2.Transcript(sam_line, refs.genome, refs.sjAnnot)
         maxDist = 5
-        logInfo = TC.init_log_info()
-        logInfo.TranscriptID = transcript.QNAME
-        logInfo.Mapping = "primary"
+        logInfo = TC.init_log_info(sam_line)
 
         assert transcript.isCanonical == False
 

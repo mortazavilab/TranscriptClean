@@ -2,7 +2,7 @@ import pytest
 from pyfasta import Fasta
 import sys
 sys.path.append("..")
-import transcript2 as t2
+import transcript as t2
 import TranscriptClean as TC
 @pytest.mark.unit
 
@@ -20,8 +20,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
 
         correct_jM = "jM:B:c,-1"
         correct_jI = "jI:B:i,-1"
@@ -42,8 +42,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
         
         correct_jM = "jM:B:c,21,21"
         correct_jI = "jI:B:i,192575930,192576284,192576366,192576773"
@@ -63,8 +63,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
 
         correct_jM = "jM:B:c,21,21,21,21,21,21,21,21,21,21,21,21,21,21,23,21,21,21,21"
         correct_jI = ("jI:B:i,51730125,51745535,51745632,51746709,51746758,"
@@ -90,8 +90,8 @@ class TestComputejIjM(object):
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
     
         correct_jM = "jM:B:c,22,22,2,2,2,2,2,2,2,2"
         correct_jI = ("jI:B:i,155247956,155248049,155248304,155248404,"
@@ -115,8 +115,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
 
         correct_jM = "jM:B:c,22,22,22,22,22,22,22,22,22,22,22"
         correct_jI = ("jI:B:i,202892660,202893238,202893426,202894183,"
@@ -141,8 +141,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
 
         correct_jM ="jM:B:c,21,21,21,21,1,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21"
         correct_jI = ("jI:B:i,154220976,154225083,154225214,154227281,"
@@ -172,8 +172,8 @@ class TestComputejIjM(object):
                                                                chroms)
 
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript2(sam_line, genome, sjDict)
+            sam_line = f.readline().strip().split('\t')
+            transcript = t2.Transcript(sam_line, genome, sjDict)
 
         correct_jM ="jM:B:c,21,21,21,0,21,21,21,21,21,21,21,21,21,21,21,21,21"
         correct_jI = ("jI:B:i,150941429,150942562,150942689,150942851,150943054,"

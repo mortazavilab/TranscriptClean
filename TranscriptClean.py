@@ -7,7 +7,7 @@
 # Noncanonical splice junctions can also be corrected using a file of reference 
 # splice sites.
 
-from transcript2 import Transcript2
+from transcript import Transcript
 from spliceJunction import *
 from intronBound import IntronBound
 from optparse import OptionParser
@@ -283,11 +283,11 @@ def transcript_init(transcript_line, genome, sjAnnot):
      sam_fields = transcript_line.split('\t')
      logInfo = init_log_info(sam_fields)
  
-     if logInfo.mapping != "primary":
+     if logInfo.Mapping != "primary":
          return None, logInfo
  
      try:
-         transcript = Transcript2(sam_fields, genome, sjAnnot)
+         transcript = Transcript(sam_fields, genome, sjAnnot)
      except:
          warnings.warn("Problem parsing transcript with ID '" + \
                        logInfo.TranscriptID + "'")
@@ -352,7 +352,6 @@ def correct_transcript(transcript_line, options, refs, outfiles):
  
     # Correct the transcript 
     if transcript != None:
-
         try:
             # Mismatch correction
             if options.mismatchCorrection == "true":
@@ -791,7 +790,6 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
                     currSeq = origSeq[seqPos:seqPos + ct]
                     if currSeq in variants[ID]:
                         logInfo.variant_insertions += 1
-                        #Transcript2.addVariantInsertion(t)
                         errorEntry = "\t".join([transcript_ID, ID, "Insertion", 
                                                 str(ct), "Uncorrected", 
                                                 "VariantMatch"])
@@ -1402,11 +1400,11 @@ def init_log_info(sam_fields):
 
      # Check if read is unmapped, uniquely mapped, or multimapped
      if chrom == "*" or flag == 4:
-         logInfo.mapping = "unmapped"
+         logInfo.Mapping = "unmapped"
      elif flag > 16:
-         logInfo.mapping = "non-primary"
+         logInfo.Mapping = "non-primary"
      else:
-         logInfo.mapping = "primary"
+         logInfo.Mapping = "primary"
 
      logInfo.corrected_deletions = "NA"
      logInfo.uncorrected_deletions = "NA"

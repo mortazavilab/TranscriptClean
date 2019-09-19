@@ -2,10 +2,8 @@ import pytest
 from pyfasta import Fasta
 import sys
 sys.path.append("..")
-import transcript2 as t2
 import spliceJunction as sj
 import intronBound as ib
-#import TranscriptClean as TC
 @pytest.mark.unit
 
 class TestFetchDonorAcceptor(object):

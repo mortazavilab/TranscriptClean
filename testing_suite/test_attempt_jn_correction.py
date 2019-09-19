@@ -2,7 +2,7 @@ import pytest
 from pyfasta import Fasta
 import sys
 sys.path.append("..")
-import transcript2 as t2
+import transcript as t2
 import spliceJunction as sj
 import intronBound as ib
 import TranscriptClean as TC
@@ -31,9 +31,9 @@ class TestAttemptJnCorrection(object):
 
 
         # Init transcript object
-        sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
-                      "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:6"])
-        transcript = t2.Transcript2(sam_fields, genome, sjAnnot)
+        sam_fields = ["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
+                      "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:6"]
+        transcript = t2.Transcript(sam_fields, genome, sjAnnot)
         jnNumber = 0
         maxDist = 1
 
@@ -66,9 +66,9 @@ class TestAttemptJnCorrection(object):
 
 
         # Init transcript object
-        sam_fields = "\t".join(["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
-                      "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"])
-        transcript = t2.Transcript2(sam_fields, genome, sjAnnot)
+        sam_fields = ["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
+                      "0", "0", "AGAA", "*",  "NM:i:0", "MD:Z:4"]
+        transcript = t2.Transcript(sam_fields, genome, sjAnnot)
         jnNumber = 0
         maxDist = 5
         donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
