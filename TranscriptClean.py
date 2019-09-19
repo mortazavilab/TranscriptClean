@@ -310,8 +310,7 @@ def batch_correct(transcripts, options, refs, outfiles, n = 1000):
     counter = 0
     for transcript in transcripts:
         curr_sam, curr_log, curr_fasta = correct_transcript(transcript_line, 
-                                                            options, refs, 
-                                                            outfiles)
+                                                            options, refs)
         if curr_sam != None:
             sam_lines.append(curr_sam)
         if curr_log != None:
@@ -337,17 +336,13 @@ def batch_correct(transcripts, options, refs, outfiles, n = 1000):
     tL.write("\n".join(log_lines))
     return
 
-def correct_transcript(transcript_line, options, refs): # outfiles):
+def correct_transcript(transcript_line, options, refs):
     """ Given a line from a SAM file, create a transcript object. If it's a
         primary alignment, then perform the corrections specified in the 
         options.
     """
     # TODO: add an example that fails indel correction. I think there are
     # mitochondrial cases
-
-    #outSam = outfiles.sam
-    #outFa = outfiles.fasta
-
     orig_transcript, logInfo = transcript_init(transcript_line, refs.genome, 
                                           refs.sjAnnot)
     TE_entries = [] 
@@ -370,7 +365,6 @@ def correct_transcript(transcript_line, options, refs): # outfiles):
                 TE_entries += ins_TE
 
                 # Deletion correction
-                # TODO: fn should return TE. Append to TE_log_lines
                 del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
                                  options.maxLenIndel, upd_logInfo, outfiles.TElog)
                 TE_entries += del_TE
@@ -379,7 +373,7 @@ def correct_transcript(transcript_line, options, refs): # outfiles):
             if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
                 upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
                                                             options.maxSJOffset, 
-                                                            upd_logInfo) #outfiles.TElog)
+                                                            upd_logInfo) 
                 TE_entries += ncsj_TE
        
             # TODO: remove these writes 
@@ -394,18 +388,11 @@ def correct_transcript(transcript_line, options, refs): # outfiles):
                            "with ID %s. Will output original version.") % \
                            orig_transcript.QNAME)
             print(e)
-            # TODO: Return None and an NA-filled logInfo object.
             TE_entries = []
             return orig_transcript, logInfo, TE_entries
 
-    #else:
-    # TODO: for successful correction, return transcript object, updated
+    # After successful correction, return transcript object, updated
     # logInfo, and the TE log lines generated during correction
-
-    # TODO: remove
-    # Output transcript log entry 
-    #write_to_transcript_log(upd_logInfo, outfiles.log)
-
     return upd_transcript, upd_logInfo, TE_entries 
 
 def validate_chroms(genome_file, sam):
@@ -655,6 +642,8 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True, process = "1"):
         variants are included only if they overlap with the input SAM reads. 
         This is a space-saving measure. If add_chr is set to 'True', the prefix
         'chr' will be added to each chromosome name."""
+    # TODO: Need to add insertion/deletion tests and make sure TE log entries
+    # match.
 
     SNPs = {}
     insertions = {}
@@ -762,6 +751,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
     logInfo.uncorrected_insertions = 0
     logInfo.corrected_insertions = 0
     logInfo.variant_insertions = 0
+    TE_entries = []
 
     origSeq = transcript.SEQ
     origCIGAR = transcript.CIGAR
@@ -781,7 +771,6 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
     genomePos = transcript.POS 
 
     # Iterate over operations to sequence and repair insertions
-    TE_entries = []
     for op,ct in zip(cigarOps, cigarCounts):
 
         currPos = transcript.CHROM + ":" + str(genomePos) + "-" + \
@@ -868,6 +857,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
     logInfo.uncorrected_deletions = 0
     logInfo.corrected_deletions = 0
     logInfo.variant_deletions = 0
+    TE_entries = []
 
     transcript_ID = transcript.QNAME
     chrom = transcript.CHROM
@@ -889,7 +879,6 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
     genomePos = transcript.POS
 
     # Iterate over operations to sequence and repair mismatches and microindels
-    TE_entries = []
     for op,ct in zip(cigarOps, cigarCounts):
 
         currPos = chrom + ":" + str(genomePos) + "-" + \
@@ -970,6 +959,7 @@ def correctMismatches(transcript, genome, variants, logInfo):
    
     logInfo.uncorrected_mismatches = 0
     logInfo.corrected_mismatches = 0
+    TE_entries = []
 
     origSeq = transcript.SEQ
     origCIGAR = transcript.CIGAR
@@ -990,7 +980,6 @@ def correctMismatches(transcript, genome, variants, logInfo):
     mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
 
     # Iterate over operations to sequence and repair mismatches and microindels
-    TE_entries = []
     for op,ct in zip(mergeOperations, mergeCounts):
         if op == "M":
              newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -1071,10 +1060,15 @@ def endMatch(MVal, newCIGAR):
 
     return MVal, newCIGAR
 
-def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
-   
+def cleanNoncanonical(transcript, refs, maxDist, logInfo):
+    """ Iterate over each junction in the provided transcript object. If the 
+        junction is noncanonical, attempt to correct it, and record the result.
+        Returns a modified transcript object that originates from a copy of the 
+        object passed into the function, along with the error log entries. 
+    """ 
     logInfo.corrected_NC_SJs = 0
     logInfo.uncorrected_NC_SJs = 0 
+    TE_entries = []
 
     if transcript.isCanonical == True:
         return transcript
@@ -1108,9 +1102,10 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog):
             # Update transcript error log
             errorEntry = "\t".join([transcript.QNAME, ID, "NC_SJ_boundary",
                                     str(dist), status, reason])
-            TElog.write(errorEntry + "\n")
+            TE_entries.append(errorEntry)
+            #TElog.write(errorEntry + "\n")
 
-    return transcript
+    return transcript, TE_entries
 
 def find_closest_bound(sj_bound, ref_bounds):
     """ Given one side of a splice junction, find the closest reference """

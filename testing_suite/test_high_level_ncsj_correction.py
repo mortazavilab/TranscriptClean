@@ -22,7 +22,6 @@ class TestNCSJCorrection(object):
         sjFile = "input_files/test_junctions.txt"
         tmp_dir = "scratch/test_ncsj/TC_tmp/"
         os.system("mkdir -p %s" % tmp_dir)
-        TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr1"])
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
@@ -39,7 +38,7 @@ class TestNCSJCorrection(object):
         assert transcript.isCanonical == False
 
         # Attempt to correct the splice junction
-        transcript = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog)
+        transcript, TE_entries = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo)
 
         assert transcript.isCanonical == True
         assert transcript.spliceJunctions[jnNumber].isCanonical == True
@@ -60,7 +59,6 @@ class TestNCSJCorrection(object):
         sjFile = "input_files/chr11_sjs.txt"
         tmp_dir = "scratch/test/TC_tmp/"
         os.system("mkdir -p %s" % tmp_dir)
-        TElog = open(tmp_dir + "test_clean.TE.log", 'w')
         refs = dstruct.Struct()
         chroms = set(["chr11"])
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
@@ -78,7 +76,7 @@ class TestNCSJCorrection(object):
         assert transcript.isCanonical == False
 
         # Attempt to correct the splice junction
-        transcript = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo, TElog)
+        transcript, TE_entries = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo)
 
         orig_CIGAR = ("1211M5612N57M464N30M2717N120M1097N23M2632N146M1225N"
                       "140M4770N72M5051N132M1513N87M567N142M3780N100M2160N"
