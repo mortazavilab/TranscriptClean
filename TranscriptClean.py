@@ -359,26 +359,29 @@ def correct_transcript(transcript_line, options, refs): # outfiles):
             upd_logInfo = logInfo
             # Mismatch correction
             if options.mismatchCorrection == "true":
-                # TODO: fn should return TE. Append to TE_log_lines
-                curr_TE = correctMismatches(upd_transcript, refs.genome, refs.snps, 
-                                  upd_logInfo)#, outfiles.TElog)
-                TE_entries += curr_TE
+                mismatch_TE = correctMismatches(upd_transcript, refs.genome, 
+                                                refs.snps, upd_logInfo)
+                TE_entries += mismatch_TE
         
             if options.indelCorrection == "true":
                 # Insertion correction
                 # TODO: fn should return TE. Append to TE_log_lines
-                correctInsertions(upd_transcript, refs.genome, refs.insertions,
+                ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
                                   options.maxLenIndel, upd_logInfo, outfiles.TElog)
+                TE_entries += ins_TE
 
                 # Deletion correction
                 # TODO: fn should return TE. Append to TE_log_lines
-                correctDeletions(upd_transcript, refs.genome, refs.deletions,
+                del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
                                  options.maxLenIndel, upd_logInfo, outfiles.TElog)
+                TE_entries += del_TE
 
             # NCSJ correction
             if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
-                upd_transcript = cleanNoncanonical(upd_transcript, refs, options.maxSJOffset, 
-                                               upd_logInfo, outfiles.TElog)
+                upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
+                                                            options.maxSJOffset, 
+                                                            upd_logInfo) #outfiles.TElog)
+                TE_entries += ncsj_TE
        
             # TODO: remove these writes 
             # Write transcript to sam and fasta file
@@ -753,7 +756,7 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True, process = "1"):
 
     return SNPs, insertions, deletions
 
-def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
+def correctInsertions(transcript, genome, variants, maxLen, logInfo):
     """ Corrects insertions up to size maxLen using the reference genome. 
         If a variant file was provided, correction will be SNP-aware. """
 
@@ -779,6 +782,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
     genomePos = transcript.POS 
 
     # Iterate over operations to sequence and repair insertions
+    TE_entries = []
     for op,ct in zip(cigarOps, cigarCounts):
 
         currPos = transcript.CHROM + ":" + str(genomePos) + "-" + \
@@ -806,7 +810,8 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
                         errorEntry = "\t".join([transcript_ID, ID, "Insertion", 
                                                 str(ct), "Uncorrected", 
                                                 "VariantMatch"])
-                        eL.write(errorEntry + "\n")  
+                        TE_entries.append(errorEntry)
+                        #eL.write(errorEntry + "\n")  
 
                         # Leave insertion in 
                         MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -819,7 +824,8 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
                 errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
                                         "Corrected", "NA"])
                 logInfo.corrected_insertions += 1
-                eL.write(errorEntry + "\n")
+                TE_entries.append(errorEntry)
+                #eL.write(errorEntry + "\n")
 
                 # Subtract the inserted bases by skipping them. 
                 # GenomePos stays the same, as does MVal
@@ -828,7 +834,8 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
                 errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
                                         "Uncorrected", "TooLarge"])
                 logInfo.uncorrected_insertions += 1
-                eL.write(errorEntry + "\n")
+                TE_entries.append(errorEntry)
+                #eL.write(errorEntry + "\n")
                 MVal, newCIGAR = endMatch(MVal, newCIGAR)
                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                 newCIGAR = newCIGAR + str(ct) + op
@@ -856,7 +863,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo, eL):
     transcript.CIGAR = newCIGAR
     transcript.SEQ = newSeq
         
-    return    
+    return TE_entries   
 
 def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
     """ Corrects deletions up to size maxLen using the reference genome. 
@@ -960,7 +967,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
     return 
 
 
-def correctMismatches(transcript, genome, variants, logInfo): #, eL):
+def correctMismatches(transcript, genome, variants, logInfo):
     """ This function corrects mismatches in the provided transcript. If a 
         variant file was provided, correction will be variant-aware."""
    
@@ -1006,7 +1013,6 @@ def correctMismatches(transcript, genome, variants, logInfo): #, eL):
                                             str(ct), "Uncorrected", 
                                             "VariantMatch"])
                     TE_entries.append(errorEntry)
-                    #eL.write(errorEntry + "\n")
                     logInfo.uncorrected_mismatches += 1
 
                     # Keep the base as-is
@@ -1018,7 +1024,6 @@ def correctMismatches(transcript, genome, variants, logInfo): #, eL):
             # Otherwise, correct the mismatch to reference base
             errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
                                     str(ct), "Corrected", "NA"])
-            #eL.write(errorEntry + "\n")
             TE_entries.append(errorEntry)
             logInfo.corrected_mismatches += 1
 
@@ -1049,6 +1054,7 @@ def correctMismatches(transcript, genome, variants, logInfo): #, eL):
 
     transcript.CIGAR = newCIGAR
     transcript.SEQ = newSeq
+    # TODO: find faster way to compute
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
 
     return TE_entries

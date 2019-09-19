@@ -10,7 +10,9 @@ class TestInsertionCorr(object):
 
     def test_correctable_insertion(self):
         """ Toy transcript with sequence AAATTGA, where the Ts are a 2 bp insertion.
-            chr1: 202,892,094 - 202,892,098. Insertion is at 202,892,096 """
+            chr1: 202,892,094 - 202,892,098. Insertion is between position
+            202,892,096 and 202,892,097. The genomic position used to refer
+            to it is 202,892,097"""
 
         sam_fields = ["test_read", "0", "chr1", "202892094", "255", "3M2I2M", "*",
                       "0", "0", "AAATTGA", "*",	"NM:i:2", "MD:Z:5", "jI:B:i,-1",
@@ -20,25 +22,30 @@ class TestInsertionCorr(object):
         maxLen = 5
         spliceAnnot = None
         variants = {}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
     
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctInsertions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctInsertions(transcript, genome, variants, maxLen, logInfo)
     
         # Check to see if correction was successful
         assert transcript.SEQ == "AAAGA"
         assert transcript.CIGAR == "5M"
 
-        transcriptErrorLog.close()
+        # Check the log entries
+        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+                                  "Insertion", "2", "Corrected", "NA"])
+        assert len(TE_entries) == 1
+        assert TE_entries[0] == expected_log
+
 
     def test_not_correctable_insertion(self):
         """ Toy transcript with sequence AAATTGA, where the Ts are a 2 bp insertion.
-            chr1: 202,892,094 - 202,892,098. Insertion is at 202,892,096 """
+            chr1: 202,892,094 - 202,892,098. Insertion is between position
+            202,892,096 and 202,892,097. The genomic position used to refer
+            to it is 202,892,097"""
 
         sam_fields = ["test_read", "0", "chr1", "202892094", "255", "3M2I2M", "*",
                       "0", "0", "AAATTGA", "*", "NM:i:2", "MD:Z:5", "jI:B:i,-1",
@@ -48,48 +55,54 @@ class TestInsertionCorr(object):
         maxLen = 1
         spliceAnnot = None
         variants = {}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctInsertions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctInsertions(transcript, genome, variants, maxLen, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAATTGA"
         assert transcript.CIGAR == "3M2I2M"
 
-        transcriptErrorLog.close()
+        # Check the log entries
+        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+                                  "Insertion", "2", "Uncorrected", "TooLarge"])
+        assert len(TE_entries) == 1
+        assert TE_entries[0] == expected_log
+
          
     def test_variant_insertion(self):
         """ Toy transcript with sequence AAATTGA, where the Ts are a 2 bp 
             insertion that matches a known variant.
-            chr1: 202,892,094 - 202,892,098. Insertion is at 202,892,096 """
+            chr1: 202,892,094 - 202,892,098. Insertion is between position
+            202,892,096 and 202,892,097. The genomic position used to refer
+            to it is 202,892,097 """
 
         sam_fields = ["test_read", "0", "chr1", "202892094", "255", "3M2I2M", "*",
                       "0", "0", "AAATTGA", "*", "NM:i:2", "MD:Z:5", "jI:B:i,-1",
                       "jM:B:c,-1" ]
 
         genome = Fasta("input_files/hg38_chr1.fa")
-        maxLen = 1
+        maxLen = 5
         spliceAnnot = None
-        variants = {"chr1_202892096_202892097": "TT"}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
+        variants = {"chr1_202892097_202892098": "TT"}
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctInsertions(transcript, genome, variants, maxLen, logInfo,
-                             transcriptErrorLog)
+        TE_entries = TC.correctInsertions(transcript, genome, variants, maxLen, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAATTGA"
         assert transcript.CIGAR == "3M2I2M"
 
-        transcriptErrorLog.close()        
-         
+        # Check the log entries
+        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+                                  "Insertion", "2", "Uncorrected", "VariantMatch"])
+        assert len(TE_entries) == 1
+        assert TE_entries[0] == expected_log
