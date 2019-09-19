@@ -337,17 +337,20 @@ def batch_correct(transcripts, options, refs, outfiles, n = 1000):
     tL.write("\n".join(log_lines))
     return
 
-def correct_transcript(transcript_line, options, refs, outfiles):
+def correct_transcript(transcript_line, options, refs): # outfiles):
     """ Given a line from a SAM file, create a transcript object. If it's a
         primary alignment, then perform the corrections specified in the 
         options.
     """
-    outSam = outfiles.sam
-    outFa = outfiles.fasta
+    # TODO: add an example that fails indel correction. I think there are
+    # mitochondrial cases
+
+    #outSam = outfiles.sam
+    #outFa = outfiles.fasta
 
     orig_transcript, logInfo = transcript_init(transcript_line, refs.genome, 
                                           refs.sjAnnot)
-    TE_log_lines = [] 
+    TE_entries = [] 
 
     # Correct the transcript 
     if orig_transcript != None:
@@ -357,8 +360,9 @@ def correct_transcript(transcript_line, options, refs, outfiles):
             # Mismatch correction
             if options.mismatchCorrection == "true":
                 # TODO: fn should return TE. Append to TE_log_lines
-                correctMismatches(upd_transcript, refs.genome, refs.snps, 
-                                  upd_logInfo, outfiles.TElog)
+                curr_TE = correctMismatches(upd_transcript, refs.genome, refs.snps, 
+                                  upd_logInfo)#, outfiles.TElog)
+                TE_entries += curr_TE
         
             if options.indelCorrection == "true":
                 # Insertion correction
@@ -380,8 +384,8 @@ def correct_transcript(transcript_line, options, refs, outfiles):
             # Write transcript to sam and fasta file
             #logInfo_str = create_log_string(logInfo) 
             #return transcript.printableSAM(), logInfo_str, transcript.printableFa()
-            outSam.write(upd_transcript.printableSAM() + "\n")
-            outFa.write(upd_transcript.printableFa() + "\n")
+            #outSam.write(upd_transcript.printableSAM() + "\n")
+            #outFa.write(upd_transcript.printableFa() + "\n")
 
         except Exception as e:
             warnings.warn(("Problem encountered while correcting transcript "
@@ -389,8 +393,8 @@ def correct_transcript(transcript_line, options, refs, outfiles):
                            orig_transcript.QNAME)
             print(e)
             # TODO: Return None and an NA-filled logInfo object.
-            # TE_entries = []
-            return
+            TE_entries = []
+            return orig_transcript, logInfo, TE_entries
 
     #else:
     # TODO: for successful correction, return transcript object, updated
@@ -398,9 +402,9 @@ def correct_transcript(transcript_line, options, refs, outfiles):
 
     # TODO: remove
     # Output transcript log entry 
-    write_to_transcript_log(upd_logInfo, outfiles.log)
+    #write_to_transcript_log(upd_logInfo, outfiles.log)
 
-    return #upd_transcript, upd_logInfo 
+    return upd_transcript, upd_logInfo, TE_entries 
 
 def validate_chroms(genome_file, sam):
     """ Make sure that every chromosome in the SAM file also exists in the
@@ -956,7 +960,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo, eL):
     return 
 
 
-def correctMismatches(transcript, genome, variants, logInfo, eL):
+def correctMismatches(transcript, genome, variants, logInfo): #, eL):
     """ This function corrects mismatches in the provided transcript. If a 
         variant file was provided, correction will be variant-aware."""
    
@@ -982,6 +986,7 @@ def correctMismatches(transcript, genome, variants, logInfo, eL):
     mergeOperations, mergeCounts = transcript.mergeMDwithCIGAR()
 
     # Iterate over operations to sequence and repair mismatches and microindels
+    TE_entries = []
     for op,ct in zip(mergeOperations, mergeCounts):
         if op == "M":
              newSeq = newSeq + origSeq[seqPos:seqPos + ct]
@@ -1000,7 +1005,8 @@ def correctMismatches(transcript, genome, variants, logInfo, eL):
                     errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
                                             str(ct), "Uncorrected", 
                                             "VariantMatch"])
-                    eL.write(errorEntry + "\n")
+                    TE_entries.append(errorEntry)
+                    #eL.write(errorEntry + "\n")
                     logInfo.uncorrected_mismatches += 1
 
                     # Keep the base as-is
@@ -1012,7 +1018,8 @@ def correctMismatches(transcript, genome, variants, logInfo, eL):
             # Otherwise, correct the mismatch to reference base
             errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
                                     str(ct), "Corrected", "NA"])
-            eL.write(errorEntry + "\n")
+            #eL.write(errorEntry + "\n")
+            TE_entries.append(errorEntry)
             logInfo.corrected_mismatches += 1
 
             # Change sequence base to the reference base at this position
@@ -1043,7 +1050,8 @@ def correctMismatches(transcript, genome, variants, logInfo, eL):
     transcript.CIGAR = newCIGAR
     transcript.SEQ = newSeq
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
-    return 
+
+    return TE_entries
 
                         
 def endMatch(MVal, newCIGAR):

@@ -20,21 +20,22 @@ class TestMismatchCorr(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         spliceAnnot = None
         variants = {}
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctMismatches(transcript, genome, variants, logInfo,
-                             transcriptErrorLog)
+        error_entries = TC.correctMismatches(transcript, genome, variants, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAAGA"
         assert transcript.CIGAR == "5M"
 
-        transcriptErrorLog.close()
+        # Check the number and content of the transcript error entries
+        assert len(error_entries) == 1
+        assert "Corrected" in error_entries[0]
+
 
     def test_variant_mismatch(self):
         """ Toy transcript with sequence AACGA, where the C is a mismatch to the
@@ -48,21 +49,22 @@ class TestMismatchCorr(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         spliceAnnot = None
         variants = {"chr1_202892096" : ["C", "T"] }
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctMismatches(transcript, genome, variants, logInfo,
-                             transcriptErrorLog)
+        error_entries = TC.correctMismatches(transcript, genome, variants, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AACGA"
         assert transcript.CIGAR == "5M"
 
-        transcriptErrorLog.close()
+        # Check the number and content of the transcript error entries
+        assert len(error_entries) == 1
+        assert "Uncorrected" in error_entries[0]
+        assert "VariantMatch" in error_entries[0]
 
     def test_wrong_variant_mismatch(self):
         """ Toy transcript with sequence AACGA, where the C is a mismatch to the
@@ -76,18 +78,20 @@ class TestMismatchCorr(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         spliceAnnot = None
         variants = {"chr1_202892096" : ["G"] }
-        transcriptErrorLog = open("scratch/TE.log", 'w')
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
         transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
 
         # Run correction
-        TC.correctMismatches(transcript, genome, variants, logInfo,
-                             transcriptErrorLog)
+        error_entries = TC.correctMismatches(transcript, genome, variants, logInfo)
 
         # Check to see if correction was successful
         assert transcript.SEQ == "AAAGA"
         assert transcript.CIGAR == "5M"
 
-        transcriptErrorLog.close()
+        # Check the number and content of the transcript error entries
+        assert len(error_entries) == 1
+        assert "Corrected" in error_entries[0]
+        assert "VariantMatch" not in error_entries[0]
+
