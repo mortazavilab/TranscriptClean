@@ -24,10 +24,10 @@ class TestCorrectTranscripts(object):
                                                                chroms)
 
         outfiles = dstruct.Struct()
-        outfiles.TElog = open(tmp_dir + "DIM_nc.TE.log", 'w')
+        outfiles.TElog = open(tmp_dir + "DIM_nc_clean.TE.log", 'w')
         outfiles.sam = open(tmp_dir + "DIM_nc_clean.sam", 'w')
         outfiles.fasta = open(tmp_dir + "DIM_nc_clean.fasta", 'w') 
-        outfiles.log = open(tmp_dir + "DIM_nc.log", 'w')
+        outfiles.log = open(tmp_dir + "DIM_nc_clean.log", 'w')
 
         refs = dstruct.Struct()
         refs.sjAnnot = sjAnnot
@@ -50,7 +50,6 @@ class TestCorrectTranscripts(object):
         with open(sam, 'r') as f:
             transcripts = [f.readline().strip()]
         TC.batch_correct(transcripts, options, refs, outfiles)
-        #TC.correct_transcript(sam_line, options, refs)
            
         # Close the output files
         for handle in outfiles.values():
@@ -80,4 +79,15 @@ class TestCorrectTranscripts(object):
         assert transcript.NM == correct_NM 
         assert transcript.jI == correct_jI
         assert transcript.jM == correct_jM
+
+        # Read logs and make sure they are OK
+        expected_log = "\t".join(["c34150/f1p1/3707", "primary", 
+                                   "2", "0", "0", 
+                                   "1", "0", "0",
+                                   "2", "0", 
+                                   "1", "0"])
+                                  
+        with open(tmp_dir + "DIM_nc_clean.log", 'r') as f:
+            log = f.readline().strip()
+            assert log == expected_log
 
