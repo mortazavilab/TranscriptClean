@@ -295,45 +295,62 @@ def transcript_init(transcript_line, genome, sjAnnot):
 
      return transcript, logInfo 
 
-def batch_correct(transcripts, options, refs, outfiles, n = 1000):
+def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
     """TODO: Correct and output n lines at a time in a batch. The purpose is 
        to stagger when different threads are writing to disk. For a given
-       transcript, there can be only one sam, fasta, and log entry."""
+       transcript, there can be only one sam, fasta, and log entry, but there 
+       can be more than one transcript error (TE)."""
 
     outSam = outfiles.sam
     outFa = outfiles.fasta
     tL = outfiles.log
+    tE = outfiles.TElog
     sam_lines = []
     log_lines = []
-    fasta_lines = []  
+    fasta_lines = []
+    TE_log_lines = []
 
     counter = 0
-    for transcript in transcripts:
-        curr_sam, curr_log, curr_fasta = correct_transcript(transcript_line, 
-                                                            options, refs)
-        if curr_sam != None:
-            sam_lines.append(curr_sam)
-        if curr_log != None:
-            log_lines += curr_log
-        if curr_fasta != None:
-            fasta_lines.append(curr_fasta)
+    for transcript_line in sam_transcripts:
+        transcript, logInfo, TE_entries = correct_transcript(transcript_line, 
+                                                             options, refs)
 
+        # If the transcript object returned is None, this means that the 
+        # current read was not a primary mapper. Add to the log file,
+        # but do not output a fasta sequence. Only output the original 
+        # SAM alignment if primaryOnly mode is off 
+        if transcript == None:
+            log_lines.append(create_log_string(logInfo))
+            if options.primaryOnly == False:
+                 sam_lines.append(transcript_line)    
+       
+        # In all other cases, output the transcript in SAM and Fasta format,
+        # plus output the logs 
+        else:
+            sam_lines.append(transcript.printableSAM())
+            log_lines.append(create_log_string(logInfo))
+            fasta_lines.append(transcript.printableFa())
+            TE_log_lines.extend(TE_entries)    
+            
         # Check whether to empty the buffer
         if counter > n:
             outSam.write("\n".join([x for x in sam_lines]))
             outFa.write("\n".join([x for x in fasta_lines]))
             tL.write("\n".join(log_lines))
+            tE.write("\n".join(curr_TE))
             sam_lines = []
             fasta_lines = []
             log_lines = []
+            TE_log_lines = []
             counter = 0
         else:
             counter += 1
 
-    # Print remaining lines
+    # Write any remaining lines
     outSam.write("\n".join(sam_lines))
     outFa.write("\n".join(fasta_lines))
     tL.write("\n".join(log_lines))
+    tE.write("\n".join(TE_log_lines))
     return
 
 def correct_transcript(transcript_line, options, refs):
@@ -347,49 +364,44 @@ def correct_transcript(transcript_line, options, refs):
                                           refs.sjAnnot)
     TE_entries = [] 
 
+    if orig_transcript == None:
+        return orig_transcript, logInfo, TE_entries
+
     # Correct the transcript 
-    if orig_transcript != None:
-        try:
-            upd_transcript = copy(orig_transcript) 
-            upd_logInfo = logInfo
-            # Mismatch correction
-            if options.mismatchCorrection == "true":
-                mismatch_TE = correctMismatches(upd_transcript, refs.genome, 
-                                                refs.snps, upd_logInfo)
-                TE_entries += mismatch_TE
-        
-            if options.indelCorrection == "true":
-                # Insertion correction
-                ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
-                                  options.maxLenIndel, upd_logInfo, outfiles.TElog)
-                TE_entries += ins_TE
+    try:
+        upd_transcript = copy(orig_transcript) 
+        upd_logInfo = logInfo
+        # Mismatch correction
+        if options.mismatchCorrection == "true":
+            mismatch_TE = correctMismatches(upd_transcript, refs.genome, 
+                                            refs.snps, upd_logInfo)
+            TE_entries.extend(mismatch_TE)
+    
+        if options.indelCorrection == "true":
+            # Insertion correction
+            ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
+                              options.maxLenIndel, upd_logInfo)
+            TE_entries.extend(ins_TE)
 
-                # Deletion correction
-                del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
-                                 options.maxLenIndel, upd_logInfo, outfiles.TElog)
-                TE_entries += del_TE
+            # Deletion correction
+            del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
+                             options.maxLenIndel, upd_logInfo)
+            TE_entries.extend(del_TE)
 
-            # NCSJ correction
-            if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
-                upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
-                                                            options.maxSJOffset, 
-                                                            upd_logInfo) 
-                TE_entries += ncsj_TE
-       
-            # TODO: remove these writes 
-            # Write transcript to sam and fasta file
-            #logInfo_str = create_log_string(logInfo) 
-            #return transcript.printableSAM(), logInfo_str, transcript.printableFa()
-            #outSam.write(upd_transcript.printableSAM() + "\n")
-            #outFa.write(upd_transcript.printableFa() + "\n")
-
-        except Exception as e:
-            warnings.warn(("Problem encountered while correcting transcript "
-                           "with ID %s. Will output original version.") % \
-                           orig_transcript.QNAME)
-            print(e)
-            TE_entries = []
-            return orig_transcript, logInfo, TE_entries
+        # NCSJ correction
+        if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
+            upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
+                                                        options.maxSJOffset, 
+                                                        upd_logInfo) 
+            TE_entries.extend(ncsj_TE)
+    
+    except Exception as e:
+        warnings.warn(("Problem encountered while correcting transcript "
+                       "with ID %s. Will output original version.") % \
+                       orig_transcript.QNAME)
+        print(e)
+        TE_entries = []
+        return orig_transcript, logInfo, TE_entries
 
     # After successful correction, return transcript object, updated
     # logInfo, and the TE log lines generated during correction
@@ -470,9 +482,10 @@ def run_chunk(transcripts, options, sam_header):
     # Set up the outfiles
     outfiles = setup_outfiles(options, str(os.getpid()))
 
-    # Iterate over transcripts and correct them
-    for transcript in transcripts:
-        correct_transcript(transcript, options, refs, outfiles)
+    # Correct the transcripts
+    batch_correct(transcripts, options, refs, outfiles, n = 1000)
+    #for transcript in transcripts:
+    #    correct_transcript(transcript, options, refs, outfiles)
 
     # Close up the outfiles
     close_outfiles(outfiles)

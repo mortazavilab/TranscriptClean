@@ -48,8 +48,9 @@ class TestCorrectTranscripts(object):
 
         # Correct the transcript
         with open(sam, 'r') as f:
-            sam_line = f.readline().strip()
-        TC.correct_transcript(sam_line, options, refs, outfiles)
+            transcripts = [f.readline().strip()]
+        TC.batch_correct(transcripts, options, refs, outfiles)
+        #TC.correct_transcript(sam_line, options, refs)
            
         # Close the output files
         for handle in outfiles.values():
