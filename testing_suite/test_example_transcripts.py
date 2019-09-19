@@ -69,8 +69,8 @@ class TestCorrectTranscripts(object):
 
         # Read in transcript from outfile
         with open("scratch/DIM_nc_clean.sam", 'r') as f:
-            sam_line = f.readline().strip()
-            transcript = t2.Transcript(sam_line, genome, sjAnnot)
+            sam_line = f.readline().strip().split('\t')
+        transcript = t2.Transcript(sam_line, genome, sjAnnot)
         
         assert transcript.CIGAR == correct_CIGAR
         assert transcript.MD == correct_MD
