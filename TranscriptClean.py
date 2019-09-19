@@ -345,53 +345,62 @@ def correct_transcript(transcript_line, options, refs, outfiles):
     outSam = outfiles.sam
     outFa = outfiles.fasta
 
-    transcript, logInfo = transcript_init(transcript_line, refs.genome, 
+    orig_transcript, logInfo = transcript_init(transcript_line, refs.genome, 
                                           refs.sjAnnot)
-    # TODO: add buffered transcript output. Will require a batch function that
-    # calls this one and then returns the result.   
- 
+    TE_log_lines = [] 
+
     # Correct the transcript 
-    if transcript != None:
+    if orig_transcript != None:
         try:
+            upd_transcript = copy(orig_transcript) 
+            upd_logInfo = logInfo
             # Mismatch correction
             if options.mismatchCorrection == "true":
-                correctMismatches(transcript, refs.genome, refs.snps, 
-                                  logInfo, outfiles.TElog)
+                # TODO: fn should return TE. Append to TE_log_lines
+                correctMismatches(upd_transcript, refs.genome, refs.snps, 
+                                  upd_logInfo, outfiles.TElog)
         
             if options.indelCorrection == "true":
                 # Insertion correction
-                correctInsertions(transcript, refs.genome, refs.insertions,
-                                  options.maxLenIndel, logInfo, outfiles.TElog)
+                # TODO: fn should return TE. Append to TE_log_lines
+                correctInsertions(upd_transcript, refs.genome, refs.insertions,
+                                  options.maxLenIndel, upd_logInfo, outfiles.TElog)
 
                 # Deletion correction
-                correctDeletions(transcript, refs.genome, refs.deletions,
-                                 options.maxLenIndel, logInfo, outfiles.TElog)
+                # TODO: fn should return TE. Append to TE_log_lines
+                correctDeletions(upd_transcript, refs.genome, refs.deletions,
+                                 options.maxLenIndel, upd_logInfo, outfiles.TElog)
 
             # NCSJ correction
             if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
-                transcript = cleanNoncanonical(transcript, refs, options.maxSJOffset, 
-                                               logInfo, outfiles.TElog)
-        
+                upd_transcript = cleanNoncanonical(upd_transcript, refs, options.maxSJOffset, 
+                                               upd_logInfo, outfiles.TElog)
+       
+            # TODO: remove these writes 
             # Write transcript to sam and fasta file
-            logInfo_str = create_log_string(logInfo) 
-            return transcript.printableSAM(), logInfo_str, transcript.printableFa()
-            #outSam.write(transcript.printableSAM() + "\n")
-            #outFa.write(transcript.printableFa() + "\n")
+            #logInfo_str = create_log_string(logInfo) 
+            #return transcript.printableSAM(), logInfo_str, transcript.printableFa()
+            outSam.write(upd_transcript.printableSAM() + "\n")
+            outFa.write(upd_transcript.printableFa() + "\n")
 
         except Exception as e:
-            warnings.warn("Problem encountered while correcting transcript " + \
-                  " with ID '" + transcript.QNAME + "'. Skipping output.")
+            warnings.warn(("Problem encountered while correcting transcript "
+                           "with ID %s. Will output original version.") % \
+                           orig_transcript.QNAME)
             print(e)
+            # TODO: Return None and an NA-filled logInfo object.
+            # TE_entries = []
             return
 
     #else:
-    
+    # TODO: for successful correction, return transcript object, updated
+    # logInfo, and the TE log lines generated during correction
 
+    # TODO: remove
     # Output transcript log entry 
-    #if logInfo != None:
-    #    write_to_transcript_log(logInfo, outfiles.log)
+    write_to_transcript_log(upd_logInfo, outfiles.log)
 
-    return    
+    return #upd_transcript, upd_logInfo 
 
 def validate_chroms(genome_file, sam):
     """ Make sure that every chromosome in the SAM file also exists in the

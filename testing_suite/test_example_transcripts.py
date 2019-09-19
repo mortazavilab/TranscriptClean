@@ -1,6 +1,7 @@
 import pytest
 from pyfasta import Fasta
 import sys
+import os
 sys.path.append("..")
 import transcript as t2
 import TranscriptClean as TC
@@ -16,16 +17,17 @@ class TestCorrectTranscripts(object):
         sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
         sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test/TC_tmp/"
+        tmp_dir = "scratch/example/TC_tmp/"
+        os.system("mkdir -p %s" % tmp_dir)
         chroms = set(["chr1"])
         donors, acceptors, sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
 
         outfiles = dstruct.Struct()
-        outfiles.TElog = open("scratch/DIM_nc.TE.log", 'w')
-        outfiles.sam = open("scratch/DIM_nc_clean.sam", 'w')
-        outfiles.fasta = open("scratch/DIM_nc_clean.fasta", 'w') 
-        outfiles.log = open("scratch/DIM_nc.log", 'w')
+        outfiles.TElog = open(tmp_dir + "DIM_nc.TE.log", 'w')
+        outfiles.sam = open(tmp_dir + "DIM_nc_clean.sam", 'w')
+        outfiles.fasta = open(tmp_dir + "DIM_nc_clean.fasta", 'w') 
+        outfiles.log = open(tmp_dir + "DIM_nc.log", 'w')
 
         refs = dstruct.Struct()
         refs.sjAnnot = sjAnnot
@@ -68,7 +70,7 @@ class TestCorrectTranscripts(object):
         correct_jM = "jM:B:c,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21"
 
         # Read in transcript from outfile
-        with open("scratch/DIM_nc_clean.sam", 'r') as f:
+        with open(tmp_dir + "DIM_nc_clean.sam", 'r') as f:
             sam_line = f.readline().strip().split('\t')
         transcript = t2.Transcript(sam_line, genome, sjAnnot)
         
