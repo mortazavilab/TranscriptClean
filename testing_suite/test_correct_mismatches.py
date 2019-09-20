@@ -95,3 +95,31 @@ class TestMismatchCorr(object):
         assert "Corrected" in error_entries
         assert "VariantMatch" not in error_entries
 
+    def test_two_mismatches(self):
+        """ Correct 2 mismatches in the same read. Useful for making sure that
+            the TE log string is correct. """
+
+        sam_fields = ["test_read", "0", "chr1", "202892094", "255", "5M", "*",
+                      "0", "0", "ACCGA", "*",   "NM:i:2", "MD:Z:1A0A2", "jI:B:i,-1",
+                      "jM:B:c,-1" ]
+
+        genome = Fasta("input_files/hg38_chr1.fa")
+        spliceAnnot = None
+        variants = {}
+        logInfo = TC.init_log_info(sam_fields)
+
+        # Init transcript object
+        transcript = t2.Transcript(sam_fields, genome, spliceAnnot)
+
+        # Run correction
+        error_entries = TC.correctMismatches(transcript, genome, variants, logInfo)
+
+        # Check to see if correction was successful
+        assert transcript.SEQ == "AAAGA"
+        assert transcript.CIGAR == "5M"
+
+        # Check the number and content of the transcript error entries
+        print(error_entries)
+        assert error_entries.count('\n') == 2
+        assert error_entries.count('Corrected') == 2
+
