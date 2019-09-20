@@ -36,9 +36,8 @@ class TestInsertionCorr(object):
 
         # Check the log entries
         expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
-                                  "Insertion", "2", "Corrected", "NA"])
-        assert len(TE_entries) == 1
-        assert TE_entries[0] == expected_log
+                                  "Insertion", "2", "Corrected", "NA"]) + "\n"
+        assert TE_entries == expected_log
 
 
     def test_not_correctable_insertion(self):
@@ -69,9 +68,8 @@ class TestInsertionCorr(object):
 
         # Check the log entries
         expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
-                                  "Insertion", "2", "Uncorrected", "TooLarge"])
-        assert len(TE_entries) == 1
-        assert TE_entries[0] == expected_log
+                                  "Insertion", "2", "Uncorrected", "TooLarge"]) + "\n"
+        assert TE_entries == expected_log
 
          
     def test_variant_insertion(self):
@@ -103,6 +101,5 @@ class TestInsertionCorr(object):
 
         # Check the log entries
         expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
-                                  "Insertion", "2", "Uncorrected", "VariantMatch"])
-        assert len(TE_entries) == 1
-        assert TE_entries[0] == expected_log
+                                  "Insertion", "2", "Uncorrected", "VariantMatch"]) + "\n"
+        assert TE_entries == expected_log
