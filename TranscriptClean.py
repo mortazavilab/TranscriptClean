@@ -203,9 +203,9 @@ def prep_refs(options, transcripts, sam_header):
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
  
-    print("Size of SNP reference, job %d: %d" %(os.getpid(), len(refs["snps"])))
-    print("Size of insertion reference, job %d: %d" %(os.getpid(), len(refs["insertions"])))
-    print("Size of deletion reference, job %d: %d" %(os.getpid(), len(refs["deletions"])))
+    #print("Size of SNP reference, job %d: %d" %(os.getpid(), len(refs["snps"])))
+    #print("Size of insertion reference, job %d: %d" %(os.getpid(), len(refs["insertions"])))
+    #print("Size of deletion reference, job %d: %d" %(os.getpid(), len(refs["deletions"])))
     return refs
 
 def create_tmp_sam(sam_header, transcripts, tmp_dir, process = "1"):
@@ -288,18 +288,19 @@ def transcript_init(transcript_line, genome, sjAnnot):
  
      try:
          transcript = Transcript(sam_fields, genome, sjAnnot)
-     except:
+     except Exception as e:
          warnings.warn("Problem parsing transcript with ID '" + \
                        logInfo.TranscriptID + "'")
+         print(e)
          return None, logInfo        
 
      return transcript, logInfo 
 
 def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
-    """TODO: Correct and output n lines at a time in a batch. The purpose is 
-       to stagger when different threads are writing to disk. For a given
-       transcript, there can be only one sam, fasta, and log entry, but there 
-       can be more than one transcript error (TE)."""
+    """Correct and output n lines of transcript SAM file at a time in a batch. 
+       The purpose is to stagger when the different threads are writing to disk. 
+       For a given transcript, there can be only one sam, fasta, and log entry, 
+       but there can be more than one transcript error (TE)."""
 
     outSam = outfiles.sam
     outFa = outfiles.fasta
@@ -382,7 +383,7 @@ def correct_transcript(transcript_line, options, refs):
             ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
                               options.maxLenIndel, upd_logInfo)
             TE_entries.extend(ins_TE)
-
+            
             # Deletion correction
             del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
                              options.maxLenIndel, upd_logInfo)
@@ -483,9 +484,8 @@ def run_chunk(transcripts, options, sam_header):
     outfiles = setup_outfiles(options, str(os.getpid()))
 
     # Correct the transcripts
-    batch_correct(transcripts, options, refs, outfiles, n = 1000)
-    #for transcript in transcripts:
-    #    correct_transcript(transcript, options, refs, outfiles)
+    n = int(len(transcripts)/100)
+    batch_correct(transcripts, options, refs, outfiles, n = n)
 
     # Close up the outfiles
     close_outfiles(outfiles)
@@ -565,6 +565,7 @@ def combine_outputs(sam_header, options):
     if options.delete_tmp:
         os.system("rm -r %s" % tmp_dir)
 
+    print("Finished successfully!")
     return
 
 
@@ -626,8 +627,6 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
             junction = "_".join([chrom, str(start), strand]) + "," + \
                        "_".join([chrom, str(end), strand])
             annot.add(junction)
-            #annot.add("_".join([chrom, str(start), strand, type1]))
-            #annot.add("_".join([chrom, str(end), strand, type2]))
     o_donor.close()
     o_acceptor.close()
 
@@ -773,7 +772,8 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
     cigarOps,cigarCounts = transcript.splitCIGAR() 
 
     # Check for insertions. If none are present, we can skip this transcript
-    if "I" not in origCIGAR: return
+    if "I" not in origCIGAR: 
+        return TE_entries
 
     newCIGAR = ""
     newSeq = ""
@@ -1084,7 +1084,7 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo):
     TE_entries = []
 
     if transcript.isCanonical == True:
-        return transcript
+        return transcript, TE_entries
 
     # Iterate over all junctions and attempt to correct
     for splice_jn_num in range(0,len(transcript.spliceJunctions)):
@@ -1116,7 +1116,6 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo):
             errorEntry = "\t".join([transcript.QNAME, ID, "NC_SJ_boundary",
                                     str(dist), status, reason])
             TE_entries.append(errorEntry)
-            #TElog.write(errorEntry + "\n")
 
     return transcript, TE_entries
 
@@ -1465,18 +1464,6 @@ def create_log_string(logInfo):
 def write_to_transcript_log(logInfo, tL):
     """ Write a transcript log entry to output """
 
-#    log_strings = [ str(x) for x in [logInfo.TranscriptID, logInfo.Mapping,
-#                                     logInfo.corrected_deletions,
-#                                     logInfo.uncorrected_deletions,
-#                                     logInfo.variant_deletions,
-#                                     logInfo.corrected_insertions,
-#                                     logInfo.uncorrected_insertions,
-#                                     logInfo.variant_insertions,
-#                                     logInfo.corrected_mismatches,
-#                                     logInfo.uncorrected_mismatches,
-#                                     logInfo.corrected_NC_SJs,
-#                                     logInfo.uncorrected_NC_SJs] ]
-#
     log_str = create_log_string(logInfo)
     tL.write(log_str + "\n")
     return
