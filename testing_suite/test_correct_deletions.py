@@ -35,9 +35,9 @@ class TestDeletionCorr(object):
 
         # Check TE log
         expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
-                                 "Deletion", "1", "Corrected", "NA"]) 
+                                 "Deletion", "1", "Corrected", "NA"]) + "\n"
         
-        assert TE_entries[0] == expected_TE
+        assert TE_entries == expected_TE
 
     def test_not_correctable_deletion(self):
         """ Same deletion again, but correction cutoff set to 0 """
@@ -64,9 +64,9 @@ class TestDeletionCorr(object):
 
         # Check TE log
         expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
-                                 "Deletion", "1", "Uncorrected", "TooLarge"])
+                                 "Deletion", "1", "Uncorrected", "TooLarge"]) + "\n"
 
-        assert TE_entries[0] == expected_TE
+        assert TE_entries == expected_TE
 
     def test_variant_deletion(self):
         """ Same deletion again, but with a matching variant at the same 
@@ -94,6 +94,6 @@ class TestDeletionCorr(object):
 
         # Check TE log
         expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
-                                 "Deletion", "1", "Uncorrected", "VariantMatch"])
+                                 "Deletion", "1", "Uncorrected", "VariantMatch"]) + "\n"
 
-        assert TE_entries[0] == expected_TE
+        assert TE_entries == expected_TE
