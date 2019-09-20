@@ -306,10 +306,7 @@ def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
     outFa = outfiles.fasta
     tL = outfiles.log
     tE = outfiles.TElog
-    sam_lines = []
-    log_lines = []
-    fasta_lines = []
-    TE_log_lines = []
+    sam_lines = fasta_lines = log_lines = TE_log_lines = ""
 
     counter = 0
     for transcript_line in sam_transcripts:
@@ -321,37 +318,35 @@ def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
         # but do not output a fasta sequence. Only output the original 
         # SAM alignment if primaryOnly mode is off 
         if transcript == None:
-            log_lines.append(create_log_string(logInfo))
+            log_lines += create_log_string(logInfo) + "\n"
             if options.primaryOnly == False:
-                 sam_lines.append(transcript_line)    
+                 sam_lines += transcript_line + "\n"
        
         # In all other cases, output the transcript in SAM and Fasta format,
         # plus output the logs 
         else:
-            sam_lines.append(transcript.printableSAM())
-            log_lines.append(create_log_string(logInfo))
-            fasta_lines.append(transcript.printableFa())
-            TE_log_lines.extend(TE_entries)    
+            sam_lines += transcript.printableSAM() + "\n"
+            log_lines += create_log_string(logInfo) + "\n"
+            fasta_lines += transcript.printableFa() + "\n"
+            if TE_entries != "":
+                TE_log_lines += TE_entries
             
         # Check whether to empty the buffer
         if counter > n:
-            outSam.write("\n".join([x for x in sam_lines]))
-            outFa.write("\n".join([x for x in fasta_lines]))
-            tL.write("\n".join(log_lines))
-            tE.write("\n".join(curr_TE))
-            sam_lines = []
-            fasta_lines = []
-            log_lines = []
-            TE_log_lines = []
+            outSam.write(sam_lines)
+            outFa.write(fasta_lines)
+            tL.write(log_lines)
+            tE.write(curr_TE)
+            sam_lines = fasta_lines = log_lines = TE_log_lines = ""
             counter = 0
         else:
             counter += 1
 
     # Write any remaining lines
-    outSam.write("\n".join(sam_lines))
-    outFa.write("\n".join(fasta_lines))
-    tL.write("\n".join(log_lines))
-    tE.write("\n".join(TE_log_lines))
+    outSam.write(sam_lines)
+    outFa.write(fasta_lines)
+    tL.write(log_lines)
+    tE.write(TE_log_lines)
     return
 
 def correct_transcript(transcript_line, options, refs):
@@ -363,7 +358,7 @@ def correct_transcript(transcript_line, options, refs):
     # mitochondrial cases
     orig_transcript, logInfo = transcript_init(transcript_line, refs.genome, 
                                           refs.sjAnnot)
-    TE_entries = [] 
+    TE_entries = "" 
 
     if orig_transcript == None:
         return orig_transcript, logInfo, TE_entries
@@ -376,32 +371,36 @@ def correct_transcript(transcript_line, options, refs):
         if options.mismatchCorrection == "true":
             mismatch_TE = correctMismatches(upd_transcript, refs.genome, 
                                             refs.snps, upd_logInfo)
-            TE_entries.extend(mismatch_TE)
+            if mismatch_TE != "":
+                TE_entries += mismatch_TE
     
         if options.indelCorrection == "true":
             # Insertion correction
             ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
                               options.maxLenIndel, upd_logInfo)
-            TE_entries.extend(ins_TE)
+            if ins_TE != "":
+                TE_entries += ins_TE
             
             # Deletion correction
             del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
                              options.maxLenIndel, upd_logInfo)
-            TE_entries.extend(del_TE)
+            if del_TE != "":
+                TE_entries += del_TE
 
         # NCSJ correction
         if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
             upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
                                                         options.maxSJOffset, 
                                                         upd_logInfo) 
-            TE_entries.extend(ncsj_TE)
+            if ncsj_TE != "":
+                TE_entries += ncsj_TE
     
     except Exception as e:
         warnings.warn(("Problem encountered while correcting transcript "
                        "with ID %s. Will output original version.") % \
                        orig_transcript.QNAME)
         print(e)
-        TE_entries = []
+        TE_entries = ""
         return orig_transcript, logInfo, TE_entries
 
     # After successful correction, return transcript object, updated
@@ -518,7 +517,7 @@ def combine_outputs(sam_header, options):
     sam = outprefix + "_clean.sam"
     fasta = outprefix + "_clean.fa"
     log = outprefix + "_clean.log"
-    TElog = outprefix + "_clean.TElog"
+    TElog = outprefix + "_clean.TE.log"
 
     # Open log outfiles
     if os.path.exists(log):
@@ -763,7 +762,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
     logInfo.uncorrected_insertions = 0
     logInfo.corrected_insertions = 0
     logInfo.variant_insertions = 0
-    TE_entries = []
+    TE_entries = ""
 
     origSeq = transcript.SEQ
     origCIGAR = transcript.CIGAR
@@ -811,7 +810,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
                         errorEntry = "\t".join([transcript_ID, ID, "Insertion", 
                                                 str(ct), "Uncorrected", 
                                                 "VariantMatch"])
-                        TE_entries.append(errorEntry)
+                        TE_entries += errorEntry + "\n"
 
                         # Leave insertion in 
                         MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -824,7 +823,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
                 errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
                                         "Corrected", "NA"])
                 logInfo.corrected_insertions += 1
-                TE_entries.append(errorEntry)
+                TE_entries += errorEntry + "\n"
 
                 # Subtract the inserted bases by skipping them. 
                 # GenomePos stays the same, as does MVal
@@ -833,7 +832,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
                 errorEntry = "\t".join([transcript_ID, ID, "Insertion", str(ct), 
                                         "Uncorrected", "TooLarge"])
                 logInfo.uncorrected_insertions += 1
-                TE_entries.append(errorEntry)
+                TE_entries += errorEntry + "\n"
                 MVal, newCIGAR = endMatch(MVal, newCIGAR)
                 newSeq = newSeq + origSeq[seqPos:seqPos + ct]
                 newCIGAR = newCIGAR + str(ct) + op
@@ -870,7 +869,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
     logInfo.uncorrected_deletions = 0
     logInfo.corrected_deletions = 0
     logInfo.variant_deletions = 0
-    TE_entries = []
+    TE_entries = ""
 
     transcript_ID = transcript.QNAME
     chrom = transcript.CHROM
@@ -913,7 +912,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
                     currSeq = genome.sequence({'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
                     errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "VariantMatch"])
                     logInfo.variant_deletions += 1
-                    TE_entries.append(errorEntry)
+                    TE_entries += errorEntry + "\n"
 
                     MVal, newCIGAR = endMatch(MVal, newCIGAR)
                     genomePos += ct
@@ -923,7 +922,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
                 # Correct deletion if we're not in variant-aware mode
                 errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Corrected", "NA"])
                 logInfo.corrected_deletions += 1
-                TE_entries.append(errorEntry)
+                TE_entries += errorEntry + "\n"
 
                 # Add the missing reference bases
                 refBases = genome.sequence({'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
@@ -935,7 +934,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
             else:
                 errorEntry = "\t".join([transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "TooLarge"])
                 logInfo.uncorrected_deletions += 1
-                TE_entries.append(errorEntry)
+                TE_entries += errorEntry + "\n"
 
                 # End any ongoing match
                 MVal, newCIGAR = endMatch(MVal, newCIGAR)
@@ -972,7 +971,7 @@ def correctMismatches(transcript, genome, variants, logInfo):
    
     logInfo.uncorrected_mismatches = 0
     logInfo.corrected_mismatches = 0
-    TE_entries = []
+    TE_entries = ""
 
     origSeq = transcript.SEQ
     origCIGAR = transcript.CIGAR
@@ -1011,7 +1010,7 @@ def correctMismatches(transcript, genome, variants, logInfo):
                     errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
                                             str(ct), "Uncorrected", 
                                             "VariantMatch"])
-                    TE_entries.append(errorEntry)
+                    TE_entries += errorEntry + "\n"
                     logInfo.uncorrected_mismatches += 1
 
                     # Keep the base as-is
@@ -1023,7 +1022,7 @@ def correctMismatches(transcript, genome, variants, logInfo):
             # Otherwise, correct the mismatch to reference base
             errorEntry = "\t".join([transcript.QNAME, ID, "Mismatch", 
                                     str(ct), "Corrected", "NA"])
-            TE_entries.append(errorEntry)
+            TE_entries += errorEntry + "\n"
             logInfo.corrected_mismatches += 1
 
             # Change sequence base to the reference base at this position
@@ -1081,7 +1080,7 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo):
     """ 
     logInfo.corrected_NC_SJs = 0
     logInfo.uncorrected_NC_SJs = 0 
-    TE_entries = []
+    TE_entries = ""
 
     if transcript.isCanonical == True:
         return transcript, TE_entries
@@ -1115,7 +1114,7 @@ def cleanNoncanonical(transcript, refs, maxDist, logInfo):
             # Update transcript error log
             errorEntry = "\t".join([transcript.QNAME, ID, "NC_SJ_boundary",
                                     str(dist), status, reason])
-            TE_entries.append(errorEntry)
+            TE_entries += errorEntry + "\n"
 
     return transcript, TE_entries
 

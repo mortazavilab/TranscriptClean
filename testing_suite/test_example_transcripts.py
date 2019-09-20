@@ -106,7 +106,7 @@ class TestCorrectTranscripts(object):
                    "--o", "scratch/DIM_nc_full/TC"]
                    
         try:
-            subprocess.check_output(command)
+            output = subprocess.check_output(command)
 
         except Exception as e:
             print(e)
@@ -133,6 +133,7 @@ class TestCorrectTranscripts(object):
             sam_line = f.readline().strip().split('\t')
        
         CIGAR = sam_line[5]
+        SEQ = sam_line[9]
         MD = sam_line[14]
         NM = sam_line[13]
         jI = sam_line[16]
@@ -144,7 +145,11 @@ class TestCorrectTranscripts(object):
         assert jI == correct_jI
         assert jM == correct_jM
 
-        # TODO: Test the sequence
+        # Test the sequence
+        with open("answer_files/DIM_nc_full/TC_clean.sam", 'r') as f:
+            sam_line = f.readline().strip().split('\t')
+            expected_sequence = sam_line[9]
+        assert SEQ == expected_sequence
 
         # Read logs and make sure they are OK
         expected_log = "\t".join(["c34150/f1p1/3707", "primary",
@@ -157,4 +162,28 @@ class TestCorrectTranscripts(object):
             header = f.readline().strip()
             log = f.readline().strip()
             assert log == expected_log
+
+        expected_TE_log = [["TranscriptID", "Position", "ErrorType", "Size",
+                            "Corrected", "ReasonNotCorrected"],
+                           ["c34150/f1p1/3707", "chr1_150944919",
+                                 "Mismatch", "1", "Corrected", "NA"],
+                           ["c34150/f1p1/3707", "chr1_150944920",
+                                 "Mismatch", "1", "Corrected", "NA"],
+                           ["c34150/f1p1/3707", "chr1_150943034_150943034",
+                                 "Insertion", "1", "Corrected", "NA"],
+                           ["c34150/f1p1/3707", "chr1_150949257_150949257",
+                                 "Deletion", "1", "Corrected", "NA"],
+                           ["c34150/f1p1/3707", "chr1_150950683_150950683",
+                                 "Deletion", "1", "Corrected", "NA"],
+                           ["c34150/f1p1/3707", "chr1_150943994_150944918",
+                                 "NC_SJ_boundary", "1", "Corrected", "NA"]]
+
+        # Check each line of TE log
+        counter = 0
+        with open("scratch/DIM_nc_full/TC_clean.TE.log", 'r') as f:
+            for line in f:
+                print(line)
+                assert line.strip().split('\t') == expected_TE_log[counter]
+                counter += 1
+
 
