@@ -881,7 +881,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
 
     # Check for deletions. If none are present, we can skip this transcript
     if "D" not in origCIGAR: 
-        return
+        return TE_entries
 
     newCIGAR = ""
     newSeq = ""
@@ -980,7 +980,7 @@ def correctMismatches(transcript, genome, variants, logInfo):
 
     # Check for mismatches. If none are present, we can skip this transcript
     if any(i in origMD.upper() for i in 'ACTGN') == False : 
-        return
+        return TE_entries
         
     newCIGAR = ""
     newSeq = ""
