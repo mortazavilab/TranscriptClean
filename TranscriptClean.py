@@ -328,15 +328,14 @@ def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
             sam_lines += transcript.printableSAM() + "\n"
             log_lines += create_log_string(logInfo) + "\n"
             fasta_lines += transcript.printableFa() + "\n"
-            if TE_entries != "":
-                TE_log_lines += TE_entries
+            TE_log_lines += TE_entries
             
         # Check whether to empty the buffer
         if counter > n:
             outSam.write(sam_lines)
             outFa.write(fasta_lines)
             tL.write(log_lines)
-            tE.write(curr_TE)
+            tE.write(TE_log_lines)
             sam_lines = fasta_lines = log_lines = TE_log_lines = ""
             counter = 0
         else:
@@ -483,7 +482,7 @@ def run_chunk(transcripts, options, sam_header):
     outfiles = setup_outfiles(options, str(os.getpid()))
 
     # Correct the transcripts
-    n = int(len(transcripts)/100)
+    n = 100
     batch_correct(transcripts, options, refs, outfiles, n = n)
 
     # Close up the outfiles
