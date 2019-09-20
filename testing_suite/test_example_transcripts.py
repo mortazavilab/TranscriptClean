@@ -144,6 +144,8 @@ class TestCorrectTranscripts(object):
         assert jI == correct_jI
         assert jM == correct_jM
 
+        # TODO: Test the sequence
+
         # Read logs and make sure they are OK
         expected_log = "\t".join(["c34150/f1p1/3707", "primary",
                                    "2", "0", "0",
