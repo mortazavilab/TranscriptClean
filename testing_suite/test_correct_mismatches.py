@@ -33,8 +33,8 @@ class TestMismatchCorr(object):
         assert transcript.CIGAR == "5M"
 
         # Check the number and content of the transcript error entries
-        assert len(error_entries) == 1
-        assert "Corrected" in error_entries[0]
+        assert error_entries.count('\n') == 1
+        assert "Corrected" in error_entries
 
 
     def test_variant_mismatch(self):
@@ -62,9 +62,9 @@ class TestMismatchCorr(object):
         assert transcript.CIGAR == "5M"
 
         # Check the number and content of the transcript error entries
-        assert len(error_entries) == 1
-        assert "Uncorrected" in error_entries[0]
-        assert "VariantMatch" in error_entries[0]
+        assert error_entries.count('\n') == 1
+        assert "Uncorrected" in error_entries
+        assert "VariantMatch" in error_entries
 
     def test_wrong_variant_mismatch(self):
         """ Toy transcript with sequence AACGA, where the C is a mismatch to the
@@ -91,7 +91,7 @@ class TestMismatchCorr(object):
         assert transcript.CIGAR == "5M"
 
         # Check the number and content of the transcript error entries
-        assert len(error_entries) == 1
-        assert "Corrected" in error_entries[0]
-        assert "VariantMatch" not in error_entries[0]
+        assert error_entries.count('\n') == 1
+        assert "Corrected" in error_entries
+        assert "VariantMatch" not in error_entries
 
