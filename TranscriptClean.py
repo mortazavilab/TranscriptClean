@@ -29,20 +29,20 @@ from datetime import timedelta
 def main():
     options = getOptions()
     sam_file = options.sam
-    validate_chroms(options.refGenome, sam_file)
-    header, sam_lines = split_SAM(sam_file)
-    # TODO: Validate chroms after splitting the SAM file
+    n_threads = options.n_threads
+    header, sam_chroms, sam_chunks = split_SAM(sam_file, n_threads)
+    validate_chroms(options.refGenome, sam_chroms)
     # TODO: sort the input sam file
 
     # Split up the sam lines to run on different processes if possible
-    n_cpus = int(len(os.sched_getaffinity(0)))
+    #n_cpus = int(len(os.sched_getaffinity(0)))
     # TODO: combine into new function
-    sam_chunks = split_input(sam_lines, n_cpus)
+    #sam_chunks = split_input(sam_lines, n_cpus)
     
     # Run the processes. Outfiles are created within each process
     processes = [ ]
 
-    for i in range(n_cpus):
+    for i in range(n_threads):
         if options.dryRun == True:
             t = mp.Process(target=run_chunk_dryRun, args=(sam_chunks[i], options, header))
         else:
@@ -59,18 +59,6 @@ def main():
     # When the processes have finished, combine the outputs together.
     combine_outputs(header, options)
 
-def non_parallel_main():
-    options = getOptions()
-    sam_file = options.sam
-    validate_chroms(options.refGenome, sam_file)
-    header, sam_lines = split_SAM(sam_file)
-
-    sam_chunks = split_input(sam_lines, 1)
-
-    run_chunk(sam_chunks[0], options, header)
-    combine_outputs(header, options)
-
-
 def getOptions():
     parser = OptionParser()
     
@@ -83,6 +71,9 @@ def getOptions():
                               "same one used during mapping to generate the "
                               "provided SAM file."),
                       metavar = "FILE", type = "string", default = "")
+    parser.add_option("--threads", "-t", dest = "n_threads",
+                      help = ("Number of threads to run program with."),
+                      type = "int", default = 1)
     parser.add_option("--spliceJns", "-j", dest = "sjAnnotFile", 
                       help = ("Splice junction file obtained by mapping "
                               "Illumina reads to the genome using STAR, or "
@@ -144,6 +135,7 @@ def getOptions():
 
 def cleanup_options(options):
     """ Clean up input options by casting to appropriate types etc. """
+    options.n_threads = int(options.n_threads)
     options.maxLenIndel = int(options.maxLenIndel)
     options.maxSJOffset = int(options.maxSJOffset)
     options.indelCorrection = (options.correctIndels).lower()
@@ -436,21 +428,12 @@ def correct_transcript(transcript_line, options, refs):
     # logInfo, and the TE log lines generated during correction
     return upd_transcript, upd_logInfo, TE_entries 
 
-def validate_chroms(genome_file, sam):
+def validate_chroms(genome_file, sam_chroms):
     """ Make sure that every chromosome in the SAM file also exists in the
         reference genome. This is a common source of crashes """
 
     genome = Fasta(genome_file)
     fasta_chroms = set(genome.keys())
-    sam_chroms = set()
-    with open(sam, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("@"):
-                continue
-            else:
-                chrom = line.split("\t")[2]
-                sam_chroms.add(chrom)
 
     # Remove '*' from sam chromosome set if present
     if "*" in sam_chroms:
@@ -461,21 +444,25 @@ def validate_chroms(genome_file, sam):
     if not sam_chroms.issubset(fasta_chroms):
         sam_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in sam_chroms]) + '}'
         fasta_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in fasta_chroms]) + '}'
-        error_msg = "One or more SAM chromosomes were not found in the fasta reference.\n" + \
-                    "SAM chromosomes:\n" + sam_chroms + "\n" + \
-                    "FASTA chromosomes:\n" + fasta_chroms + "\n" + \
-                    "One common cause is when the fasta headers contain more than " +\
-                    "one word. If this is the case, try trimming the headers " + \
-                    "to only the chromosome name (i.e. '>chr1')."
+        error_msg = 'One or more SAM chromosomes were not found in the fasta reference.\n' + \
+                    'SAM chromosomes:\n' + sam_chroms + '\n' + \
+                    'FASTA chromosomes:\n' + fasta_chroms + '\n' + \
+                    ("One common cause of this problem is when the fasta headers "
+                     "contain more than one word. If this is the case, try "
+                     "trimming the headers to include only the chromosome name "
+                     "(i.e. '>chr1').")
         raise ValueError(error_msg)
     return
 
-def split_SAM(samFile):
-    """ Given a sam file, separate the header line from the remaining entries
+def split_SAM(samFile, n):
+    """ Given a sam file, separate the header line from the remaining entries,
+        record which chromosomes are present in the reads, and split the reads
+        into n chunks.
     """
     header = []
+    chroms = set()
     transcript_lines = []
- 
+
     with open(samFile, 'r') as f:
         for line in f:
             line = line.strip()
@@ -483,7 +470,13 @@ def split_SAM(samFile):
                 header.append(line)
             else:
                 transcript_lines.append(line)
-    return header, transcript_lines
+                chrom = line.split("\t")[2]
+                chroms.add(chrom)
+
+    # Now split the transcripts into n chunks
+    chunks = split_input(transcript_lines, n)
+
+    return header, chroms, chunks
 
 def split_input(my_list, n):
     """ Splits input into n sublists of roughly equal size"""

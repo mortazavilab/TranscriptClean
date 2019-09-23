@@ -26,8 +26,8 @@ class TestPrepRefs(object):
         options.variantFile = None
         options.sjAnnotFile = None
 
-        header, sam_lines = TC.split_SAM(sam)
-        refs = TC.prep_refs(options, sam_lines, header) 
+        header, chroms, sam_chunks = TC.split_SAM(sam, 1)
+        refs = TC.prep_refs(options, sam_chunks[0], header) 
 
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
@@ -53,8 +53,8 @@ class TestPrepRefs(object):
         options.variantFile = None
         options.sjAnnotFile = "input_files/test_junctions.txt"
 
-        header, sam_lines = TC.split_SAM(sam)
-        refs = TC.prep_refs(options, sam_lines, header)
+        header, chroms, sam_chunks = TC.split_SAM(sam, 1)
+        refs = TC.prep_refs(options, sam_chunks[0], header)
 
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
@@ -82,8 +82,8 @@ class TestPrepRefs(object):
         options.variantFile = None
         options.sjAnnotFile = "input_files/test_junctions.txt"
 
-        header, sam_lines = TC.split_SAM(sam)
-        refs = TC.prep_refs(options, sam_lines, header)
+        header, chroms, sam_chunks = TC.split_SAM(sam, 1)
+        refs = TC.prep_refs(options, sam_chunks[0], header)
 
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
@@ -108,8 +108,8 @@ class TestPrepRefs(object):
         options.variantFile = "input_files/vcf_test/snps.vcf"
         options.sjAnnotFile = None
 
-        header, sam_lines = TC.split_SAM(sam)
-        refs = TC.prep_refs(options, sam_lines, header)
+        header, chroms, sam_chunks = TC.split_SAM(sam, 1)
+        refs = TC.prep_refs(options, sam_chunks[0], header)
 
         # Check that variant deletion and insertion dicts are empty
         assert len(refs.insertions) == 0
