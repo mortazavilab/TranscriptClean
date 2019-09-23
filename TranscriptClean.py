@@ -7,20 +7,24 @@
 # Noncanonical splice junctions can also be corrected using a file of reference 
 # splice sites.
 
+# TC Classes
 from transcript import Transcript
 from spliceJunction import *
 from intronBound import IntronBound
 from optparse import OptionParser
-import pybedtools
 import dstruct
+
+# Other modules
+import pybedtools
 from pyfasta import Fasta
 import os
 import multiprocessing as mp
 from math import ceil
 import re
 from copy import copy
-from functools import partial
+from functools import partial # TODO: not sure if necessary
 import warnings
+
 ## Runtime profiling
 import cProfile
 import time
@@ -31,14 +35,9 @@ def main():
     sam_file = options.sam
     n_threads = options.n_threads
     header, sam_chroms, sam_chunks = split_SAM(sam_file, n_threads)
-    validate_chroms(options.refGenome, sam_chroms)
+    validate_chroms(options.refGenome, options.variantFile, sam_chroms)
     # TODO: sort the input sam file
 
-    # Split up the sam lines to run on different processes if possible
-    #n_cpus = int(len(os.sched_getaffinity(0)))
-    # TODO: combine into new function
-    #sam_chunks = split_input(sam_lines, n_cpus)
-    
     # Run the processes. Outfiles are created within each process
     processes = [ ]
 
@@ -162,7 +161,8 @@ def cleanup_options(options):
 
     return options
 
-def prep_refs(options, transcripts, sam_header):
+
+def old_prep_refs(options, transcripts, sam_header):
     """ Process input files and store them in a reference dict.
         SAM transcripts and header are needed if variants provided because
         the variant file will be filtered to include only those that overlap
@@ -227,18 +227,71 @@ def prep_refs(options, transcripts, sam_header):
     #print("Size of deletion reference, job %d: %d" %(os.getpid(), len(refs["deletions"])))
     return refs
 
+def prep_refs(options, transcripts, sam_header):
+    """ Process input files and store them in a reference dict.
+        SAM transcripts and header are needed if variants provided because
+        the variant file will be filtered to include only those that overlap
+        the SAM reads.  """
+
+    tmp_dir = options.tmp_dir
+
+    os.system("mkdir -p %s" % tmp_dir)
+    genomeFile = options.refGenome
+    variantFile = options.variantFile
+    sjFile = options.sjAnnotFile
+
+    # Container for references
+    refs = dstruct.Struct()
+
+    # Read in the reference genome.
+    print("Reading genome ..............................")
+    refs.genome = Fasta(options.refGenome)
+    ref_chroms = sorted((refs.genome.keys()))
+
+    # Create a tmp SAM file for the provided reads
+    proc = str(os.getpid())
+    tmp_sam, sam_chroms = create_tmp_sam(sam_header, transcripts, options.tmp_dir, process = proc)
+
+    # Read in splice junctions
+    refs.donors = None
+    refs.acceptors = None
+    refs.sjAnnot = set()
+    if options.sjCorrection == "false":
+        print("SJ correction turned off in options. Skipping reference SJ parsing.")
+
+    elif sjFile != None:
+        print("Processing annotated splice junctions ...")
+        refs.donors, refs.acceptors, refs.sjAnnot = processSpliceAnnotation(sjFile,
+                                                    tmp_dir, sam_chroms, process = proc)
+    else:
+        print("No splice annotation provided. Will skip splice junction correction.")
+
+    # Read in variants
+    if variantFile != None:
+        print("Processing variant file .................")
+        refs.snps, refs.insertions, refs.deletions = processVCF(variantFile,
+                                                                options.maxLenIndel,
+                                                                tmp_dir,
+                                                                tmp_sam,
+                                                                process = proc)
+    else:
+        print("No variant file provided. Transcript correction will not be variant-aware.")
+        refs["snps"] = refs["insertions"] = refs["deletions"] = {}
+
+    return refs
+
 def create_tmp_sam(sam_header, transcripts, tmp_dir, process = "1"):
     """ Put the transcripts in the provided list into a temporary SAM file,
         preceded by the provided header (list form). The file will be located in
         a 'sams' subdir of the tmp_dir provided. Returns the name of the tmp 
-        file as well as """
+        file as well as the chromosomes found within"""
 
     sam_dir = tmp_dir + "split_uncorr_sams/"
     sam_name = sam_dir + process + ".sam"
     os.system("mkdir -p %s" % (sam_dir))
 
     chroms = set()
-    
+
     with open(sam_name, 'w') as f:
         for item in sam_header:
             f.write("%s\n" % item)
@@ -375,8 +428,6 @@ def correct_transcript(transcript_line, options, refs):
         primary alignment, then perform the corrections specified in the 
         options.
     """
-    # TODO: add an example that fails indel correction. I think there are
-    # mitochondrial cases
     orig_transcript, logInfo = transcript_init(transcript_line, refs.genome, 
                                           refs.sjAnnot)
     TE_entries = "" 
@@ -428,9 +479,11 @@ def correct_transcript(transcript_line, options, refs):
     # logInfo, and the TE log lines generated during correction
     return upd_transcript, upd_logInfo, TE_entries 
 
-def validate_chroms(genome_file, sam_chroms):
+def validate_chroms(genome_file, vcf_file, sam_chroms):
     """ Make sure that every chromosome in the SAM file also exists in the
-        reference genome. This is a common source of crashes """
+        reference genome. This is a common source of crashes. Also, make sure
+        that the VCF chromosome naming convention matches the SAM file if the
+        user has provided a VCF. """
 
     genome = Fasta(genome_file)
     fasta_chroms = set(genome.keys())
@@ -451,7 +504,29 @@ def validate_chroms(genome_file, sam_chroms):
                      "contain more than one word. If this is the case, try "
                      "trimming the headers to include only the chromosome name "
                      "(i.e. '>chr1').")
-        raise ValueError(error_msg)
+        raise RuntimeError(error_msg)
+
+    # Check VCF chroms
+    if vcf_file != None:
+        try:
+            vcf_obj = pybedtools.BedTool(vcf_file)
+        except Exception as e:
+            print(e)
+            raise RuntimeError(("Problem reading the provided VCF file. Please "
+                                "make sure that the filename is correct, that "
+                                "pybedtools is installed, and that your VCF "
+                                "file is properly formatted, including a header.")) 
+
+        vcf_chroms = set([x.chrom for x in vcf_obj])
+        if len(sam_chroms.intersection(vcf_chroms)) == 0:
+            sam_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in sam_chroms]) + '}'
+            vcf_chroms = "{" + ", ".join(['"' + str(x) + '"' for x in vcf_chroms]) + '}'
+            error_msg = ("None of the chromosomes included in the VCF file "
+                         "matched the chromosomes in the provided SAM file.\n"
+                         'SAM chromosomes:\n' + sam_chroms + '\n'
+                         'VCF chromosomes:\n' + vcf_chroms + '\n')
+            raise RuntimeError(error_msg)
+                          
     return
 
 def split_SAM(samFile, n):
@@ -673,7 +748,99 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
 
     return splice_donor_bedtool, splice_acceptor_bedtool, annot
 
-def processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True, process = "1"):
+
+def processVCF(vcf, maxLen, tmp_dir, sam_file, process = "1"):
+    """ This function reads in variants from a VCF file and stores them. SNPs
+        are stored in a dictionary by position. Indels are stored in their own
+        dictionary by start and end position. A pre-filtering step ensures that
+        variants are included only if they overlap with the input SAM reads.
+        This is a space-saving measure. If add_chr is set to 'True', the prefix
+        'chr' will be added to each chromosome name."""
+    # TODO: Need to add insertion/deletion tests and make sure TE log entries
+    # match.
+
+    SNPs = {}
+    insertions = {}
+    deletions = {}
+
+    # Create a temporary BAM version of the input reads
+    tmp_bam_dir = tmp_dir + "split_uncorr_bams/"
+    os.system("mkdir -p %s" % (tmp_bam_dir))
+    bam = tmp_bam_dir + "%s_tmp_reads.bam" % (process)
+    try:
+        os.system("samtools view -bS %s > %s" % (sam_file, bam))
+
+    except Exception as e:
+        print(e)
+        raise RuntimeError(("Problem converting SAM file to BAM for variant "
+                          "prefiltering step. Please make sure that you have "
+                          "Samtools installed, and that your SAM "
+                          "file is properly formatted, including a header."))
+   
+    # Create a BedTool object for the VCF
+    try:
+        vcf_obj = pybedtools.BedTool(vcf)
+    except Exception as e:
+        print(e)
+        raise RuntimeError(("Problem reading the provided VCF file. Please make "
+                          "sure that Bedtools is installed, and that your VCF "
+                          "file is properly formatted, including a header. "))
+
+    # Filter the VCF file to include only those variants that overlap the reads
+    filtered_vcf = vcf_obj.intersect(bam, u=True) 
+
+    if len(filtered_vcf) == 0:
+        warnings.warn(("Warning: none of variants provided overlapped the" 
+                       "input reads."))
+        return SNPs, insertions, deletions
+    
+    # Now parse the filtered VCF
+    for variant in filtered_vcf:
+
+       chrom = variant[0]
+       pos = int(variant[1]) #+ 1 
+       ref = variant[3]
+       alt = variant[4].split(",")
+       refLen = len(ref)
+
+       # It is possible for a single position to have more than one
+       # type of alternate allele (ie mismatch or indel). So it is
+       # necessary to treat each alternate allele separately.
+       for allele in alt:
+           altLen = len(allele)
+
+           # SNP case
+           if refLen == altLen == 1:
+               ID = chrom + "_" + str(pos)
+               if ID not in SNPs:
+                   SNPs[ID] = [allele]
+               else:
+                   SNPs[ID].append(allele)
+           # Insertion/Deletion
+           else:
+               size = abs(refLen - altLen)
+               # Only store indels of correctable size
+               if size > maxLen: continue
+               # Positions in VCF files are one-based.
+               # Inserton/deletion sequences always start with the
+               # preceding normal reference base, so we need to add
+               # one to pos in order to match with transcript positions.
+               # This principle holds for both insertions and deletions.
+               actPos = pos + 1
+               allele = allele[1:]
+               ID = "_".join([ chrom, str(actPos), str(actPos + size - 1)])
+
+               if refLen - altLen < 0: # Insertion
+                   if ID not in insertions:
+                       insertions[ID] = [allele]
+                   else:
+                       insertions[ID].append(allele)
+               elif refLen - altLen > 0: # Deletion
+                   deletions[ID] = 1
+
+    return SNPs, insertions, deletions
+
+def old_processVCF(vcf, maxLen, tmp_dir, sam_file, add_chr = True, process = "1"):
     """ This function reads in variants from a VCF file and stores them. SNPs 
         are stored in a dictionary by position. Indels are stored in their own 
         dictionary by start and end position. A pre-filtering step ensures that

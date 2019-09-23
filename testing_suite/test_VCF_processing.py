@@ -18,9 +18,9 @@ class TestProcessVCF(object):
         snps, insertions, deletions = TC.processVCF(variant_file,
                                                     maxLenIndel,
                                                     tmp_dir,
-                                                    sam_file,
-                                                    add_chr = True)
+                                                    sam_file)
 
+        print(snps)
         assert snps["chr11_237087"] == ["G"]
         assert "chr11_7992932" not in snps
         assert "chr18_80259190" not in snps

@@ -8,9 +8,9 @@ import TranscriptClean as TC
 
 class TestCreateTmpSamFile(object):
     def test_create_tmp_sam(self):
-        """ Create a tmp sam file from the mock header and transcripts provided,
-            and make sure the correct chromosomes were detected. Then, check
-            the order of the lines in the tmp file just to be sure."""
+        """ Create a tmp sam file from the mock header and transcripts provided.
+            Then, check the order of the lines in the tmp file just to be sure.
+        """
 
         sam_header = ["HLine1", "HLine2"]
         sam_transcripts = [ "\t".join(["read1", "mapping", "chr1", "..."]),
