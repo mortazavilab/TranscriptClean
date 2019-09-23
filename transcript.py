@@ -50,11 +50,11 @@ class Transcript:
         if int(self.FLAG) == 16 or int(self.FLAG) == 272: 
             self.strand = "-"
 
-        # Process splice junctions
+        # Get intron locations from the CIGAR string if not included already
         if (self.jI == ""):
                 self.jI = self.compute_jI()
 
-        if "N" in self.CIGAR:# and self.mapping == 1:
+        if "N" in self.CIGAR:
             # Create an object for each splice junction
             self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
             self.isCanonical = self.recheckCanonical()
@@ -63,8 +63,8 @@ class Transcript:
             self.spliceJunctions = []
             self.isCanonical = True    
 
-        # If the jM and jI fields are missing, compute them here.
-        if (self.jM == ""):# and self.mapping == 1:
+        # Get annotation status of each junction
+        if (self.jM == ""):
             self.jM, self.jI = self.get_jM_jI_tags_from_sjs()
 
         self.otherFields = "\t".join(otherFields)
@@ -258,15 +258,6 @@ class Transcript:
             result.append(b[1])
         return result
    
-    #def getAllSJMotifs(self, genome): #, spliceAnnot):
-    #    """ Return all splice junction motifs translated into their numeric 
-    #        STAR codes"""
-    #    # TODO: I think spliceAnnot is redundant here
-    #    result = []
-    #    for jn in self.spliceJunctions:
-    #        result.append(jn.jnStr)
-    #    return result
- 
     def getNMandMDFlags(self, genome):
         """ This function uses the transcript sequence, its CIGAR string, 
             and the reference genome to create NM and MD sam flags."""
@@ -275,9 +266,6 @@ class Transcript:
         MVal = 0
         seqPos = 0
         genomePos = self.POS
-
-        #if self.mapping != 1:
-        #    return "",""
 
         operations, counts = self.splitCIGAR()
 
@@ -332,9 +320,6 @@ class Transcript:
     def get_jM_jI_tags_from_sjs(self):
         """ Create jM and jI tags by traversing the splice junction strings """
 
-        #if self.mapping != 1:
-        #    return "",""
-
         jM = ["jM:B:c"]
         jI = ["jI:B:i"]
 
@@ -358,9 +343,6 @@ class Transcript:
 
     def compute_jI(self):
         """ Use the CIGAR string to compute where the introns are """
-
-        #if self.mapping != 1:
-        #    return "",""
 
         operations, counts = self.splitCIGAR()
         jI = ["jI:B:i"]
@@ -394,9 +376,6 @@ class Transcript:
             the intron in the genome sequence to detemine whether they are 
             canonical. We also record the start and end position of the intron. """
 
-        #if self.mapping != 1:
-        #    return "",""
-       
         seq = self.SEQ
         operations, counts = self.splitCIGAR()
 

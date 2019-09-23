@@ -21,20 +21,22 @@ import re
 from copy import copy
 from functools import partial
 import warnings
-## Memory profiling
-import tracemalloc
-import linecache
-import sys
+## Runtime profiling
+import cProfile
+import time
+from datetime import timedelta
 
 def main():
     options = getOptions()
     sam_file = options.sam
     validate_chroms(options.refGenome, sam_file)
     header, sam_lines = split_SAM(sam_file)
+    # TODO: Validate chroms after splitting the SAM file
     # TODO: sort the input sam file
 
     # Split up the sam lines to run on different processes if possible
     n_cpus = int(len(os.sched_getaffinity(0)))
+    # TODO: combine into new function
     sam_chunks = split_input(sam_lines, n_cpus)
     
     # Run the processes. Outfiles are created within each process
@@ -55,6 +57,17 @@ def main():
         one_process.join()
 
     # When the processes have finished, combine the outputs together.
+    combine_outputs(header, options)
+
+def non_parallel_main():
+    options = getOptions()
+    sam_file = options.sam
+    validate_chroms(options.refGenome, sam_file)
+    header, sam_lines = split_SAM(sam_file)
+
+    sam_chunks = split_input(sam_lines, 1)
+
+    run_chunk(sam_chunks[0], options, header)
     combine_outputs(header, options)
 
 
@@ -166,9 +179,10 @@ def prep_refs(options, transcripts, sam_header):
     ref_chroms = sorted((refs.genome.keys()))
    
     # Create a tmp SAM file for the provided reads
+    proc = str(os.getpid())
     tmp_sam, read_chroms = create_tmp_sam(sam_header, transcripts, 
                                           options.tmp_dir, 
-                                          process = str(os.getpid()))
+                                          process = proc)
 
     # Read in splice junctions
     refs.donors = None
@@ -181,7 +195,7 @@ def prep_refs(options, transcripts, sam_header):
         print("Processing annotated splice junctions ...")
         refs.donors, refs.acceptors, refs.sjAnnot = processSpliceAnnotation(sjFile, 
                                                    tmp_dir, read_chroms,
-                                                   process = str(os.getpid()))
+                                                   process = proc)
     else:
         print("No splice annotation provided. Will skip splice junction correction.")
 
@@ -198,7 +212,7 @@ def prep_refs(options, transcripts, sam_header):
                                                                 tmp_dir,
                                                                 tmp_sam, 
                                                                 add_chr = add_chr,
-                                                                process = str(os.getpid()))
+                                                                process = proc)
     else:
         print("No variant file provided. Transcript correction will not be variant-aware.")
         refs["snps"] = refs["insertions"] = refs["deletions"] = {}
@@ -288,6 +302,7 @@ def transcript_init(transcript_line, genome, sjAnnot):
  
      try:
          transcript = Transcript(sam_fields, genome, sjAnnot)
+
      except Exception as e:
          warnings.warn("Problem parsing transcript with ID '" + \
                        logInfo.TranscriptID + "'")
@@ -301,6 +316,8 @@ def batch_correct(sam_transcripts, options, refs, outfiles, n = 1000):
        The purpose is to stagger when the different threads are writing to disk. 
        For a given transcript, there can be only one sam, fasta, and log entry, 
        but there can be more than one transcript error (TE)."""
+
+    print("Correcting transcripts...")
 
     outSam = outfiles.sam
     outFa = outfiles.fasta
@@ -476,13 +493,18 @@ def run_chunk(transcripts, options, sam_header):
         on its own core """
 
     # Prep the references (i.e. genome, sjs, variants)
+    start_time = time.time()
     refs = prep_refs(options, transcripts, sam_header)
-    
+    end_time = time.time()
+    time_slice = end_time - start_time
+    human_time = str(timedelta(seconds=int(time_slice)))    
+    print("Reference file processing took %s" % (human_time))
+
     # Set up the outfiles
     outfiles = setup_outfiles(options, str(os.getpid()))
 
     # Correct the transcripts
-    n = 100
+    n = 1000
     batch_correct(transcripts, options, refs, outfiles, n = n)
 
     # Close up the outfiles
@@ -563,7 +585,7 @@ def combine_outputs(sam_header, options):
     if options.delete_tmp:
         os.system("rm -r %s" % tmp_dir)
 
-    print("Finished successfully!")
+    #print("Finished successfully!")
     return
 
 
@@ -1587,6 +1609,12 @@ def get_size(obj, seen=None):
 
 if __name__ == '__main__':
     #tracemalloc.start(50)
-    main()
+    #main()
     #snapshot = tracemalloc.take_snapshot()
     #display_top(snapshot) 
+    pr = cProfile.Profile()
+    pr.enable()
+    #non_parallel_main()
+    main()
+    pr.disable()
+    pr.print_stats(sort='cumtime')
