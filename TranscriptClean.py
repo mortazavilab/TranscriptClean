@@ -152,7 +152,10 @@ def cleanup_options(options):
 
     # Use custom tmp dir location if provided
     if options.tmp_path != None:
-        options.tmp_dir = "/".join((options.tmp_path).split("/")[0:-1] + ["TC_tmp/"])
+        if os.path.isdir(options.tmp_path):
+            options.tmp_dir = "/".join((options.tmp_path).split("/") + ["TC_tmp/"])
+        else:
+            options.tmp_dir = "/".join((options.tmp_path).split("/")[0:-1] + ["TC_tmp/"])
     else:
         options.tmp_dir = "/".join((options.outprefix).split("/")[0:-1] + ["TC_tmp/"]) 
 
@@ -514,7 +517,7 @@ def run_chunk(transcripts, options, sam_header):
     outfiles = setup_outfiles(options, str(os.getpid()))
 
     # Correct the transcripts
-    n = 1000
+    n = 100
     batch_correct(transcripts, options, refs, outfiles, n = n)
 
     # Close up the outfiles
