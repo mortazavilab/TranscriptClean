@@ -22,7 +22,7 @@ class TestPrepRefs(object):
         options.refGenome = "input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
-        options.sjCorrection = "false"
+        options.correctSJs = "false"
         options.variantFile = None
         options.sjAnnotFile = None
 
@@ -49,7 +49,7 @@ class TestPrepRefs(object):
         options.refGenome = "input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
-        options.sjCorrection = "true"
+        options.correctSJs = "true"
         options.variantFile = None
         options.sjAnnotFile = "input_files/test_junctions.txt"
 
@@ -78,7 +78,7 @@ class TestPrepRefs(object):
         options.refGenome = "input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
-        options.sjCorrection = "false"
+        options.correctSJs = "false"
         options.variantFile = None
         options.sjAnnotFile = "input_files/test_junctions.txt"
 
@@ -104,7 +104,7 @@ class TestPrepRefs(object):
         options.refGenome = "input_files/hg38_chr11.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
-        options.sjCorrection = "false"
+        options.correctSJs = "false"
         options.variantFile = "input_files/vcf_test/snps.vcf"
         options.sjAnnotFile = None
 

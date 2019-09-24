@@ -101,7 +101,7 @@ def getOptions():
                       type = "string", default = "true" )
     parser.add_option("--correctIndels", "-i", dest = "correctIndels",
                       help = "If set to false, TranscriptClean will skip indel \
-                      correction. Default: True", type = "string", 
+                      correction. Default: true", type = "string", 
                       default = "true")
     parser.add_option("--correctSJs", dest = "correctSJs",
                       help = ("If set to false, TranscriptClean will skip "
@@ -143,9 +143,20 @@ def cleanup_options(options):
     options.buffer_size = int(options.buffer_size)
     options.maxLenIndel = int(options.maxLenIndel)
     options.maxSJOffset = int(options.maxSJOffset)
-    options.indelCorrection = (options.correctIndels).lower()
-    options.mismatchCorrection = (options.correctMismatches).lower()
-    options.sjCorrection = (options.correctSJs).lower()
+    options.correctIndels = (options.correctIndels).lower()
+    options.correctMismatches = (options.correctMismatches).lower()
+    options.correctSJs = (options.correctSJs).lower()
+
+    # Screen options for correctness
+    if options.correctMismatches not in ["true", "false"]:
+        raise RuntimeError(("Invalid choice for --correctMismatches/-m option. "
+                            "Valid choices are 'true' and 'false'"))
+    if options.correctIndels not in ["true", "false"]:
+        raise RuntimeError(("Invalid choice for --correctIndels/-i option. "
+                            "Valid choices are 'true' and 'false'"))
+    if options.correctSJs not in ["true", "false"]:
+        raise RuntimeError(("Invalid choice for --correctSJs option. "
+                            "Valid choices are 'true' and 'false'"))
 
     # Use custom tmp dir location if provided
     if options.tmp_path != None:
@@ -196,7 +207,7 @@ def prep_refs(options, transcripts, sam_header):
     refs.donors = None
     refs.acceptors = None
     refs.sjAnnot = set()
-    if options.sjCorrection == "false":
+    if options.correctSJs == "false":
         print("SJ correction turned off in options. Skipping reference SJ parsing.")
 
     elif sjFile != None:
@@ -380,13 +391,13 @@ def correct_transcript(transcript_line, options, refs):
         upd_transcript = copy(orig_transcript) 
         upd_logInfo = logInfo
         # Mismatch correction
-        if options.mismatchCorrection == "true":
+        if options.correctMismatches == "true":
             mismatch_TE = correctMismatches(upd_transcript, refs.genome, 
                                             refs.snps, upd_logInfo)
             if mismatch_TE != "":
                 TE_entries += mismatch_TE
     
-        if options.indelCorrection == "true":
+        if options.correctIndels == "true":
             # Insertion correction
             ins_TE = correctInsertions(upd_transcript, refs.genome, refs.insertions,
                               options.maxLenIndel, upd_logInfo)
@@ -400,7 +411,7 @@ def correct_transcript(transcript_line, options, refs):
                 TE_entries += del_TE
 
         # NCSJ correction
-        if len(refs.sjAnnot) > 0 and options.sjCorrection == "true":
+        if len(refs.sjAnnot) > 0 and options.correctSJs == "true":
             upd_transcript, ncsj_TE = cleanNoncanonical(upd_transcript, refs, 
                                                         options.maxSJOffset, 
                                                         upd_logInfo) 
@@ -1567,7 +1578,6 @@ def dryRun(sam, options, outfiles):
 if __name__ == '__main__':
     #pr = cProfile.Profile()
     #pr.enable()
-    #non_parallel_main()
     main()
     #pr.disable()
     #pr.print_stats(sort='cumtime')

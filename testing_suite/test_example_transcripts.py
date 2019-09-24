@@ -42,9 +42,9 @@ class TestCorrectTranscripts(object):
         options = dstruct.Struct()
         options.maxLenIndel = 5
         options.maxSJOffset = 5
-        options.mismatchCorrection = "true"
-        options.indelCorrection = "true"
-        options.sjCorrection = "true"
+        options.correctMismatches = "true"
+        options.correctIndels = "true"
+        options.correctSJs = "true"
         options.primaryOnly = "true"
 
         # Correct the transcript
@@ -186,4 +186,16 @@ class TestCorrectTranscripts(object):
                 assert line.strip().split('\t') == expected_TE_log[counter]
                 counter += 1
 
+        # Make sure the report script runs without crashing
+        command = ["Rscript", "../generate_report.R", 
+                   "scratch/DIM_nc_full/TC"]
 
+        try:
+            output = subprocess.check_output(command)
+
+        except Exception as e:
+            print(e)
+            pytest.fail("TranscriptClean report script crashed.")
+
+        # Make sure report PDF exists and is not empty
+        assert os.path.getsize("scratch/DIM_nc_full/TC_report.pdf") > 0
