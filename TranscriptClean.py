@@ -1204,7 +1204,6 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
     transcript.isCanonical = transcript.recheckCanonical()
->>>>>>> python3.7.2
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors, 
