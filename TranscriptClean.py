@@ -591,7 +591,8 @@ def run_chunk(transcripts, options, sam_header):
 
     # Correct the transcripts
     start_time = time.time()
-    batch_correct(transcripts, options, refs, outfiles, n = options.buffer_size)
+    batch_correct(transcripts, options, refs, outfiles, 
+                  buffer_size = options.buffer_size)
     end_time = time.time()
     human_time = str(timedelta(seconds=int(end_time - start_time)))
     print("Took %s to process transcript batch." % (human_time))
@@ -686,6 +687,7 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
 
     bedstr = ""
     annot = set()
+    tmp_dir = tmp_dir + "splice_files/"
     os.system("mkdir -p %s" % (tmp_dir))
 
     donor_file = tmp_dir + "%s_ref_splice_donors_tmp.bed" % (process)
