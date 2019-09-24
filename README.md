@@ -4,7 +4,7 @@ TranscriptClean is a Python program that corrects mismatches, microindels, and n
 Note: At the present time, TranscriptClean does not work on SAM files that use X/= operators rather than M to represent matches in the CIGAR field. We are working on adding support for this in a future version. 
 
 ## Installation
-TranscriptClean is designed to be run with Python version 2.7. It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
+The current TranscriptClean version is designed to be run with Python version 3.7 (versions 1.0.8 and below use Python 2.7). It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
 * Bedtools (v2.25.0): http://bedtools.readthedocs.io/en/latest/content/installation.html
 * pybedtools (v0.7.8): https://daler.github.io/pybedtools/
 * pyfasta (v0.5.2): https://pypi.python.org/pypi/pyfasta/
@@ -14,7 +14,7 @@ In addition, R (v.3.3.2 recommended) is needed to run the visualization script, 
 To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. Alternately, you can download a specific version of the program from the Releases tab. The TranscriptClean script can now be run directly from the command line- just include the path. 
 
 ## Usage 
-TranscriptClean is run from the command line as follows. **For additional details and examples, please see the Wiki section.**
+TranscriptClean is run from the command line as follows. **For additional details and examples, please see the Wiki section.** 
 
 `python TranscriptClean.py --sam transcripts.sam --genome hg38.fa --outprefix /my/path/outfile`
 
