@@ -58,6 +58,6 @@ TranscriptClean outputs the following files:
 ## Credit
 Please cite our paper when using TranscriptClean:
 
-Dana Wyman, Ali Mortazavi. TranscriptClean: variant-aware correction of indels, mismatches and splice junctions in long-read transcripts, Bioinformatics, 15 June 2018, https://doi.org/10.1093/bioinformatics/bty483
+Dana Wyman, Ali Mortazavi, TranscriptClean: variant-aware correction of indels, mismatches and splice junctions in long-read transcripts, Bioinformatics, Volume 35, Issue 2, 15 January 2019, Pages 340–342, https://doi.org/10.1093/bioinformatics/bty483
 
 
