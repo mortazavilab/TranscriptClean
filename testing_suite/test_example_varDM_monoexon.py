@@ -29,9 +29,6 @@ class TestCorrectTranscripts2(object):
                    
         try:
             output = subprocess.check_output(command)
-            #if "Finished successfully!" not in str(output):
-            #    print(output)
-            #    pytest.fail("Unexpected warnings during TC run.")
 
         except Exception as e:
             print(e)

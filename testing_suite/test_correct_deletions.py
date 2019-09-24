@@ -34,7 +34,7 @@ class TestDeletionCorr(object):
         assert transcript.CIGAR == "5M"
 
         # Check TE log
-        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+        expected_TE = "\t".join(["test_read", "chr1_202892095_202892096",
                                  "Deletion", "1", "Corrected", "NA"]) + "\n"
         
         assert TE_entries == expected_TE
@@ -63,7 +63,7 @@ class TestDeletionCorr(object):
         assert transcript.CIGAR == "2M1D2M"
 
         # Check TE log
-        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+        expected_TE = "\t".join(["test_read", "chr1_202892095_202892096",
                                  "Deletion", "1", "Uncorrected", "TooLarge"]) + "\n"
 
         assert TE_entries == expected_TE
@@ -79,7 +79,7 @@ class TestDeletionCorr(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         maxLen = 5
         spliceAnnot = None
-        variants = {"chr1_202892096_202892096": 1}
+        variants = {"chr1_202892095_202892096": 1}
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
@@ -93,7 +93,7 @@ class TestDeletionCorr(object):
         assert transcript.CIGAR == "2M1D2M"
 
         # Check TE log
-        expected_TE = "\t".join(["test_read", "chr1_202892096_202892096",
+        expected_TE = "\t".join(["test_read", "chr1_202892095_202892096",
                                  "Deletion", "1", "Uncorrected", "VariantMatch"]) + "\n"
 
         assert TE_entries == expected_TE

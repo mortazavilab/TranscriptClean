@@ -712,8 +712,6 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, process = "1"):
         variants are included only if they overlap with the input SAM reads.
         This is a space-saving measure. If add_chr is set to 'True', the prefix
         'chr' will be added to each chromosome name."""
-    # TODO: Need to add insertion/deletion tests and make sure TE log entries
-    # match.
 
     SNPs = {}
     insertions = {}
@@ -754,7 +752,7 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, process = "1"):
     for variant in filtered_vcf:
 
        chrom = variant[0]
-       pos = int(variant[1]) #+ 1 
+       pos = int(variant[1]) 
        ref = variant[3]
        alt = variant[4].split(",")
        refLen = len(ref)
@@ -779,12 +777,10 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, process = "1"):
                if size > maxLen: continue
                # Positions in VCF files are one-based.
                # Inserton/deletion sequences always start with the
-               # preceding normal reference base, so we need to add
-               # one to pos in order to match with transcript positions.
-               # This principle holds for both insertions and deletions.
+               # preceding normal reference base
                actPos = pos + 1
                allele = allele[1:]
-               ID = "_".join([ chrom, str(actPos), str(actPos + size - 1)])
+               ID = "_".join([ chrom, str(pos), str(actPos + size - 1)])
 
                if refLen - altLen < 0: # Insertion
                    if ID not in insertions:
@@ -837,7 +833,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
              genomePos += ct
          
         if op == "I":
-            ID = "_".join([transcript.CHROM, str(genomePos), 
+            ID = "_".join([transcript.CHROM, str(genomePos - 1), 
                            str(genomePos + ct - 1)])
 
             # Only insertions of a given size are corrected
@@ -945,7 +941,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
              genomePos += ct
 
         if op == "D":
-            ID = "_".join([chrom, str(genomePos), str(genomePos + ct - 1)])
+            ID = "_".join([chrom, str(genomePos - 1), str(genomePos + ct - 1)])
             if ct <= maxLen:
 
                 # Check if the deletion is in the optional variant catalog.
@@ -1552,7 +1548,7 @@ def dryRun(sam, options, outfiles):
                 genomePos += ct
 
             if op == "D":
-                ID = "_".join([transcript.CHROM, str(genomePos), 
+                ID = "_".join([transcript.CHROM, str(genomePos - 1), 
                                str(genomePos + ct - 1)])
                 eL.write("\t".join([transcript.QNAME, ID, "Deletion", 
                                     str(ct), "Uncorrected", "DryRun"]) + "\n")
@@ -1560,7 +1556,7 @@ def dryRun(sam, options, outfiles):
                 genomePos += ct
                
             if op == "I":
-                ID = "_".join([transcript.CHROM, str(genomePos), 
+                ID = "_".join([transcript.CHROM, str(genomePos - 1), 
                                str(genomePos + ct - 1)])
                 eL.write("\t".join([transcript.QNAME, ID, "Insertion", 
                                     str(ct), "Uncorrected", "DryRun"]) + "\n")

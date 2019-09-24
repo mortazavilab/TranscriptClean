@@ -47,7 +47,7 @@ class TestFullDryRun(object):
         header = "\t".join(["TranscriptID", "Position", "ErrorType",
                 "Size", "Corrected", "ReasonNotCorrected"]) + "\n"
         deletion = "\t".join(["m54284_181015_235905/15205058/29_3462_CCS-PB72-derived",
-                   "chr11_207694_207694", "Deletion", "1", "Uncorrected", "DryRun"]) + "\n"
+                   "chr11_207693_207694", "Deletion", "1", "Uncorrected", "DryRun"]) + "\n"
         mismatch = "\t".join(["m54284_181015_235905/15205058/29_3462_CCS-PB72-derived",
                    "chr11_207698", "Mismatch", "1", "Uncorrected", "DryRun"]) + "\n"
         

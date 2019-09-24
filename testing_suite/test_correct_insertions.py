@@ -35,7 +35,7 @@ class TestInsertionCorr(object):
         assert transcript.CIGAR == "5M"
 
         # Check the log entries
-        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+        expected_log = "\t".join(["test_read", "chr1_202892096_202892098",
                                   "Insertion", "2", "Corrected", "NA"]) + "\n"
         assert TE_entries == expected_log
 
@@ -67,7 +67,7 @@ class TestInsertionCorr(object):
         assert transcript.CIGAR == "3M2I2M"
 
         # Check the log entries
-        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+        expected_log = "\t".join(["test_read", "chr1_202892096_202892098",
                                   "Insertion", "2", "Uncorrected", "TooLarge"]) + "\n"
         assert TE_entries == expected_log
 
@@ -86,7 +86,7 @@ class TestInsertionCorr(object):
         genome = Fasta("input_files/hg38_chr1.fa")
         maxLen = 5
         spliceAnnot = None
-        variants = {"chr1_202892097_202892098": "TT"}
+        variants = {"chr1_202892096_202892098": "TT"}
         logInfo = TC.init_log_info(sam_fields)
 
         # Init transcript object
@@ -100,6 +100,6 @@ class TestInsertionCorr(object):
         assert transcript.CIGAR == "3M2I2M"
 
         # Check the log entries
-        expected_log = "\t".join(["test_read", "chr1_202892097_202892098",
+        expected_log = "\t".join(["test_read", "chr1_202892096_202892098",
                                   "Insertion", "2", "Uncorrected", "VariantMatch"]) + "\n"
         assert TE_entries == expected_log
