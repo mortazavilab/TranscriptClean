@@ -22,7 +22,6 @@ import multiprocessing as mp
 from math import ceil
 import re
 from copy import copy
-from functools import partial # TODO: not sure if necessary
 import warnings
 
 ## Runtime profiling
@@ -36,7 +35,6 @@ def main():
     n_threads = options.n_threads
     header, sam_chroms, sam_chunks = split_SAM(sam_file, n_threads)
     validate_chroms(options.refGenome, options.variantFile, sam_chroms)
-    # TODO: sort the input sam file
 
     # Run the processes. Outfiles are created within each process
     processes = [ ]
@@ -56,7 +54,11 @@ def main():
         one_process.join()
 
     # When the processes have finished, combine the outputs together.
+    start_time = time.time()
     combine_outputs(header, options)
+    end_time = time.time()
+    human_time = str(timedelta(seconds=int(end_time - start_time)))
+    print("Took %s to combine all outputs." % (human_time))
 
 def getOptions():
     parser = OptionParser()
@@ -621,7 +623,6 @@ def combine_outputs(sam_header, options):
     if options.delete_tmp:
         os.system("rm -r %s" % tmp_dir)
 
-    #print("Finished successfully!")
     return
 
 
