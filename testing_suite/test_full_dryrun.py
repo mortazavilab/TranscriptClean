@@ -56,3 +56,7 @@ class TestFullDryRun(object):
         with open("scratch/dryRun/TC_clean.TE.log", 'r') as f: 
             TE_log = f.readlines()
             assert TE_log == expected_TE_log
+
+        # Make sure that no SAM or fasta file was created
+        assert os.path.exists("scratch/dryRun/TC_clean.sam") == False
+        assert os.path.exists("scratch/dryRun/TC_clean.fa") == False
