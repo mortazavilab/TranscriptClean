@@ -42,7 +42,7 @@ class Transcript:
 
         # If the NM and MD tags are None, it means there was a reference genome
         # problem somewhere in the read. Consider such reads unmapped.
-        if self.NM == "" and self.MD == "":
+        if self.NM == "" or self.MD == "":
             self.NM, self.MD = self.getNMandMDFlags(genome)    
 
         # These attributes are set by parsing the inputs

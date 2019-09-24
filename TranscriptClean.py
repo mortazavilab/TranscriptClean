@@ -97,7 +97,7 @@ def getOptions():
                       metavar = "FILE", type = "string", default = "TC")
     parser.add_option("--correctMismatches", "-m", dest = "correctMismatches",
                       help = ("If set to false, TranscriptClean will skip "
-                              "mismatch correction. Default: True"), 
+                              "mismatch correction. Default: true"), 
                       type = "string", default = "true" )
     parser.add_option("--correctIndels", "-i", dest = "correctIndels",
                       help = "If set to false, TranscriptClean will skip indel \

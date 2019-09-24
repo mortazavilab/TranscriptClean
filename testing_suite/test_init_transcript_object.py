@@ -74,7 +74,8 @@ class TestInitTranscript(object):
         assert transcript.CHROM == "chr1"
         assert transcript.POS == 192575775
         assert transcript.CIGAR == "155M"
-        assert logInfo.Mapping == "primary"       
+        assert transcript.MD == "MD:Z:155"
+        assert logInfo.Mapping == "primary"      
         assert logInfo.corrected_deletions == \
                logInfo.uncorrected_deletions == \
                logInfo.variant_deletions == \
