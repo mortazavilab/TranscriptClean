@@ -21,10 +21,10 @@ class TestProcessSpliceAnnot(object):
                                                                 chroms, process = "test")
 
         # Check if paths of tmp files are correct            
-        assert os.path.exists("scratch/sj_reading_test/test_ref_splice_donors_tmp.bed")
-        assert os.path.exists("scratch/sj_reading_test/test_ref_splice_acceptors_tmp.bed")
-        assert os.path.exists("scratch/sj_reading_test/test_ref_splice_donors_tmp.sorted.bed")
-        assert os.path.exists("scratch/sj_reading_test/test_ref_splice_acceptors_tmp.sorted.bed")
+        assert os.path.exists("scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.bed")
+        assert os.path.exists("scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.bed")
+        assert os.path.exists("scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.sorted.bed")
+        assert os.path.exists("scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
 
     def test_chrom_filtering(self):
         """ Check that only chr1 and ch2 junctions get saved"""
