@@ -1,0 +1,4 @@
+@HD	VN:1.6	SO:coordinate
+@SQ	SN:chr11	LN:135086622
+@PG	ID:minimap2	PN:minimap2	VN:2.15-r905	CL:minimap2 -t 16 -ax splice -uf --secondary=no -C5 /bio/dwyman/pacbio_f2016/data/STAR_hg38_ENCODE/hg38.fa /share/samdata/dwyman/PB72/Classify/1_A01/isoseq_flnc.fasta
+m54284_181015_235905/15205058/29_3462_CCS-PB72-derived	0	chr11	207692	60	2M1D5M	*	0	0	GCGGGTC	*	NM:i:2	MD:Z:2^G3T1	jI:B:i,-1	jM:B:c,-1	

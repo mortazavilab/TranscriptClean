@@ -26,8 +26,10 @@ main <-function() {
 
     # Read in data from run
     print("Reading log files............")
-    data = read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA")
-    transcripts = read_delim(logFileVerbose, "\t", escape_double = FALSE, col_names = TRUE, trim_ws = TRUE, na = "NA")
+    data = read_delim(logFileTE, "\t", escape_double = FALSE, col_names = TRUE, 
+                      trim_ws = TRUE, na = "NA")
+    transcripts = read_delim(logFileVerbose, "\t", escape_double = FALSE, 
+                             col_names = TRUE, trim_ws = TRUE, na = "NA")
     transcripts[,3:12] <- sapply(transcripts[,3:12], as.numeric)
 
     # Table 1
@@ -37,17 +39,24 @@ main <-function() {
     unmap = c("Unmapped", nrow(subset(transcripts, Mapping == "unmapped")))
     total = c("Total", nrow(transcripts))
     t1 = rbind(primary, rbind(multi, rbind(unmap, total)))
-    title_t1 <- textGrob("Transcripts in Input",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
+    title_t1 <- textGrob("Transcripts in Input",
+                         gp=gpar(fontface="bold", fontsize=13), vjust = -6)
     t1 = tableGrob(t1, rows = NULL, cols = c("Transcript type", "Count"))
     gt1 = gTree(children=gList(t1, title_t1))
     
 
     # Table 2
     processedTranscripts = subset(transcripts, Mapping == "primary")
-    del = c(sum(processedTranscripts$corrected_deletions), sum(processedTranscripts$uncorrected_deletions), sum(processedTranscripts$variant_deletions))
-    ins = c(sum(processedTranscripts$corrected_insertions), sum(processedTranscripts$uncorrected_insertions), sum(processedTranscripts$variant_insertions))
-    mis = c(sum(processedTranscripts$corrected_mismatches), NA, sum(processedTranscripts$variant_mismatches))
-    ncsj = c(sum(processedTranscripts$corrected_NC_SJs), sum(processedTranscripts$uncorrected_NC_SJs), NA)
+    del = c(sum(processedTranscripts$corrected_deletions, na.rm = TRUE), 
+            sum(processedTranscripts$uncorrected_deletions, na.rm = TRUE), 
+            sum(processedTranscripts$variant_deletions, na.rm = TRUE))
+    ins = c(sum(processedTranscripts$corrected_insertions, na.rm = TRUE), 
+            sum(processedTranscripts$uncorrected_insertions, na.rm = TRUE), 
+            sum(processedTranscripts$variant_insertions, na.rm = TRUE))
+    mis = c(sum(processedTranscripts$corrected_mismatches, na.rm = TRUE), 
+            NA, sum(processedTranscripts$uncorrected_mismatches, na.rm = TRUE))
+    ncsj = c(sum(processedTranscripts$corrected_NC_SJs, na.rm = TRUE), 
+             sum(processedTranscripts$uncorrected_NC_SJs, na.rm = TRUE), NA)
     categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
     t2 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind.data.frame(mis, ncsj))))
     t2$total = rowSums(t2[,2:4], na.rm = TRUE)
@@ -55,7 +64,9 @@ main <-function() {
     t2$percent = round((t2[,2])*100.0/t2[,5], 2)
  
     title_t2 = textGrob("Summary of Processed Errors",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
-    t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", "Not Correctable", "Variant", "Total", "Percent Corrected"))
+    t2 = tableGrob(t2, rows = NULL, cols = c("Error Type", "Corrected", 
+                                             "Not Correctable", "Variant", 
+                                             "Total", "Percent Corrected"))
     gt2 = gTree(children=gList(t2, title_t2))    
 
     
@@ -64,19 +75,27 @@ main <-function() {
     processedTranscripts$totI = rowSums(processedTranscripts[,6:8], na.rm = TRUE)    
     processedTranscripts$totM = rowSums(processedTranscripts[,9:10], na.rm = TRUE)
     processedTranscripts$totNCSJ = rowSums(processedTranscripts[,11:12], na.rm = TRUE)
-    del = c(nrow(subset(processedTranscripts, totD > 0)), nrow(subset(processedTranscripts, totD > 0 & (uncorrected_deletions > 0 | variant_deletions > 0)))) 
-    ins = c(nrow(subset(processedTranscripts, totI > 0)), nrow(subset(processedTranscripts, totI > 0 & (uncorrected_insertions > 0 | variant_insertions > 0))))
-    mis = c(nrow(subset(processedTranscripts, totM > 0)), nrow(subset(processedTranscripts, totM > 0 & variant_mismatches > 0)))
-    ncsj = c(nrow(subset(processedTranscripts, totNCSJ > 0)), nrow(subset(processedTranscripts, totNCSJ > 0 & uncorrected_NC_SJs > 0))) 
+    del = c(nrow(subset(processedTranscripts, totD > 0)), 
+            nrow(subset(processedTranscripts, totD > 0 & 
+            (uncorrected_deletions > 0 | variant_deletions > 0)))) 
+    ins = c(nrow(subset(processedTranscripts, totI > 0)), 
+            nrow(subset(processedTranscripts, totI > 0 & 
+            (uncorrected_insertions > 0 | variant_insertions > 0))))
+    mis = c(nrow(subset(processedTranscripts, totM > 0)), 
+            nrow(subset(processedTranscripts, totM > 0 & 
+            uncorrected_mismatches > 0)))
+    ncsj = c(nrow(subset(processedTranscripts, totNCSJ > 0)), 
+             nrow(subset(processedTranscripts, totNCSJ > 0 & 
+             uncorrected_NC_SJs > 0))) 
     categories = c("Deletions", "Insertions", "Mismatches", "Noncanonical jns")
-    t3 = cbind.data.frame(categories, rbind.data.frame(del, rbind.data.frame(ins, rbind.data.frame(mis, ncsj))))
+    t3 = cbind.data.frame(categories,  rbind.data.frame(del, rbind.data.frame(ins, rbind.data.frame(mis, ncsj))))
     t3$change = round((t3[,2] - t3[,3])*100.0/t3[,2], 2)
     title_t3 = textGrob("Transcripts containing one or more of error/variant type",gp=gpar(fontface="bold", fontsize=13), vjust = -6)
     t3 = tableGrob(t3, rows = NULL, cols = c("Type", "Before TranscriptClean", "After TranscriptClean", "Percent Corrected"))
     gt3 = gTree(children=gList(t3, title_t3))
 
     # Drawing tables
-    grid.arrange(gt1, gt2, gt3)#, layout_matrix = cbind(c(1,2,3),c(1,4,4)))
+    grid.arrange(gt1, gt2, gt3)
 
 
     # Plot 1: Size distribution of deletions
