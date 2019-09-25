@@ -27,7 +27,7 @@ class TestProcessSpliceAnnot(object):
         assert os.path.exists("scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
 
     def test_chrom_filtering(self):
-        """ Check that only chr1 and ch2 junctions get saved"""
+        """ Check that only chr1 and chr2 junctions get saved"""
 
         sj_file = "input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr1", "chr2"])

@@ -45,7 +45,8 @@ class TestCorrectTranscripts(object):
         options.correctMismatches = "true"
         options.correctIndels = "true"
         options.correctSJs = "true"
-        options.primaryOnly = "true"
+        options.primaryOnly = True
+        options.canonOnly = False
 
         # Correct the transcript
         with open(sam, 'r') as f:

@@ -56,12 +56,15 @@ class Transcript:
 
         if "N" in self.CIGAR:
             # Create an object for each splice junction
-            self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
-            self.isCanonical = self.recheckCanonical()
-            
+            self.spliceJunctions, self.isCanonical, self.allJnsAnnotated = \
+                                 self.parseSpliceJunctions(genome, spliceAnnot)
+            #self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
+            #self.isCanonical = self.recheckCanonical()
+            #self.allJnsAnnotated = self.recheckJnsAnnotated()        
         else:
             self.spliceJunctions = []
             self.isCanonical = True    
+            self.allJnsAnnotated = True
 
         # Get annotation status of each junction
         if (self.jM == ""):
@@ -69,7 +72,16 @@ class Transcript:
 
         self.otherFields = "\t".join(otherFields)
 
-    
+    def recheckJnsAnnotated(self):
+        """ Check the splice motif of each splice junction to determine 
+            whether the transcript overall is annotated """
+        for jn in self.spliceJunctions:
+            if int(jn.motif_code) < 20:
+                self.allJnsAnnotated = False
+                return False
+        self.allJnsAnnotated = True
+        return True
+                
     def recheckCanonical(self):
         """ Check each splice junction. If one or more junctions are
             noncanonical, then so is the transcript. """
@@ -208,6 +220,8 @@ class Transcript:
         count = 0
         jnNum = 0
         jnObjects = [] 
+        canonical = True
+        annotated = True
         while count < len(intronBounds):
             start = int(intronBounds[count])
             end = int(intronBounds[count + 1])
@@ -215,12 +229,16 @@ class Transcript:
                  self.strand, genome, spliceAnnot)
             jnObjects.append(sj)
 
-            # Check if junction is canonical or not. 
-            if sj.isCanonical == False: self.isCanonical = False
+            # Check if junction is canonical or not, as well as whether it is 
+            # annotated. 
+            if sj.isCanonical == False: #self.isCanonical = False
+                canonical = False
+            if int(sj.motif_code) < 20:
+                annotated = False
             count += 2
             jnNum += 1
         
-        return jnObjects
+        return jnObjects, canonical, annotated
 
     def printableSAM(self):
         """ Returns a SAM-formatted string representation of the transcript"""

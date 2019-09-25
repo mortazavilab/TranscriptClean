@@ -121,6 +121,11 @@ def getOptions():
                       help = "If this option is set, TranscriptClean will only \
                       output primary mappings of transcripts (ie it will filter \
                       out unmapped and multimapped lines from the SAM input.")
+    parser.add_option("--canonOnly", dest ="canonOnly", action='store_true',
+                      help = ("If this option is set, TranscriptClean will "
+                      "output only canonical transcripts and transcripts "
+                      "containing annotated noncanonical junctions to the "
+                      "clean SAM file at the end of the run."))
     parser.add_option("--tmpDir", dest ="tmp_path", 
                       help = ("If you would like the tmp files to be written "
                               "somewhere different than the final output, "
@@ -344,20 +349,21 @@ def batch_correct(sam_transcripts, options, refs, outfiles, buffer_size = 100):
         # If the transcript object returned is None, this means that the 
         # current read was not a primary mapper. Add to the log file,
         # but do not output a fasta sequence. Only output the original 
-        # SAM alignment if primaryOnly mode is off 
+        # SAM alignment if primaryOnly and canonOnly modes are off 
         if transcript == None:
             log_lines += create_log_string(logInfo) + "\n"
-            if options.primaryOnly == False:
+            if options.primaryOnly == False and options.canonOnly == False:
                  sam_lines += transcript_line + "\n"
        
-        # In all other cases, output the transcript in SAM and Fasta format,
-        # plus output the logs 
+        # Output the transcript in SAM and Fasta format, plus output the logs 
         else:
-            sam_lines += transcript.printableSAM() + "\n"
+            canonical_or_annot = transcript.isCanonical or transcript.allJnsAnnotated
+            if options.canonOnly == False or canonical_or_annot == True:
+                sam_lines += transcript.printableSAM() + "\n"
+                fasta_lines += transcript.printableFa() + "\n"
             log_lines += create_log_string(logInfo) + "\n"
-            fasta_lines += transcript.printableFa() + "\n"
             TE_log_lines += TE_entries
-            
+
         # Check whether to empty the buffer
         if counter > buffer_size:
             outSam.write(sam_lines)
@@ -1197,6 +1203,7 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
         - Reassign the position of the junction (based on its bounds)
         - Recompute the splice motif and assign to junction
         - Recompute NM/MD tags
+        - Check canonical and annotated status
     """
     junction = transcript.spliceJunctions[splice_jn_num]
     junction.recheckPosition()
@@ -1204,6 +1211,7 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
     transcript.NM, transcript.MD = transcript.getNMandMDFlags(genome)
     transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
     transcript.isCanonical = transcript.recheckCanonical()
+    transcript.allJnsAnnotated = transcript.recheckJnsAnnotated()
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors, 
