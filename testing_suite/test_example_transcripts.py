@@ -104,7 +104,7 @@ class TestCorrectTranscripts(object):
                    "input_files/GM12878_SJs_chr1.tab", "--maxLenIndel", "5",
                    "--maxSJOffset", "5", "--correctMismatches", "True",
                    "--correctIndels", "True", "--correctSJs", "True", "--primaryOnly",
-                   "--o", "scratch/DIM_nc_full/TC"]
+                   "--canonOnly", "--o", "scratch/DIM_nc_full/TC"]
                    
         try:
             output = subprocess.check_output(command)
