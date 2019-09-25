@@ -41,6 +41,7 @@ TranscriptClean is run from the command line as follows. Please note that releas
 | --maxLenIndel       | n/a       | Maximum size indel to correct. Default = 5 bp.
 | --maxSJOffset       | n/a       | Maximum distance from annotated splice junction to correct. Default = 5 bp.  
 | --primaryOnly       | n/a       | If this option is set, TranscriptClean will only output primary mappings of transcripts (ie it will filter out unmapped and multimapped lines from the SAM input.)
+| --canonOnly       | n/a       | If this option is set, TranscriptClean will only output transcripts that are either canonical or that contain annotated noncanonical junctions to the clean SAM file at the end of the run.
 
 ### Other options that may help tune performance
 | Option              | Shortcut  | Description
