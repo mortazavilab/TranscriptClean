@@ -98,18 +98,12 @@ if __name__ == "__main__":
             # Skip entries that lack a transcript ID
             if "transcript_id" not in description:
                 continue
-            if "exon_number" not in description:
-                continue
             
             transcriptID = (description.split("transcript_id ")[1]).split('"')[1]
-            exonNumber = int((description.split("exon_number ")[1]).split(';')[0])
             strand = info[6]
 
             if transcriptID != prev_transcriptID:
                 # Start new transcript
-                if exonNumber != 1:
-                    print("Error: exons are not listed in order")
-                    exit()
                 prev_transcriptID = transcriptID
                 if strand == "+":
                     prev_exonEnd = info[4]
