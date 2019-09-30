@@ -108,7 +108,7 @@ if __name__ == "__main__":
             if transcriptID != prev_transcriptID:
                 # Start new transcript
                 if exonNumber != 1:
-                    print "Error: exons are not listed in order"
+                    print("Error: exons are not listed in order")
                     exit()
                 prev_transcriptID = transcriptID
                 if strand == "+":
