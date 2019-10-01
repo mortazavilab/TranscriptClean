@@ -58,9 +58,6 @@ class Transcript:
             # Create an object for each splice junction
             self.spliceJunctions, self.isCanonical, self.allJnsAnnotated = \
                                  self.parseSpliceJunctions(genome, spliceAnnot)
-            #self.spliceJunctions = self.parseSpliceJunctions(genome, spliceAnnot)
-            #self.isCanonical = self.recheckCanonical()
-            #self.allJnsAnnotated = self.recheckJnsAnnotated()        
         else:
             self.spliceJunctions = []
             self.isCanonical = True    
@@ -120,11 +117,12 @@ class Transcript:
             one with capital letters (match operators), and one with 
             the number of bases that each operation applies to. """
 
-        alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
-        counts = re.sub('[A-Z]', " ", self.CIGAR).split()
-        counts = [int(i) for i in counts]
+        
+        #alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
+        #counts = re.sub('[A-Z]', " ", self.CIGAR).split()
+        #counts = [int(i) for i in counts]
 
-        return alignTypes, counts
+        return splitCIGARstr(self.CIGAR)#alignTypes, counts
 
     def splitMD(self):
         """ Takes MD tag and splits into two lists: 
@@ -553,4 +551,29 @@ def reverseComplement(seq):
 
     return reverseComplement
 
+def splitCIGARstr(CIGAR):
+    """ Takes CIGAR string from SAM and splits it into two lists:
+        one with capital letters (match operators), and one with
+        the number of bases that each operation applies to. """
 
+    alignTypes = re.sub('[0-9]', " ", CIGAR).split()
+    counts = re.sub('[A-Z]', " ", CIGAR).split()
+    counts = [int(i) for i in counts]
+
+    return alignTypes, counts
+
+def check_seq_and_cigar_length(seq, cigar):
+    """This function computes the sequence and CIGAR length, then compares
+       them to see if they are the same. Returns True if yes, False if not.
+    """
+    seq_len = len(seq)
+    ops, counts = splitCIGARstr(cigar)
+    cigar_len = 0
+    for op, ct in zip(ops, counts):
+        if op in ["M", "I", "S"]:
+            cigar_len += int(ct)
+ 
+    if seq_len == cigar_len:
+        return True
+    else:
+        return False

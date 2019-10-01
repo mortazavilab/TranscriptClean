@@ -9,6 +9,7 @@
 
 # TC Classes
 from transcript import Transcript
+from transcript import check_seq_and_cigar_length
 from spliceJunction import *
 from intronBound import IntronBound
 from optparse import OptionParser
@@ -120,12 +121,13 @@ def getOptions():
     parser.add_option("--primaryOnly", dest ="primaryOnly", action='store_true',
                       help = "If this option is set, TranscriptClean will only \
                       output primary mappings of transcripts (ie it will filter \
-                      out unmapped and multimapped lines from the SAM input.")
+                      out unmapped and multimapped lines from the SAM input.",
+                      default = False)
     parser.add_option("--canonOnly", dest ="canonOnly", action='store_true',
                       help = ("If this option is set, TranscriptClean will "
                       "output only canonical transcripts and transcripts "
                       "containing annotated noncanonical junctions to the "
-                      "clean SAM file at the end of the run."))
+                      "clean SAM file at the end of the run."), default = False)
     parser.add_option("--tmpDir", dest ="tmp_path", 
                       help = ("If you would like the tmp files to be written "
                               "somewhere different than the final output, "
@@ -411,7 +413,7 @@ def correct_transcript(transcript_line, options, refs):
                               options.maxLenIndel, upd_logInfo)
             if ins_TE != "":
                 TE_entries += ins_TE
-            
+ 
             # Deletion correction
             del_TE = correctDeletions(upd_transcript, refs.genome, refs.deletions,
                              options.maxLenIndel, upd_logInfo)
@@ -1212,6 +1214,7 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
     transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
     transcript.isCanonical = transcript.recheckCanonical()
     transcript.allJnsAnnotated = transcript.recheckJnsAnnotated()
+
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors, 
@@ -1247,17 +1250,19 @@ def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors,
                                            transcript.POS, splice_jn_num, 
                                            donor, ref_donor.dist, genome, 
                                            transcript.SEQ, transcript.CIGAR)
-
+       
         # Attempt to fix the splice acceptor side
         acceptor = junction.get_splice_acceptor()
         transcript.SEQ, transcript.CIGAR = fix_one_side_of_junction(transcript.CHROM,
                                            transcript.POS, splice_jn_num,
                                            acceptor, ref_acceptor.dist, genome,
                                            transcript.SEQ, transcript.CIGAR)
+        
         # Now, perform updates:
         update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot)
 
-    except:
+    except Exception as e:
+        print(e)
         return False, "Other", combined_dist
 
     return True, "NA", combined_dist 
@@ -1383,6 +1388,9 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
     for i in range(0,len(intronCIGARs)):
         newCIGAR = newCIGAR + exonCIGARs[i] + str(intronCIGARs[i]) + "N"
     newCIGAR = newCIGAR + exonCIGARs[-1]
+
+    if not check_seq_and_cigar_length(newSeq, newCIGAR):
+        raise RuntimeError("CIGAR string and sequence are not the same length")
 
     return newSeq, newCIGAR
 
@@ -1579,6 +1587,7 @@ def dryRun(sam, options, outfiles):
                 genomePos += ct
         write_to_transcript_log(logInfo, tL)
     return 
+
 
 if __name__ == '__main__':
     #pr = cProfile.Profile()

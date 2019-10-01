@@ -71,7 +71,7 @@ class TestAttemptJnCorrection(object):
         transcript = t2.Transcript(sam_fields, genome, sjAnnot)
         jnNumber = 0
         maxDist = 5
-        donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
+        #donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
 
         # Attempt to correct the splice junction
         correction_status, reason, dist = TC.attempt_jn_correction(transcript,
@@ -85,3 +85,36 @@ class TestAttemptJnCorrection(object):
         assert correction_status == True
         assert reason == "NA"
         assert dist == 2
+
+    def test_crash(self):
+        """ This is a Drosophila junction that borders a small match preceded by
+            a 7 bp deletion. It is supposed to crash correction, which will result
+            in a categorization of 'Other' in the log """
+
+        # Process references
+        sjFile = "input_files/drosophila_example/chr3R_SJs.tsv"
+        outprefix = "scratch/dmel_crash/"
+        tmp_dir = "scratch/dmel_crash/TC_tmp/"
+        chroms = set(["chr3R"])
+        donors, acceptors, sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
+                                                               chroms)
+        genome = Fasta("input_files/drosophila_example/chr3R.fa")
+        
+        # Init transcript object
+        sam_fields = ["test_read", "0", "chr3R", "14890420", "255", "7M7D2M264N7M", "*",
+                      "0", "0", "GATCAAACAACAAGTC", "*"]
+        transcript = t2.Transcript(sam_fields, genome, sjAnnot)
+
+        jnNumber = 0
+        maxDist = 5
+        # Attempt to correct the splice junction
+        correction_status, reason, dist = TC.attempt_jn_correction(transcript,
+                                                                   jnNumber,
+                                                                   genome,
+                                                                   donors,
+                                                                   acceptors,
+                                                                   sjAnnot,
+                                                                   maxDist)
+        assert correction_status == False
+        assert reason == "Other"
+        assert dist == 5

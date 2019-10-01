@@ -39,6 +39,7 @@ class TestNCSJCorrection(object):
 
         # Attempt to correct the splice junction
         transcript, TE_entries = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo)
+        
 
         assert transcript.isCanonical == True
         assert transcript.spliceJunctions[jnNumber].isCanonical == True
@@ -88,3 +89,48 @@ class TestNCSJCorrection(object):
         assert logInfo.uncorrected_NC_SJs == 1
         assert transcript.CIGAR == orig_CIGAR
 
+    def test_crash_dmel(self):
+        """ This is a Drosophila junction that borders a small match preceded by
+            a 7 bp deletion. It is also supposed to crash correction, but did
+            not in TC v2.0.1."""
+
+        # Process references
+        sjFile = "input_files/drosophila_example/chr3R_SJs.tsv"
+        tmp_dir = "scratch/dmel/TC"
+        os.system("mkdir -p %s" % tmp_dir)
+        refs = dstruct.Struct()
+        chroms = set(["chr3R"])
+        refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
+        refs.genome = Fasta("input_files/drosophila_example/chr3R.fa")
+
+        sam = "input_files/drosophila_example/no_SJ_corr.sam"
+        with open(sam, 'r') as f:
+            for sam_line in f:
+                if sam_line.startswith("@"):
+                    continue                
+                else:
+                    sam_line = sam_line.strip().split('\t')
+
+        # Init transcript object
+        transcript = t2.Transcript(sam_line, refs.genome, refs.sjAnnot)
+        maxDist = 5
+        logInfo = TC.init_log_info(sam_line)
+        orig_CIGAR = transcript.CIGAR
+        orig_seq = transcript.SEQ
+        orig_MD = transcript.MD
+        expected_TE = "\t".join(["m160713_133433_42182_c101000162550000001823232709161620_s1_p0/121139/11291_13013",
+                                 "chr3R_14890436_14890699", "NC_SJ_boundary", "5", "Uncorrected", "Other"]) + "\n"
+
+        assert transcript.isCanonical == False
+
+        # Attempt to correct the splice junction
+        new_transcript, TE_entries = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo)
+
+        print(TE_entries)
+        assert new_transcript.isCanonical == False
+        assert TE_entries == expected_TE
+        assert new_transcript.MD == orig_MD
+        assert logInfo.corrected_NC_SJs == 0
+        assert logInfo.uncorrected_NC_SJs == 1
+        assert new_transcript.CIGAR == orig_CIGAR
+        assert new_transcript.SEQ == orig_seq
