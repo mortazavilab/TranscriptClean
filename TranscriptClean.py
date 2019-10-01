@@ -1262,7 +1262,6 @@ def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors,
         update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot)
 
     except Exception as e:
-        print(e)
         return False, "Other", combined_dist
 
     return True, "NA", combined_dist 
