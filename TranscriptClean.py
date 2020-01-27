@@ -750,7 +750,7 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, process = "1"):
                           "file is properly formatted, including a header. "))
 
     # Filter the VCF file to include only those variants that overlap the reads
-    filtered_vcf = vcf_obj.intersect(bam, u=True) 
+    filtered_vcf = vcf_obj.intersect(bam, u=True, nonamecheck = True) 
 
     if len(filtered_vcf) == 0:
         warnings.warn(("Warning: none of variants provided overlapped the" 
@@ -1172,7 +1172,7 @@ def find_closest_bound(sj_bound, ref_bounds):
     bed_pos = pybedtools.BedTool(sj_bound.getBED(), from_string=True)
 
     # Run Bedtools Closest operation
-    closest = bed_pos.closest(ref_bounds, s=True, D="ref", t="first")[0]
+    closest = bed_pos.closest(ref_bounds, s=True, D="ref", t="first", nonamecheck = True)[0]
 
     # Create an object to represent the closest match
     # Coordinates are 0-based since they are coming from BED
@@ -1214,7 +1214,6 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
     transcript.jM, transcript.jI = transcript.get_jM_jI_tags_from_sjs() 
     transcript.isCanonical = transcript.recheckCanonical()
     transcript.allJnsAnnotated = transcript.recheckJnsAnnotated()
-
     return
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors, 
