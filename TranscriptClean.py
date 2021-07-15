@@ -680,6 +680,8 @@ def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process = "1"):
                 file2 = o_donor
                 type1 = "acceptor"
                 type2 = "donor"
+            else:
+                continue
 
             # Make one bed entry for each end of the junction and write to
             # splice donor and acceptor files
