@@ -1,13 +1,14 @@
-import pytest
 import sys
-import os
-import subprocess
+sys.path.append("..")  # noqa
 import pybedtools
-sys.path.append("..")
+import subprocess
+import os
+import pytest
 import TranscriptClean as TC
 import dstruct as dstruct
-@pytest.mark.integration
 
+
+@pytest.mark.integration
 class TestPrepRefs(object):
     def test_genome_only(self):
         """ Make sure that the prep_refs function works under the simplest
@@ -27,7 +28,7 @@ class TestPrepRefs(object):
         options.sjAnnotFile = None
 
         header, chroms, sam_chunks = TC.split_SAM(sam, 1)
-        refs = TC.prep_refs(options, sam_chunks[0], header) 
+        refs = TC.prep_refs(options, sam_chunks[0], header)
 
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
@@ -39,7 +40,7 @@ class TestPrepRefs(object):
     def test_sjs(self):
         """ Genome and splice junction reference provided. Variant structs
             should still be empty. """
-        
+
         # Initialize options etc.
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
         tmp_dir = "scratch/prep_refs/sjs/TC_tmp/"
@@ -59,16 +60,16 @@ class TestPrepRefs(object):
         # Check that variant dicts are empty
         assert refs.snps == refs.insertions == refs.deletions == {}
 
-        # Check SJ bedtools and annot lookup 
-        assert (refs.donors).count() == 3 
-        assert (refs.acceptors).count() == 2 # Same acceptor appears in 2 jns 
+        # Check SJ bedtools and annot lookup
+        assert refs.donors.length == 3
+        assert refs.acceptors.length == 2  # Same acceptor appears in 2 jns
         assert len(refs.sjAnnot) == 3
 
     def test_sj_corr_off(self):
         """ Splice reference provided, but correction set to off. Expected 
             behavior is to skip SJ ref initialization because it would be a
             waste of time """
-       
+
         # Initialize options etc.
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
         tmp_dir = "scratch/prep_refs/sj_off/TC_tmp/"
