@@ -2,11 +2,12 @@
 
 from intronBound import IntronBound
 
+
 class SpliceJunction:
 
-    def __init__(self, transcriptID, jnNumber, chrom, start, end, strand, genome, 
+    def __init__(self, transcriptID, jnNumber, chrom, start, end, strand, genome,
                  spliceAnnot):
-        
+
         self.transcriptID = transcriptID
         self.jnNumber = int(jnNumber)
         self.chrom = chrom
@@ -24,7 +25,7 @@ class SpliceJunction:
         # Get splice motif
         self.motif_code = self.isCanonical = None
         self.checkSpliceMotif(genome, spliceAnnot)
-        
+
     def get_splice_donor(self):
         """ Return the IntronBound object that is the splice donor """
         if self.strand == "+":
@@ -48,8 +49,8 @@ class SpliceJunction:
         """ Check the splice junction sequence motif to determine whether the 
             motif_code should be changed"""
 
-        startBases = IntronBound.getSpliceMotif(self.bounds[0], genome) 
-        endBases = IntronBound.getSpliceMotif(self.bounds[1], genome).upper()        
+        startBases = IntronBound.getSpliceMotif(self.bounds[0], genome)
+        endBases = IntronBound.getSpliceMotif(self.bounds[1], genome).upper()
 
         # Initialize motif code to 20 if annotated and 0 if not
         junction_string = "_".join([self.chrom, str(self.start), self.strand]) + \
@@ -57,18 +58,18 @@ class SpliceJunction:
                           "_".join([self.chrom, str(self.end), self.strand])
 
         if junction_string in spliceAnnot:
-            motifCode = 20 
-        else: 
+            motifCode = 20
+        else:
             motifCode = 0
 
-        # Now fetch the actual splice motif and increment motifCode 
+        # Now fetch the actual splice motif and increment motifCode
         motifCode += getSJMotifCode(startBases, endBases)
         self.motif_code = str(motifCode)
         self.isCanonical = self.motif_code != "0" and self.motif_code != "20"
-                
-        
+
+
 def getSJMotifCode(startBases, endBases):
-    """ Determines which STAR-style splice junction code applies to a splice motif """       
+    """ Determines which STAR-style splice junction code applies to a splice motif """
 
     motif = (startBases + endBases).upper()
 
