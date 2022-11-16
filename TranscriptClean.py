@@ -16,7 +16,7 @@ from optparse import OptionParser
 import dstruct
 
 # Other modules
-from pyfasta import Fasta
+from pyfaidx import Fasta
 import os
 import multiprocessing as mp
 from math import ceil
