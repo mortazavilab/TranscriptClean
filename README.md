@@ -7,10 +7,10 @@ Note: At the present time, TranscriptClean does not work on SAM files that use X
 The current TranscriptClean version is designed to be run with Python 3.7. It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
 
 ```
-conda install -c bioconda python=3.7 pyfasta pyranges samtools 
+conda install -c bioconda python=3.7 pyranges samtools pyfaidx
 ```
 
-* pyfasta (v0.5.2): https://pypi.python.org/pypi/pyfasta/
+* pyfaidx (v0.7.1): https://pypi.org/project/pyfaidx/
 * Samtools (v1.9): https://github.com/samtools/samtools/releases/
 * PyRanges: https://pyranges.readthedocs.io
 * pybedtools (optional for variants) (v0.7.8): https://daler.github.io/pybedtools/
