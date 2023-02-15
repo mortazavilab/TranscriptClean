@@ -1,4 +1,4 @@
-# This script reads in a GTF transcript annotation and extracts the splice 
+# This script reads in a GTF transcript annotation and extracts the splice
 # junctions. Exons must be in order.
 # The output format is designed to match the STAR SJ file output format
 
@@ -21,7 +21,7 @@ def getOptions():
 def formatSJOutput(currExon, prev_exonEnd, genome, minIntron):
     chromosome = currExon[0]
     strand = currExon[6]
-    if strand == "+": 
+    if strand == "+":
         strand = "1"
         intron_start = int(prev_exonEnd) + 1
         intron_end = int(currExon[3]) - 1
@@ -32,19 +32,22 @@ def formatSJOutput(currExon, prev_exonEnd, genome, minIntron):
         intron_end = int(prev_exonEnd) - 1    #int(prev_exonEnd) - 1
         intronMotif = getIntronMotif(chromosome, intron_start, intron_end, genome)
     if abs(intron_end - intron_start + 1) < minIntron:
-        return None 
+        return None
     intronMotif = getIntronMotif(chromosome, intron_start, intron_end, genome)
     annotationStatus = "1"
     nUniqueReads = "NA"
     nMultiReads = "NA"
     maxSpliceOverhang = "NA"
-    
+
     return "\t".join([chromosome, str(intron_start), str(intron_end), strand, intronMotif, annotationStatus, nUniqueReads, nMultiReads, maxSpliceOverhang])
 
 def getIntronMotif(chrom, start, end, genome):
-   startBases = genome.sequence({'chr': chrom, 'start': start, 'stop': start + 1}, one_based=True)
-   endBases = genome.sequence({'chr': chrom, 'start': end - 1, 'stop': end}, one_based=True)
-   motif = (startBases + endBases).upper() 
+
+    startBases = genome.get_seq(chrom, start-1, stop)
+    endBases = genome.get_seq(chrom, end-2, end)
+   # startBases = genome.sequence({'chr': chrom, 'start': start, 'stop': start + 1}, one_based=True)
+   # endBases = genome.sequence({'chr': chrom, 'start': end - 1, 'stop': end}, one_based=True)
+   motif = (startBases + endBases).upper()
 
    if motif == "GTAG":
        return "21"
@@ -59,7 +62,7 @@ def getIntronMotif(chrom, start, end, genome):
    elif motif == "GTAT":
        return "26"
    else:
-       return "20" 
+       return "20"
 
 if __name__ == "__main__":
 
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     # Read input arguments
     options = getOptions()
     gtf = options.infile
-    genome = Fasta(options.genomeFile) 
+    genome = Fasta(options.genomeFile)
     minIntron = int(options.minIntron)
     o = open(options.outfile, 'w')
 
@@ -80,11 +83,11 @@ if __name__ == "__main__":
 
             # Prep
             line = line.strip()
-            
+
             # Ignore header
             if line.startswith("#"):
-                continue 
-         
+                continue
+
             # Split GTF line on tab
             info = line.split("\t")
 
@@ -98,7 +101,7 @@ if __name__ == "__main__":
             # Skip entries that lack a transcript ID
             if "transcript_id" not in description:
                 continue
-            
+
             transcriptID = (description.split("transcript_id ")[1]).split('"')[1]
             strand = info[6]
 
@@ -109,8 +112,8 @@ if __name__ == "__main__":
                     prev_exonEnd = info[4]
                 else:
                     prev_exonEnd = info[3]
-            else: 
-                # Output the current junction 
+            else:
+                # Output the current junction
                 spliceJn = formatSJOutput(info, prev_exonEnd, genome, minIntron)
                 if strand == "+":
                     prev_exonEnd = info[4]
@@ -121,4 +124,3 @@ if __name__ == "__main__":
                         o.write(spliceJn + "\n")
                         junctions_seen[spliceJn] = 1
     o.close()
-            
