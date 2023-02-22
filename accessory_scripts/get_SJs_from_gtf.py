@@ -3,7 +3,7 @@
 # The output format is designed to match the STAR SJ file output format
 
 from optparse import OptionParser
-from pyfasta import Fasta
+from pyfaidx import Fasta
 
 def getOptions():
     parser = OptionParser()
@@ -43,25 +43,24 @@ def formatSJOutput(currExon, prev_exonEnd, genome, minIntron):
 
 def getIntronMotif(chrom, start, end, genome):
 
-    startBases = genome.get_seq(chrom, start-1, stop)
-    endBases = genome.get_seq(chrom, end-2, end)
-   # startBases = genome.sequence({'chr': chrom, 'start': start, 'stop': start + 1}, one_based=True)
-   # endBases = genome.sequence({'chr': chrom, 'start': end - 1, 'stop': end}, one_based=True)
-   motif = (startBases + endBases).upper()
-
-   if motif == "GTAG":
+    startBases = genome.get_seq(chrom, start, start+1).seq
+    endBases = genome.get_seq(chrom, end-1, end).seq
+    # startBases = genome.sequence({'chr': chrom, 'start': start, 'stop': start + 1}, one_based=True)
+    # endBases = genome.sequence({'chr': chrom, 'start': end - 1, 'stop': end}, one_based=True)
+    motif = (startBases + endBases).upper()
+    if motif == "GTAG":
        return "21"
-   elif motif == "CTAC":
+    elif motif == "CTAC":
        return "22"
-   elif motif == "GCAG":
+    elif motif == "GCAG":
        return "23"
-   elif motif == "CTGC":
+    elif motif == "CTGC":
        return "24"
-   elif motif == "ATAC":
+    elif motif == "ATAC":
        return "25"
-   elif motif == "GTAT":
+    elif motif == "GTAT":
        return "26"
-   else:
+    else:
        return "20"
 
 if __name__ == "__main__":
@@ -124,3 +123,4 @@ if __name__ == "__main__":
                         o.write(spliceJn + "\n")
                         junctions_seen[spliceJn] = 1
     o.close()
+#
