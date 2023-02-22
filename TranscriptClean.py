@@ -255,7 +255,7 @@ def prep_refs(options, transcripts, sam_header):
 def create_tmp_sam(sam_header, transcripts, tmp_dir, process="1"):
     """ Put the transcripts in the provided list into a temporary SAM file,
         preceded by the provided header (list form). The file will be located in
-        a 'sams' subdir of the tmp_dir provided. Returns the name of the tmp 
+        a 'sams' subdir of the tmp_dir provided. Returns the name of the tmp
         file as well as the chromosomes found within"""
 
     sam_dir = tmp_dir + "split_uncorr_sams/"
@@ -312,7 +312,7 @@ def transcript_init(transcript_line, genome, sjAnnot):
         transcript alignment is unmapped or non-primary, then create a log
         entry for the transcript, but do not bother initializing a transcript
         object. output that Otherwise, return the transcript object along with
-        the log. 
+        the log.
 
         Input:
             - Transcript SAM line (string)
@@ -345,9 +345,9 @@ def transcript_init(transcript_line, genome, sjAnnot):
 
 
 def batch_correct(sam_transcripts, options, refs, outfiles, buffer_size=100):
-    """Correct and output n lines of transcript SAM file at a time in a batch. 
-       The purpose is to stagger when the different threads are writing to disk. 
-       For a given transcript, there can be only one sam, fasta, and log entry, 
+    """Correct and output n lines of transcript SAM file at a time in a batch.
+       The purpose is to stagger when the different threads are writing to disk.
+       For a given transcript, there can be only one sam, fasta, and log entry,
        but there can be more than one transcript error (TE)."""
 
     print("Correcting transcripts...")
@@ -402,7 +402,7 @@ def batch_correct(sam_transcripts, options, refs, outfiles, buffer_size=100):
 
 def correct_transcript(transcript_line, options, refs):
     """ Given a line from a SAM file, create a transcript object. If it's a
-        primary alignment, then perform the corrections specified in the 
+        primary alignment, then perform the corrections specified in the
         options.
     """
     orig_transcript, logInfo = transcript_init(transcript_line, refs.genome,
@@ -556,7 +556,7 @@ def split_input(my_list, n):
 
 
 def run_chunk(transcripts, options, sam_header):
-    """ Contains everything needed to run a subset of the transcript input 
+    """ Contains everything needed to run a subset of the transcript input
         on its own core """
 
     # Prep the references (i.e. genome, sjs, variants)
@@ -662,9 +662,9 @@ def combine_outputs(sam_header, options):
 
 
 def processSpliceAnnotation(annotFile, tmp_dir, read_chroms, process="1"):
-    """ Reads in the tab-separated STAR splice junction file and creates a 
-        bedtools object. Also creates a dict (annot) to allow easy lookup 
-        to find out if a splice junction is annotated or not. Only junctions 
+    """ Reads in the tab-separated STAR splice junction file and creates a
+        bedtools object. Also creates a dict (annot) to allow easy lookup
+        to find out if a splice junction is annotated or not. Only junctions
         located on the provided chromosomes are included."""
 
     bedstr = ""
@@ -855,7 +855,7 @@ def processVCF(vcf, maxLen, tmp_dir, sam_file, process="1"):
 
 
 def correctInsertions(transcript, genome, variants, maxLen, logInfo):
-    """ Corrects insertions up to size maxLen using the reference genome. 
+    """ Corrects insertions up to size maxLen using the reference genome.
         If a variant file was provided, correction will be SNP-aware. """
 
     logInfo.uncorrected_insertions = 0
@@ -963,7 +963,7 @@ def correctInsertions(transcript, genome, variants, maxLen, logInfo):
 
 
 def correctDeletions(transcript, genome, variants, maxLen, logInfo):
-    """ Corrects deletions up to size maxLen using the reference genome. 
+    """ Corrects deletions up to size maxLen using the reference genome.
         If a variant file was provided, correction will be variant-aware."""
 
     logInfo.uncorrected_deletions = 0
@@ -1009,8 +1009,9 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
                 # Check if the deletion is in the optional variant catalog.
                 if ID in variants:
                     # The deletion perfectly matches a deletion variant. Leave the deletion in.
-                    currSeq = genome.sequence(
-                        {'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    # currSeq = genome.sequence(
+                    #     {'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                    currSeq = genome.get_seq(chrom, genomePos, genomePos+ct-1).seq
                     errorEntry = "\t".join(
                         [transcript_ID, ID, "Deletion", str(ct), "Uncorrected", "VariantMatch"])
                     logInfo.variant_deletions += 1
@@ -1028,8 +1029,9 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
                 TE_entries += errorEntry + "\n"
 
                 # Add the missing reference bases
-                refBases = genome.sequence(
-                    {'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                # refBases = genome.sequence(
+                #     {'chr': chrom, 'start': genomePos, 'stop': genomePos + ct - 1}, one_based=True)
+                refBases = genome.get_seq(chrom, genomePos, genomePos+ct-1).seq
                 newSeq = newSeq + refBases
                 genomePos += ct
                 MVal += ct
@@ -1071,7 +1073,7 @@ def correctDeletions(transcript, genome, variants, maxLen, logInfo):
 
 
 def correctMismatches(transcript, genome, variants, logInfo):
-    """ This function corrects mismatches in the provided transcript. If a 
+    """ This function corrects mismatches in the provided transcript. If a
         variant file was provided, correction will be variant-aware."""
 
     logInfo.uncorrected_mismatches = 0
@@ -1131,10 +1133,11 @@ def correctMismatches(transcript, genome, variants, logInfo):
             logInfo.corrected_mismatches += 1
 
             # Change sequence base to the reference base at this position
-            newSeq = newSeq + genome.sequence({'chr': transcript.CHROM,
-                                               'start': genomePos,
-                                               'stop': genomePos + ct - 1},
-                                              one_based=True)
+            # newSeq = newSeq + genome.sequence({'chr': transcript.CHROM,
+            #                                    'start': genomePos,
+            #                                    'stop': genomePos + ct - 1},
+            #                                   one_based=True)
+            newSeq += genome.get_seq(transcript.CHROM, genomePos, genomePos+ct-1).seq
             seqPos += ct  # skip the original sequence base
             genomePos += ct  # advance the genome position
             MVal += ct
@@ -1164,11 +1167,11 @@ def correctMismatches(transcript, genome, variants, logInfo):
 
 
 def endMatch(MVal, newCIGAR):
-    """ Function to end an ongoing match during error correction, updating new 
-        CIGAR and MD tag strings as needed. MVal keeps track of how many 
-        matched bases we have at the moment so that when errors are fixed, 
-        adjoining matches can be combined. When an intron or unfixable error 
-        is encountered, it is necessary to end the match by outputting the 
+    """ Function to end an ongoing match during error correction, updating new
+        CIGAR and MD tag strings as needed. MVal keeps track of how many
+        matched bases we have at the moment so that when errors are fixed,
+        adjoining matches can be combined. When an intron or unfixable error
+        is encountered, it is necessary to end the match by outputting the
         current MVal and then setting the variable to zero."""
 
     if MVal > 0:
@@ -1179,10 +1182,10 @@ def endMatch(MVal, newCIGAR):
 
 
 def cleanNoncanonical(transcript, refs, maxDist, logInfo):
-    """ Iterate over each junction in the provided transcript object. If the 
+    """ Iterate over each junction in the provided transcript object. If the
         junction is noncanonical, attempt to correct it, and record the result.
-        Returns a modified transcript object that originates from a copy of the 
-        object passed into the function, along with the error log entries. 
+        Returns a modified transcript object that originates from a copy of the
+        object passed into the function, along with the error log entries.
     """
     logInfo.corrected_NC_SJs = 0
     logInfo.uncorrected_NC_SJs = 0
@@ -1257,7 +1260,7 @@ def find_closest_bound(sj_bound, ref_bounds):
 
 
 def find_closest_ref_junction(junction, ref_donors, ref_acceptors):
-    """ Given a splice junction object and a splice reference, locate the 
+    """ Given a splice junction object and a splice reference, locate the
         closest junction in the provided splice reference BedTool object"""
 
     # Get the splice donor and acceptor of the junction
@@ -1272,7 +1275,7 @@ def find_closest_ref_junction(junction, ref_donors, ref_acceptors):
 
 
 def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
-    """ After correcting a noncanonical splice junction, perform the 
+    """ After correcting a noncanonical splice junction, perform the
         following updates:
         - Reassign the position of the junction (based on its bounds)
         - Recompute the splice motif and assign to junction
@@ -1291,7 +1294,7 @@ def update_post_ncsj_correction(transcript, splice_jn_num, genome, sjAnnot):
 
 def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors,
                           ref_acceptors, sjAnnot, maxDist):
-    """ Given a noncanonical splice junction, try to correct it by locating 
+    """ Given a noncanonical splice junction, try to correct it by locating
         a nearby annotated junction within the allowable distance.
 
         Returns:
@@ -1341,9 +1344,9 @@ def attempt_jn_correction(transcript, splice_jn_num, genome, ref_donors,
 
 def combinedJunctionDist(dist_0, dist_1):
     """Computes the combined genomic distance of two splice junction ends
-    from the closest annotated junctions. In essence, it is finding the 
-    size indel that could have created the discrepancy between the 
-    reference and transcript junctions.    
+    from the closest annotated junctions. In essence, it is finding the
+    size indel that could have created the discrepancy between the
+    reference and transcript junctions.
 
     Examples ('|' character respresents end of exon):
 
@@ -1370,7 +1373,7 @@ def combinedJunctionDist(dist_0, dist_1):
 
 
 def group_CIGAR_by_exon_and_intron(CIGAR, seq):
-    """ Given a CIGAR string, group all of the operations by exon or intron, 
+    """ Given a CIGAR string, group all of the operations by exon or intron,
         resulting in one string per exon/intron. Also, subdivide the provided
         sequence by exon as well."""
 
@@ -1407,7 +1410,7 @@ def group_CIGAR_by_exon_and_intron(CIGAR, seq):
 
 def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
                              genome, seq, oldCIGAR):
-    """ Corrects one side of a noncanonical splice junction by the specified 
+    """ Corrects one side of a noncanonical splice junction by the specified
         number of bases. This involves modifying the sequence and CIGAR string.
 
         Returns modified CIGAR string and sequence
@@ -1429,8 +1432,9 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
             # For CIGAR string,
             exonEnd = intronBound.pos - 1
             seqIndex = exonEnd - transcript_start + 1
-            refAdd = genome.sequence(
-                {'chr': chrom, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            # refAdd = genome.sequence(
+            #     {'chr': chrom, 'start': exonEnd + 1, 'stop': exonEnd + d}, one_based=True)
+            refAdd = genome.get_seq(chrom, exonEnd+1, exonEnd+d).seq
             exonSeqs[targetExon] = exon + refAdd
             intronBound.pos += d
         if d < 0:  # Need to subtract from end of exon sequence. Case 3
@@ -1444,8 +1448,9 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
         if d < 0:  # Need to add d bases from reference to start of exon sequence. Case 2.
             exonStart = intronBound.pos + 1
             seqIndex = exonStart - transcript_start + 1
-            refAdd = genome.sequence(
-                {'chr': chrom, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            # refAdd = genome.sequence(
+            #     {'chr': chrom, 'start': exonStart - abs(d), 'stop': exonStart - 1}, one_based=True)
+            refAdd = genome.get_seq(chrom, exonStart-abs(d), exonStart-1).seq
             exonSeqs[targetExon] = refAdd + exon
             intronBound.pos += d
         if d > 0:  # Need to subtract from start of exon sequence. Case 4
@@ -1472,7 +1477,7 @@ def fix_one_side_of_junction(chrom, transcript_start, jn_number, intronBound, d,
 
 def check_CIGAR_validity(CIGAR):
     """ Returns 'True' if CIGAR string passes tests, and "False" otherwise.
-        Checks to make sure that 
+        Checks to make sure that
         1) Introns (N) are only ever followed by M operation
         2) Introns never follow an insertion/deletion
     """
@@ -1493,7 +1498,7 @@ def check_CIGAR_validity(CIGAR):
 
 
 def splitCIGAR(CIGAR):
-    """ Takes CIGAR string from SAM and splits it into two lists: one with 
+    """ Takes CIGAR string from SAM and splits it into two lists: one with
         capital letters (match operators), and one with the number of bases """
 
     matchTypes = re.sub('[0-9]', " ", CIGAR).split()
