@@ -6,7 +6,7 @@ import TranscriptClean as TC
 import intronBound as ib
 import spliceJunction as sj
 import pytest
-from pyfasta import Fasta
+from pyfaidx import Fasta
 
 
 @pytest.mark.unit

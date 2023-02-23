@@ -1,5 +1,5 @@
 import pytest
-from pyfasta import Fasta
+from pyfaidx import Fasta
 import sys
 sys.path.append("..")
 import transcript as ts

@@ -19,7 +19,7 @@ class IntronBound:
         self.strand = strand
 
     def getBED(self):
-        """ Format the intron boundary with 0-based start and end. 
+        """ Format the intron boundary with 0-based start and end.
          If mode == "start", we return a bed for the start position."""
 
         bedstr = "\t".join([self.chrom, str(self.pos - 1), str(self.pos),
@@ -31,9 +31,15 @@ class IntronBound:
             intron (first two if bound == 0 and last two if bound == 1) """
 
         if self.bound == 0:
-            motif = genome.sequence(
-                {'chr': self.chrom, 'start': self.pos, 'stop': self.pos + 1}, one_based=True)
+            # motif = genome.sequence(
+            #     {'chr': self.chrom, 'start': self.pos, 'stop': self.pos + 1}, one_based=True)
+            motif = genome.get_seq(self.chrom,
+                                   self.pos,
+                                   self.pos+1).seq
         else:
-            motif = genome.sequence(
-                {'chr': self.chrom, 'start': self.pos - 1, 'stop': self.pos}, one_based=True)
+            # motif = genome.sequence(
+            #     {'chr': self.chrom, 'start': self.pos - 1, 'stop': self.pos}, one_based=True)
+            motif = genome.get_seq(self.chrom,
+                                   self.pos-1,
+                                   self.pos).seq
         return motif

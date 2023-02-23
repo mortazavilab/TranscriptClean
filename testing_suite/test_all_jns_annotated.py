@@ -1,5 +1,5 @@
 import pytest
-from pyfasta import Fasta
+from pyfaidx import Fasta
 import sys
 sys.path.append("..")
 import transcript as t2
@@ -11,7 +11,7 @@ class TestAllSJsAnnot(object):
     def test_no_jns(self):
         """ Return transcript.allJnsAnnotated = True for a transcript without
             junctions"""
-        
+
         sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
         genome = Fasta("input_files/hg38_chr1.fa")
 
@@ -56,7 +56,7 @@ class TestAllSJsAnnot(object):
         assert transcript.isCanonical == True
 
     def test_noncanonical(self):
-        """ Transcript should be noncanonical and un-annotated prior to 
+        """ Transcript should be noncanonical and un-annotated prior to
             correction, but be canonical and annotated afterwards """
 
         sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
@@ -70,15 +70,14 @@ class TestAllSJsAnnot(object):
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip()
-            transcript, logInfo = TC.transcript_init(sam_line, refs.genome, 
+            transcript, logInfo = TC.transcript_init(sam_line, refs.genome,
                                                      refs.sjAnnot)
 
         assert transcript.allJnsAnnotated == False
         assert transcript.isCanonical == False
 
         # Now correct the junction and retest
-        upd_transcript, TE = TC.cleanNoncanonical(transcript, refs, 5, logInfo)        
+        upd_transcript, TE = TC.cleanNoncanonical(transcript, refs, 5, logInfo)
 
         assert upd_transcript.allJnsAnnotated == True
         assert upd_transcript.isCanonical == True
-

@@ -72,7 +72,7 @@ class Transcript:
         self.otherFields = "\t".join(otherFields)
 
     def recheckJnsAnnotated(self):
-        """ Check the splice motif of each splice junction to determine 
+        """ Check the splice motif of each splice junction to determine
             whether the transcript overall is annotated """
         for jn in self.spliceJunctions:
             if int(jn.motif_code) < 20:
@@ -115,8 +115,8 @@ class Transcript:
         return end - 1
 
     def splitCIGAR(self):
-        """ Takes CIGAR string from SAM and splits it into two lists: 
-            one with capital letters (match operators), and one with 
+        """ Takes CIGAR string from SAM and splits it into two lists:
+            one with capital letters (match operators), and one with
             the number of bases that each operation applies to. """
 
         #alignTypes = re.sub('[0-9]', " ", self.CIGAR).split()
@@ -126,8 +126,8 @@ class Transcript:
         return splitCIGARstr(self.CIGAR)  # alignTypes, counts
 
     def splitMD(self):
-        """ Takes MD tag and splits into two lists: 
-            one with capital letters (match operators), and one with 
+        """ Takes MD tag and splits into two lists:
+            one with capital letters (match operators), and one with
             the number of bases that each operation applies to. """
 
         MD = str(self.MD).split(":")[2]
@@ -157,9 +157,9 @@ class Transcript:
         return operations, counts
 
     def mergeMDwithCIGAR(self):
-        """ Takes the MD and CIGAR strings, and combines them into a unified 
+        """ Takes the MD and CIGAR strings, and combines them into a unified
             structure that encodes all possible operations w.r.t the reference:
-            match, mismatch, deletion, insertion, hard clipping, 
+            match, mismatch, deletion, insertion, hard clipping,
             and soft clipping. """
 
         mergeCounts = []
@@ -213,7 +213,7 @@ class Transcript:
         return mergeOperations, mergeCounts
 
     def parseSpliceJunctions(self, genome, spliceAnnot):
-        """ Takes the splice junction information from the SAM input and 
+        """ Takes the splice junction information from the SAM input and
             creates a SpliceJunction object for each junction."""
 
         intronBounds = ((self.jI).split(":")[-1]).split(",")[1:]
@@ -278,7 +278,7 @@ class Transcript:
         return result
 
     def getNMandMDFlags(self, genome):
-        """ This function uses the transcript sequence, its CIGAR string, 
+        """ This function uses the transcript sequence, its CIGAR string,
             and the reference genome to create NM and MD sam flags."""
         NM = 0
         MD = "MD:Z:"
@@ -297,8 +297,9 @@ class Transcript:
             if op == "M":
                 for i in range(0, ct):
                     currBase = self.SEQ[seqPos]
-                    refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos,
-                                               'stop': genomePos}, one_based=True)
+                    refBase = genome.get_seq(self.CHROM, genomePos, genomePos).seq
+                    # refBase = genome.sequence({'chr': self.CHROM, 'start': genomePos,
+                    #                            'stop': genomePos}, one_based=True)
                     if refBase == "":
                         return None, None
 
@@ -319,8 +320,10 @@ class Transcript:
                 # End any match we have going and add the missing reference bases
                 MD = MD + str(MVal)
                 MVal = 0
-                refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos,
-                                            'stop': genomePos + ct - 1}, one_based=True)
+                refBases = genome.get_seq(self.CHROM, genomePos,
+                                          genomePos+ct-1).seq
+                # refBases = genome.sequence({'chr': self.CHROM, 'start': genomePos,
+                #                             'stop': genomePos + ct - 1}, one_based=True)
                 if refBases == "":
                     return None, None
                 MD = MD + "^" + str(refBases)
@@ -390,11 +393,11 @@ class Transcript:
         return jIstr
 
     def getjMandjITags(self, genome, spliceAnnot):
-        """ If the input sam file doesn't have the custom STARlong-derived jM 
-            and jI tags, we need to compute them. This is done by stepping 
-            through the CIGAR string and sequence. When an intron (N) is 
-            encountered, we check the first two bases and last two bases of 
-            the intron in the genome sequence to detemine whether they are 
+        """ If the input sam file doesn't have the custom STARlong-derived jM
+            and jI tags, we need to compute them. This is done by stepping
+            through the CIGAR string and sequence. When an intron (N) is
+            encountered, we check the first two bases and last two bases of
+            the intron in the genome sequence to detemine whether they are
             canonical. We also record the start and end position of the intron. """
 
         seq = self.SEQ
@@ -410,14 +413,17 @@ class Transcript:
             if op == "N":
                 # This is an intron
                 intronStart = genomePos
-                startBases = genome.sequence({'chr': self.CHROM,
-                                              'start': genomePos,
-                                              'stop': genomePos + 1},
-                                             one_based=True)
+                # startBases = genome.sequence({'chr': self.CHROM,
+                #                               'start': genomePos,
+                #                               'stop': genomePos + 1},
+                #                              one_based=True)
+                startBases = genome.get_seq(self.CHROM, genomePos,
+                                            genomePos+1).seq
                 intronEnd = genomePos + ct - 1
-                endBases = genome.sequence({'chr': self.CHROM,
-                                            'start': intronEnd - 1,
-                                            'stop': intronEnd}, one_based=True)
+                # endBases = genome.sequence({'chr': self.CHROM,
+                #                             'start': intronEnd - 1,
+                #                             'stop': intronEnd}, one_based=True)
+                endBases = genome.get_seq(self.CHROM, intronEnd-1, intron_end).seq
 
                 # Check if junction is annotated
                 if self.strand == "+":
@@ -465,7 +471,7 @@ class Transcript:
 
     def fetch_region_sequence(self, chromosome, start, end):
         """ Walks the SAM sequence to return the bases in the specified region.
-            Returns None if the sequence is not available, i.e. because the 
+            Returns None if the sequence is not available, i.e. because the
             region does not overlap with the transcript, or because it is in
             an intron. Supplied coordinates should be 1-based. """
 
@@ -533,7 +539,7 @@ def getSJMotifCode(startBases, endBases):
 
 
 def reverseComplement(seq):
-    """ Returns the reverse complement of a DNA sequence, 
+    """ Returns the reverse complement of a DNA sequence,
         retaining the case of each letter"""
     complement = ""
 

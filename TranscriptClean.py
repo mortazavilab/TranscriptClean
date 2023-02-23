@@ -332,14 +332,14 @@ def transcript_init(transcript_line, genome, sjAnnot):
     if logInfo.Mapping != "primary":
         return None, logInfo
 
-    try:
-        transcript = Transcript(sam_fields, genome, sjAnnot)
+    # try:
+    transcript = Transcript(sam_fields, genome, sjAnnot)
 
-    except Exception as e:
-        warnings.warn("Problem parsing transcript with ID '" +
-                      logInfo.TranscriptID + "'")
-        print(e)
-        return None, logInfo
+    # except Exception as e:
+    #     warnings.warn("Problem parsing transcript with ID '" +
+    #                   logInfo.TranscriptID + "'")
+    #     print(e)
+    #     return None, logInfo
 
     return transcript, logInfo
 
@@ -1365,7 +1365,9 @@ def combinedJunctionDist(dist_0, dist_1):
     """
     # If dist_0 and dist_1 have different signs, the combined distance is
     # the sum of their absolute values
-    if dist_0*dist_1 <= 0:
+    # https://stackoverflow.com/questions/66882/simplest-way-to-check-if-two-integers-have-same-sign
+    if ((dist_0<0)!=(dist_1<0)):
+    # if dist_0*dist_1 <= 0:
         combined_dist = abs(dist_0) + abs(dist_1)
     else:
         combined_dist = abs(abs(dist_0) - abs(dist_1))
