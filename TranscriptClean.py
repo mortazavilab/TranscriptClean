@@ -42,7 +42,10 @@ def main():
 
     # run_chunk(sam_chunks[0], options, header)
 
-    for i in range(n_threads):
+    # for i in range(n_threads):
+    # only run in range n_threads in case multiproc allocation
+    # doesn't need all threads
+    for i in range(len(sam_chunks)):
         if options.dryRun == True:
             t = mp.Process(target=run_chunk_dryRun,
                            args=(sam_chunks[i], options))
@@ -551,7 +554,6 @@ def split_input(my_list, n):
             batch = my_list[index:]
         chunks.append(batch)
         index += batch_size
-
     return chunks
 
 
