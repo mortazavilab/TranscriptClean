@@ -1,0 +1,5 @@
+pybedtools==0.8.1
+pyfaidx==0.5.8
+pytest==6.2.5
+pyranges.egg==info
+pyranges==0.0.129
