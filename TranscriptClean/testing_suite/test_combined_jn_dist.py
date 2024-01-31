@@ -3,7 +3,7 @@ from pyfaidx import Fasta
 import sys
 import os
 sys.path.append("..")
-import transcriptclean.TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestCombinedDist(object):

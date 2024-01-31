@@ -3,7 +3,7 @@ import sys
 import os
 import subprocess
 sys.path.append("..")
-import transcriptclean.TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestCreateTmpSamFile(object):

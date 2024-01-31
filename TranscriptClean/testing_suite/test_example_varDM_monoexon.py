@@ -4,9 +4,9 @@ import sys
 import os
 import subprocess
 sys.path.append("..")
-import transcriptclean.transcript as t2
-import transcriptclean.TranscriptClean as TC
-from transcriptclean.dstruct import Struct
+import TranscriptClean.transcript as t2
+import TranscriptClean.TranscriptClean as TC
+from TranscriptClean.dstruct import Struct
 @pytest.mark.integration
 
 class TestCorrectTranscripts2(object):

@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append("..")
-import transcriptclean.TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 @pytest.mark.integration
 
 class TestProcessVCF(object):

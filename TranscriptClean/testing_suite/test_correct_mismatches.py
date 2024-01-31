@@ -3,8 +3,8 @@ from pyfaidx import Fasta
 import sys
 import os
 sys.path.append("..")
-import transcriptclean.transcript as t2
-import transcriptclean.TranscriptClean as TC
+import TranscriptClean.transcript as t2
+import TranscriptClean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestMismatchCorr(object):

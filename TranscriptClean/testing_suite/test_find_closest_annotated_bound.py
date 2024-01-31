@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.append("..")  # noqa
 
-from transcriptclean.dstruct import Struct
-import transcriptclean.TranscriptClean as TC
+from TranscriptClean.dstruct import Struct
+import TranscriptClean.TranscriptClean as TC
 import intronBound as ib
 import spliceJunction as sj
 import pytest

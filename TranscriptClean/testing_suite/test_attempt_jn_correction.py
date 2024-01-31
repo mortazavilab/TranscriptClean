@@ -3,11 +3,11 @@ from pyfaidx import Fasta
 import sys
 import os
 sys.path.append("..")
-import transcriptclean.transcript as t2
+import TranscriptClean.transcript as t2
 import spliceJunction as sj
 import intronBound as ib
-import transcriptclean.TranscriptClean as TC
-from transcriptclean.dstruct import Struct
+import TranscriptClean.TranscriptClean as TC
+from TranscriptClean.dstruct import Struct
 @pytest.mark.unit
 
 class TestAttemptJnCorrection(object):

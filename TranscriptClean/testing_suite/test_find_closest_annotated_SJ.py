@@ -5,8 +5,8 @@ import os
 sys.path.append("..")
 import spliceJunction as sj
 import intronBound as ib
-import transcriptclean.TranscriptClean as TC
-from transcriptclean.dstruct import Struct
+import TranscriptClean.TranscriptClean as TC
+from TranscriptClean.dstruct import Struct
 @pytest.mark.unit
 
 class TestFindClosestSJ(object):
