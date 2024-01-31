@@ -8,12 +8,12 @@
 # splice sites.
 
 # TC Classes
-from TrancriptClean.transcript import Transcript
-from TrancriptClean.transcript import check_seq_and_cigar_length
-from TrancriptClean.spliceJunction import *
-from TrancriptClean.intronBound import IntronBound
+from TranscriptClean.transcript import Transcript
+from TranscriptClean.transcript import check_seq_and_cigar_length
+from TranscriptClean.spliceJunction import *
+from TranscriptClean.intronBound import IntronBound
 from optparse import OptionParser
-from TrancriptClean.dstruct import Struct
+from TranscriptClean.dstruct import Struct
 
 # Other modules
 from pyfaidx import Fasta

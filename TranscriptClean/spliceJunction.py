@@ -1,6 +1,6 @@
 # This file contains the SpliceJunction class and associated functions
 
-from TrancriptClean.intronBound import IntronBound
+from TranscriptClean.intronBound import IntronBound
 
 
 class SpliceJunction:
