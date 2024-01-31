@@ -1,7 +1,7 @@
 # This file contains the Transcript2 class and associated methods for the
 # TranscriptClean program
 
-from transcriptclean.spliceJunction import SpliceJunction
+from TrancriptClean.spliceJunction import SpliceJunction
 import re
 import itertools
 
