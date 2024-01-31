@@ -23,4 +23,7 @@ setup(
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.7',
   ],
+  entry_points={
+    "console_scripts": [
+        'transcriptclean=transcriptclean.TranscriptClean:main']}
 )
