@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.append("..")
 import transcript as t2
-import spliceJunction as sj
+import TranscriptClean.spliceJunction as sj
 import intronBound as ib
 import TranscriptClean as TC
 

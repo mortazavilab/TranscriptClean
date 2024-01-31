@@ -3,7 +3,7 @@ from pyfaidx import Fasta
 import sys
 import os
 sys.path.append("..")
-import spliceJunction as sj
+import TranscriptClean.spliceJunction as sj
 import intronBound as ib
 import TranscriptClean.TranscriptClean as TC
 from TranscriptClean.dstruct import Struct
