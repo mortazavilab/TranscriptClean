@@ -1,10 +1,18 @@
 # TranscriptClean
 TranscriptClean is a Python program that corrects mismatches, microindels, and noncanonical splice junctions in long reads that have been mapped to the genome. It is designed for use with sam files from the PacBio Iso-seq and Oxford Nanopore transcriptome sequencing technologies. A variant-aware mode is available for users who want to avoid correcting away known variants in their data.
 
-Note: At the present time, TranscriptClean does not work on SAM files that use X/= operators rather than M to represent matches in the CIGAR field. We are working on adding support for this in a future version. 
+Note: At the present time, TranscriptClean does not work on SAM files that use X/= operators rather than M to represent matches in the CIGAR field. We are working on adding support for this in a future version.
 
 ## Installation
-The current TranscriptClean version is designed to be run with Python >= 3.7. It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
+
+To install, clone this repo and install using pip:
+```bash
+git clone git@github.com:mortazavilab/TranscriptClean.git
+cd TranscriptClean
+pip install -e .
+```
+
+<!-- The current TranscriptClean version is designed to be run with Python >= 3.7. It requires Bedtools to be installed, as well as Python modules pybedtools and pyfasta. These can be found at the links listed below:
 
 ```
 conda install -c bioconda python=3.7 pyranges samtools pyfaidx
@@ -14,22 +22,22 @@ conda install -c bioconda python=3.7 pyranges samtools pyfaidx
 * Samtools (v1.9): https://github.com/samtools/samtools/releases/
 * PyRanges: https://pyranges.readthedocs.io
 * pybedtools (optional for variants) (v0.7.8): https://daler.github.io/pybedtools/
-* Bedtools (optional for variants) (v2.25.0): http://bedtools.readthedocs.io/en/latest/content/installation.html
+* Bedtools (optional for variants) (v2.25.0): http://bedtools.readthedocs.io/en/latest/content/installation.html -->
 
 In addition, R (tested with v.3.3.2) is needed to run the visualization script, generate_report.R.
 
-To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. Alternately, you can download a specific version of the program from the Releases tab. The TranscriptClean script can now be run directly from the command line- just include the path. 
+<!-- To install TranscriptClean, simply download the files using Github's "Download ZIP" button, then unzip them in the directory where you would like to install the program. Alternately, you can download a specific version of the program from the Releases tab. The TranscriptClean script can now be run directly from the command line- just include the path. -->
 
-## Usage 
+## Usage
 TranscriptClean is run from the command line as follows. Please note that releases 2.0+ can be run in multithreaded fashion. For fastest performance, we recommend sorting your input SAM file.
-**For additional details and examples, please see the Wiki section.** 
+**For additional details and examples, please see the Wiki section.**
 
-`python TranscriptClean.py --sam transcripts.sam --genome hg38.fa --outprefix /my/path/outfile`
+`transcriptclean --sam transcripts.sam --genome hg38.fa --outprefix /my/path/outfile`
 
 
 ### Basic Options
 | Option            | Shortcut  | Description
-|------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------- 
+|------------------ | --------- | -----------------------------------------------------------------------------------------------------------------------
 | --help            | -h        | Print a list of the input options with descriptions
 | --sam 	    | -s        | Input sam file (mandatory). The aligner used to create it must be splice aware if you want to correct splice junctions.
 | --genome          | -g        | Reference genome fasta file (mandatory). Should be the same one used during alignment to generate the sam file.
@@ -42,7 +50,7 @@ TranscriptClean is run from the command line as follows. Please note that releas
 | --dryRun            | n/a       | Include this option to run an inventory of all indels in the data without performing any correction. Useful for selecting maxLenIndel and maxSJOffset size
 | --correctMismatches | -m        | If set to false, TranscriptClean will skip mismatch correction. Default = True.
 | --correctIndels     | -i        | If set to false, TranscriptClean will skip indel correction. Default = True.
-| --variants          | -v        | Optional: VCF-formatted file of variants to avoid correcting (this enables variant-aware correction). Irrelevant if correctMismatches is set to false. 
+| --variants          | -v        | Optional: VCF-formatted file of variants to avoid correcting (this enables variant-aware correction). Irrelevant if correctMismatches is set to false.
 | --spliceJns         | -j        | High-confidence splice junction file obtained by mapping Illumina short reads to the genome using STAR. More formats may be supported in the future. This file is necessary if you want to correct noncanonical splice junctions.
 | --maxLenIndel       | n/a       | Maximum size indel to correct. Default = 5 bp.
 | --maxSJOffset       | n/a       | Maximum distance from annotated splice junction to correct. Default = 5 bp.  
@@ -68,5 +76,3 @@ TranscriptClean outputs the following files:
 Please cite our paper when using TranscriptClean:
 
 Dana Wyman, Ali Mortazavi, TranscriptClean: variant-aware correction of indels, mismatches and splice junctions in long-read transcripts, Bioinformatics, Volume 35, Issue 2, 15 January 2019, Pages 340–342, https://doi.org/10.1093/bioinformatics/bty483
-
-
