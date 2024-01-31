@@ -16,6 +16,7 @@ setup(
       'pytest>6',
       'pyranges==0.0.129',
       'bedtools',
+      'samtools',
       ],
   classifiers=[ # choose from here: https://pypi.org/classifiers/
     'Development Status :: 3 - Alpha',
