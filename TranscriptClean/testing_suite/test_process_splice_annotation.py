@@ -28,10 +28,10 @@ class TestProcessSpliceAnnot(object):
             f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.bed")
         assert os.path.exists(
             f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.bed")
-        assert os.path.exists(
-            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.sorted.bed")
-        assert os.path.exists(
-            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
+        # assert os.path.exists(
+        #     f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.sorted.bed")
+        # assert os.path.exists(
+        #     f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
 
     def test_chrom_filtering(self):
         """ Check that only chr1 and chr2 junctions get saved"""

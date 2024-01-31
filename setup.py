@@ -15,6 +15,7 @@ setup(
       'pyfaidx>0.5',
       'pytest>6',
       'pyranges==0.0.129',
+      'bedtools',
       ],
   classifiers=[ # choose from here: https://pypi.org/classifiers/
     'Development Status :: 3 - Alpha',

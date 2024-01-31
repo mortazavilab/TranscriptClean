@@ -84,6 +84,8 @@ class TestFindClosestBound(object):
     def test_find_closest_splice_acceptor_plus(self):
         """ Find the closest splice acceptor, which is 17 bp upstream.
             Plus strand."""
+        test_dir = os.path.dirname(__file__)
+
 
         # Process reference junctions
         sjFile = f"{test_dir}/input_files/test_junctions.txt"
