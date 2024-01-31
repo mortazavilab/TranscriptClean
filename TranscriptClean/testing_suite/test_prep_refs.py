@@ -13,14 +13,15 @@ class TestPrepRefs(object):
     def test_genome_only(self):
         """ Make sure that the prep_refs function works under the simplest
             possible option setting: no variants or SJs provided. """
+        test_dir = os.path.dirname(__file__)
 
         # Initialize options etc.
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        tmp_dir = "scratch/prep_refs/genome-only/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        tmp_dir = f"{test_dir}/scratch/prep_refs/genome-only/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
-        options.refGenome = "input_files/hg38_chr1.fa"
+        options.refGenome = f"{test_dir}/input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
         options.correctSJs = "false"
@@ -40,19 +41,20 @@ class TestPrepRefs(object):
     def test_sjs(self):
         """ Genome and splice junction reference provided. Variant structs
             should still be empty. """
+        test_dir = os.path.dirname(__file__)
 
         # Initialize options etc.
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        tmp_dir = "scratch/prep_refs/sjs/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        tmp_dir = f"{test_dir}/scratch/prep_refs/sjs/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
-        options.refGenome = "input_files/hg38_chr1.fa"
+        options.refGenome = f"{test_dir}/input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
         options.correctSJs = "true"
         options.variantFile = None
-        options.sjAnnotFile = "input_files/test_junctions.txt"
+        options.sjAnnotFile = f"{test_dir}/input_files/test_junctions.txt"
 
         header, chroms, sam_chunks = TC.split_SAM(sam, 1)
         refs = TC.prep_refs(options, sam_chunks[0], header)
@@ -66,22 +68,23 @@ class TestPrepRefs(object):
         assert len(refs.sjAnnot) == 3
 
     def test_sj_corr_off(self):
-        """ Splice reference provided, but correction set to off. Expected 
+        """ Splice reference provided, but correction set to off. Expected
             behavior is to skip SJ ref initialization because it would be a
             waste of time """
+        test_dir = os.path.dirname(__file__)
 
         # Initialize options etc.
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        tmp_dir = "scratch/prep_refs/sj_off/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        tmp_dir = f"{test_dir}/scratch/prep_refs/sj_off/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
-        options.refGenome = "input_files/hg38_chr1.fa"
+        options.refGenome = f"{test_dir}/input_files/hg38_chr1.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
         options.correctSJs = "false"
         options.variantFile = None
-        options.sjAnnotFile = "input_files/test_junctions.txt"
+        options.sjAnnotFile = f"{test_dir}/input_files/test_junctions.txt"
 
         header, chroms, sam_chunks = TC.split_SAM(sam, 1)
         refs = TC.prep_refs(options, sam_chunks[0], header)
@@ -95,18 +98,19 @@ class TestPrepRefs(object):
 
     def test_variants(self):
         """ A variant file is provided """
+        test_dir = os.path.dirname(__file__)
 
         # Initialize options etc.
-        sam = "input_files/vcf_test/read_with_snps.sam"
-        tmp_dir = "scratch/prep_refs/variant/TC_tmp/"
+        sam = f"{test_dir}/input_files/vcf_test/read_with_snps.sam"
+        tmp_dir = f"{test_dir}/scratch/prep_refs/variant/TC_tmp/"
         os.system("mkdir -p " + tmp_dir)
 
         options = dstruct.Struct()
-        options.refGenome = "input_files/hg38_chr11.fa"
+        options.refGenome = f"{test_dir}/input_files/hg38_chr11.fa"
         options.tmp_dir = tmp_dir
         options.maxLenIndel = options.maxSJOffset = 5
         options.correctSJs = "false"
-        options.variantFile = "input_files/vcf_test/snps.vcf"
+        options.variantFile = f"{test_dir}/input_files/vcf_test/snps.vcf"
         options.sjAnnotFile = None
 
         header, chroms, sam_chunks = TC.split_SAM(sam, 1)

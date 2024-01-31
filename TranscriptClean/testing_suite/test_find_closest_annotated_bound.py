@@ -1,8 +1,9 @@
 import sys
+import os
 sys.path.append("..")  # noqa
 
-import dstruct as dstruct
-import TranscriptClean as TC
+from transcriptclean.dstruct import Struct
+import transcriptclean.TranscriptClean as TC
 import intronBound as ib
 import spliceJunction as sj
 import pytest
@@ -13,16 +14,17 @@ from pyfaidx import Fasta
 class TestFindClosestBound(object):
 
     def test_find_closest_splice_donor_plus(self):
-        """ For a toy case with multiple donors and acceptors in close 
+        """ For a toy case with multiple donors and acceptors in close
             proximity, test whether TC can find the closest reference donor
             to the supplied intron bound.
 
-            In this case, there is an exact match for the donor, located 
+            In this case, there is an exact match for the donor, located
             at 23071360 in 1-based coordinates and 23071359 in 0-based. """
+        test_dir = os.path.dirname(__file__)
 
         # Process reference junctions
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -34,7 +36,7 @@ class TestFindClosestBound(object):
         start = 23071360
         end = 23072123
         strand = "+"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
                                      start, end, strand, genome, sjDict)
@@ -52,10 +54,11 @@ class TestFindClosestBound(object):
 
             Similar to before, there is an exact match for the donor, located
             at 23071360 in 1-based coordinates and 23071359 in 0-based."""
+        test_dir = os.path.dirname(__file__)
 
         # Process reference junctions
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -67,7 +70,7 @@ class TestFindClosestBound(object):
         start = 23070360
         end = 23071360
         strand = "-"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
                                      start, end, strand, genome, sjDict)
@@ -83,8 +86,8 @@ class TestFindClosestBound(object):
             Plus strand."""
 
         # Process reference junctions
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -96,7 +99,7 @@ class TestFindClosestBound(object):
         start = 23071360
         end = 23072140
         strand = "+"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
                                      start, end, strand, genome, sjDict)
@@ -111,10 +114,11 @@ class TestFindClosestBound(object):
         """ Find the closest splice acceptor, which is 1 bp downstream.
             Minus strand. Note that dist is relative to the genome, not to
             the direction of the transcript."""
+        test_dir = os.path.dirname(__file__)
 
         # Process reference junctions
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -126,7 +130,7 @@ class TestFindClosestBound(object):
         start = 22071331
         end = 22073331
         strand = "-"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         junction = sj.SpliceJunction(transcriptID, jnNumber, chrom,
                                      start, end, strand, genome, sjDict)

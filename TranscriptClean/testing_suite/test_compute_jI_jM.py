@@ -1,20 +1,22 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
-import transcript as t2
-import TranscriptClean as TC
+import transcriptclean.transcript as t2
+import transcriptclean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestComputejIjM(object):
     def test_perfect_match_no_introns(self):
-        """ Compute the correct jI/jM tag for a transcript that is a perfect 
+        """ Compute the correct jI/jM tag for a transcript that is a perfect
             reference match with no introns. """
-        
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -31,12 +33,13 @@ class TestComputejIjM(object):
     def test_perfect_match_with_introns(self):
         """ Compute the correct jI/jM tag for a transcript that is a perfect
             reference match containing introns. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/perfectReferenceMatch_twoIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_twoIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        outprefix = f"{test_dir}/scratch/test"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -44,7 +47,7 @@ class TestComputejIjM(object):
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
             transcript = t2.Transcript(sam_line, genome, sjDict)
-        
+
         correct_jM = "jM:B:c,21,21"
         correct_jI = "jI:B:i,192575930,192576284,192576366,192576773"
         assert transcript.jI == correct_jI
@@ -53,11 +56,12 @@ class TestComputejIjM(object):
     def test_mismatch(self):
         """ Compute the correct jI/jM tag for a spliced transcript that contains a
             mismatch. """
-        
-        sam = "input_files/sams/mismatch.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/mismatch.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -81,18 +85,19 @@ class TestComputejIjM(object):
     def test_deletion(self):
         """ Compute the correct jI/jM tag for a spliced transcript that contains a
             deletion. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/deletion.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/deletion.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
             transcript = t2.Transcript(sam_line, genome, sjDict)
-    
+
         correct_jM = "jM:B:c,22,22,2,2,2,2,2,2,2,2"
         correct_jI = ("jI:B:i,155247956,155248049,155248304,155248404,"
                       "155248474,155250275,155250822,155251094,155251165,"
@@ -105,11 +110,12 @@ class TestComputejIjM(object):
     def test_insertion(self):
         """ Compute the correct jI/jM tag for a spliced transcript that contains an
             insertion. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/insertion.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/insertion.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -131,11 +137,12 @@ class TestComputejIjM(object):
     def test_deletion_insertion_mismatch(self):
         """ Compute the correct jI/jM tag for a spliced transcript that contains an
             insertion, deletion, and mismatch. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/deletion_insertion_mismatch.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/deletion_insertion_mismatch.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -159,14 +166,15 @@ class TestComputejIjM(object):
 
 
     def test_insertion_deletion_mismatch_ncsj(self):
-        """ Compute the correct jI/jM tag for a transcript that contains an 
-           insertion, deletion, mismatch, and noncanonical splice junction in 
+        """ Compute the correct jI/jM tag for a transcript that contains an
+           insertion, deletion, mismatch, and noncanonical splice junction in
            it. """
- 
-        sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/deletion_insertion_mismatch_nc.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -185,4 +193,3 @@ class TestComputejIjM(object):
                       "150963742,150963994,150964084,150964246")
         assert transcript.jI == correct_jI
         assert transcript.jM == correct_jM
-

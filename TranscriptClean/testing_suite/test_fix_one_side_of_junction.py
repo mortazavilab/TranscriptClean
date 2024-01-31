@@ -1,6 +1,7 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
 import transcript as t2
 import spliceJunction as sj
@@ -16,15 +17,16 @@ class TestFixSideOfJunction(object):
 
             So-called case # 1
         """
+        test_dir = os.path.dirname(__file__)
 
         # Process references
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
 
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
 
         # Init transcript object
@@ -36,10 +38,10 @@ class TestFixSideOfJunction(object):
         donor = (transcript.spliceJunctions[jnNumber]).bounds[0]
 
         # Attempt to correct the splice donor side of the junction (left)
-        new_seq, new_cigar = TC.fix_one_side_of_junction(transcript.CHROM, 
-                                                         transcript.POS, jnNumber, 
-                                                         donor, 2, genome, 
-                                                         transcript.SEQ, 
+        new_seq, new_cigar = TC.fix_one_side_of_junction(transcript.CHROM,
+                                                         transcript.POS, jnNumber,
+                                                         donor, 2, genome,
+                                                         transcript.SEQ,
                                                          transcript.CIGAR)
 
         assert new_seq == "AAGGAA"
@@ -52,14 +54,16 @@ class TestFixSideOfJunction(object):
             chr1: 23,071,357 - 23,072,126
 
             So-called case #2
-        """ 
+        """
+        test_dir = os.path.dirname(__file__)
+
         # Process references
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
 
         # Init transcript object
@@ -87,14 +91,15 @@ class TestFixSideOfJunction(object):
 
             So-called case #3
         """
+        test_dir = os.path.dirname(__file__)
 
         # Process references
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
 
         # Init transcript object
@@ -122,13 +127,15 @@ class TestFixSideOfJunction(object):
 
             So-called case #4
         """
+        test_dir = os.path.dirname(__file__)
+
         # Process references
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
 
         # Init transcript object
@@ -148,4 +155,3 @@ class TestFixSideOfJunction(object):
 
         assert new_seq == "AAGGAA"
         assert new_cigar == "3M764N3M"
-

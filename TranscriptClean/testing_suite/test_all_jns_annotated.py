@@ -1,19 +1,20 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
-import transcript as t2
-import TranscriptClean as TC
-import dstruct as dstruct
+import transcriptclean.transcript as t2
+import transcriptclean.TranscriptClean as TC
+from transcriptclean.dstruct import Struct
 @pytest.mark.unit
 
 class TestAllSJsAnnot(object):
     def test_no_jns(self):
         """ Return transcript.allJnsAnnotated = True for a transcript without
             junctions"""
-
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        test_dir = os.path.dirname(__file__)
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -25,11 +26,13 @@ class TestAllSJsAnnot(object):
     def test_two_annotated_SJs(self):
         """ Transcript with 2 junctions and each match the provided reference
         """
-        sam = "input_files/sams/perfectReferenceMatch_twoIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        outprefix = "scratch/test"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_twoIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        outprefix = f"{test_dir}/scratch/test"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
         donors, acceptors, sjDict = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                chroms)
@@ -45,8 +48,10 @@ class TestAllSJsAnnot(object):
         """ Same example, but no splice annot provided, so no junctions can
             show up as annotated
         """
-        sam = "input_files/sams/perfectReferenceMatch_twoIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_twoIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -58,13 +63,14 @@ class TestAllSJsAnnot(object):
     def test_noncanonical(self):
         """ Transcript should be noncanonical and un-annotated prior to
             correction, but be canonical and annotated afterwards """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
-        sjFile = "input_files/GM12878_SJs_chr1.tab"
-        tmp_dir = "scratch/test_jIjM/TC_tmp/"
+        sam = f"{test_dir}/input_files/sams/deletion_insertion_mismatch_nc.sam"
+        sjFile = f"{test_dir}/input_files/GM12878_SJs_chr1.tab"
+        tmp_dir = f"{test_dir}/scratch/test_jIjM/TC_tmp/"
         chroms = set(["chr1"])
-        refs = dstruct.Struct()
-        refs.genome = Fasta("input_files/hg38_chr1.fa")
+        refs = Struct()
+        refs.genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir,
                                                                                chroms)
 

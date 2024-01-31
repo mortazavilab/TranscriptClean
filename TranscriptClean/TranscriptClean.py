@@ -8,12 +8,12 @@
 # splice sites.
 
 # TC Classes
-from transcript import Transcript
-from transcript import check_seq_and_cigar_length
-from spliceJunction import *
-from intronBound import IntronBound
+from transcriptclean.transcript import Transcript
+from transcriptclean.transcript import check_seq_and_cigar_length
+from transcriptclean.spliceJunction import *
+from transcriptclean.intronBound import IntronBound
 from optparse import OptionParser
-import dstruct
+from transcriptclean.dstruct import Struct
 
 # Other modules
 from pyfaidx import Fasta
@@ -214,7 +214,7 @@ def prep_refs(options, transcripts, sam_header):
     sjFile = options.sjAnnotFile
 
     # Container for references
-    refs = dstruct.Struct()
+    refs = Struct()
 
     # Read in the reference genome.
     print("Reading genome ..............................")
@@ -284,7 +284,7 @@ def setup_outfiles(options, process="1"):
     tmp_dir = options.tmp_dir
     os.system("mkdir -p " + tmp_dir)
 
-    outfiles = dstruct.Struct()
+    outfiles = Struct()
 
     # Open sam, fasta, and log  outfiles
     oSam = open(tmp_dir + "clean_" + process + ".sam", 'w')
@@ -1252,7 +1252,7 @@ def find_closest_bound(sj_bound, ref_bounds):
 
     # Create an object to represent the closest match
     # Coordinates are 0-based since they are coming from BED
-    obj_closest = dstruct.Struct()
+    obj_closest = Struct()
     obj_closest.chrom = match.Chromosome  # closest[6]
     obj_closest.start = match.Start_b  # int(closest[7])
     obj_closest.end = match.End_b  # int(closest[8])
@@ -1563,7 +1563,7 @@ def init_log_info(sam_fields):
     flag = int(sam_fields[1])
     chrom = sam_fields[2]
 
-    logInfo = dstruct.Struct()
+    logInfo = Struct()
     logInfo.TranscriptID = transcript_id
 
     # Check if read is unmapped, uniquely mapped, or multimapped

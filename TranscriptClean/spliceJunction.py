@@ -1,6 +1,6 @@
 # This file contains the SpliceJunction class and associated functions
 
-from intronBound import IntronBound
+from transcriptclean.intronBound import IntronBound
 
 
 class SpliceJunction:
@@ -46,7 +46,7 @@ class SpliceJunction:
         self.end = self.bounds[1].pos
 
     def checkSpliceMotif(self, genome, spliceAnnot):
-        """ Check the splice junction sequence motif to determine whether the 
+        """ Check the splice junction sequence motif to determine whether the
             motif_code should be changed"""
 
         startBases = IntronBound.getSpliceMotif(self.bounds[0], genome)

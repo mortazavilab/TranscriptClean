@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
   name = 'TranscriptClean', # the name of your package
-  packages = ['transcriptclean'], # same as above
+  packages = ['TranscriptClean'], # same as above
   version = '2.1', # version number
   license='MIT', # license type
   description = 'TranscriptClean corrects common long-read RNA-seq artifacts', # short description

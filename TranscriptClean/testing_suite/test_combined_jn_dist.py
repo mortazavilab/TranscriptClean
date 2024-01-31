@@ -1,8 +1,9 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
-import TranscriptClean as TC
+import transcriptclean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestCombinedDist(object):
@@ -28,5 +29,5 @@ class TestCombinedDist(object):
             Transcript:   ----->|       |<-----
             dist_0 = +1, dist_1 = +4, combined dist = 3
         """
-      
+
         assert TC.combinedJunctionDist(1, 4) == 3

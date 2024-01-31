@@ -17,15 +17,16 @@ class TestNCSJCorrection(object):
             chr1: 23,071,357 - 23,072,126
 
         """
+        test_dir = os.path.dirname(__file__)
 
         # Process references
-        sjFile = "input_files/test_junctions.txt"
-        tmp_dir = "scratch/test_ncsj/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/test_junctions.txt"
+        tmp_dir = f"{test_dir}/scratch/test_ncsj/TC_tmp/"
         os.system("mkdir -p %s" % tmp_dir)
         refs = dstruct.Struct()
         chroms = set(["chr1"])
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
-        refs.genome = Fasta("input_files/hg38_chr1.fa")
+        refs.genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         # Init transcript object
         sam_fields = ["test_read", "0", "chr1", "23071357", "255", "1M766N3M", "*",
@@ -39,7 +40,7 @@ class TestNCSJCorrection(object):
 
         # Attempt to correct the splice junction
         transcript, TE_entries = TC.cleanNoncanonical(transcript, refs, maxDist, logInfo)
-        
+
 
         assert transcript.isCanonical == True
         assert transcript.spliceJunctions[jnNumber].isCanonical == True
@@ -55,17 +56,18 @@ class TestNCSJCorrection(object):
            junction to its left, and a non-canonical junction on its right.
            Post-correction, we end up with two introns next to each other
            with a zero-length exon, which is not valid."""
+        test_dir = os.path.dirname(__file__)
 
         # Process references
-        sjFile = "input_files/chr11_sjs.txt"
-        tmp_dir = "scratch/test/TC_tmp/"
+        sjFile = f"{test_dir}/input_files/chr11_sjs.txt"
+        tmp_dir = f"{test_dir}/scratch/test/TC_tmp/"
         os.system("mkdir -p %s" % tmp_dir)
         refs = dstruct.Struct()
         chroms = set(["chr11"])
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
-        refs.genome = Fasta("input_files/hg38_chr11.fa")
+        refs.genome = Fasta(f"{test_dir}/input_files/hg38_chr11.fa")
 
-        sam = "input_files/sams/microexon.sam"
+        sam = f"{test_dir}/input_files/sams/microexon.sam"
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
 
@@ -93,21 +95,22 @@ class TestNCSJCorrection(object):
         """ This is a Drosophila junction that borders a small match preceded by
             a 7 bp deletion. It is also supposed to crash correction, but did
             not in TC v2.0.1."""
+        test_dir = os.path.dirname(__file__)
 
         # Process references
-        sjFile = "input_files/drosophila_example/chr3R_SJs.tsv"
-        tmp_dir = "scratch/dmel/TC"
+        sjFile = f"{test_dir}/input_files/drosophila_example/chr3R_SJs.tsv"
+        tmp_dir = f"{test_dir}/scratch/dmel/TC"
         os.system("mkdir -p %s" % tmp_dir)
         refs = dstruct.Struct()
         chroms = set(["chr3R"])
         refs.donors, refs.acceptors, refs.sjAnnot = TC.processSpliceAnnotation(sjFile, tmp_dir, chroms)
-        refs.genome = Fasta("input_files/drosophila_example/chr3R.fa")
+        refs.genome = Fasta(f"{test_dir}/input_files/drosophila_example/chr3R.fa")
 
-        sam = "input_files/drosophila_example/no_SJ_corr.sam"
+        sam = f"{test_dir}/input_files/drosophila_example/no_SJ_corr.sam"
         with open(sam, 'r') as f:
             for sam_line in f:
                 if sam_line.startswith("@"):
-                    continue                
+                    continue
                 else:
                     sam_line = sam_line.strip().split('\t')
 

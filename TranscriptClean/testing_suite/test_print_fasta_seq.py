@@ -1,6 +1,7 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
 import transcript as ts
 import TranscriptClean as TC
@@ -14,8 +15,9 @@ class TestPrintFaSeq(object):
         sam_fields = ["test_read", "0", "chr1", "202892094", "255", "5M", "*",
                       "0", "0", "AAAGA", "*",	"NM:i:0", "MD:Z:5", "jI:B:i,-1",
                       "jM:B:c,-1" ]
+        test_dir = os.path.dirname(__file__)
 
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
         spliceAnnot = None
 
         # Init transcript object
@@ -34,8 +36,9 @@ class TestPrintFaSeq(object):
         sam_fields = ["test_read", "16", "chr1", "202892094", "255", "5M", "*",
                       "0", "0", "AAAGA", "*",   "NM:i:0", "MD:Z:5", "jI:B:i,-1",
                       "jM:B:c,-1" ]
+        test_dir = os.path.dirname(__file__)
 
-        genome = Fasta("input_files/hg38_chr1.fa")
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
         spliceAnnot = None
 
         # Init transcript object

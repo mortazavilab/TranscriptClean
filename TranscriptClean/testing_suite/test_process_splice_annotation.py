@@ -1,5 +1,6 @@
 import sys
 sys.path.append("..")  # noqa
+import os
 import TranscriptClean as TC
 import pytest
 import os
@@ -13,9 +14,10 @@ class TestProcessSpliceAnnot(object):
     def test_tmp_files(self):
         """ Check that the expected tmp files are created."""
 
-        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        test_dir = os.path.dirname(__file__)
+        sj_file = f"{test_dir}/input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr1", "chr2"])
-        tmp_dir = "scratch/sj_reading_test/"
+        tmp_dir = f"{test_dir}/scratch/sj_reading_test/"
         os.system("mkdir -p " + tmp_dir)
 
         donor_bt, accept_bt, annot = TC.processSpliceAnnotation(sj_file, tmp_dir,
@@ -23,20 +25,21 @@ class TestProcessSpliceAnnot(object):
 
         # Check if paths of tmp files are correct
         assert os.path.exists(
-            "scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.bed")
+            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.bed")
         assert os.path.exists(
-            "scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.bed")
+            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.bed")
         assert os.path.exists(
-            "scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.sorted.bed")
+            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_donors_tmp.sorted.bed")
         assert os.path.exists(
-            "scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
+            f"{test_dir}/scratch/sj_reading_test/splice_files/test_ref_splice_acceptors_tmp.sorted.bed")
 
     def test_chrom_filtering(self):
         """ Check that only chr1 and chr2 junctions get saved"""
+        test_dir = os.path.dirname(__file__)
 
-        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        sj_file = f"{test_dir}/input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr1", "chr2"])
-        tmp_dir = "scratch/sj_reading_test/"
+        tmp_dir = f"{test_dir}/scratch/sj_reading_test/"
         os.system("mkdir -p " + tmp_dir)
 
         donor_bt, accept_bt, annot = TC.processSpliceAnnotation(sj_file, tmp_dir,
@@ -54,12 +57,13 @@ class TestProcessSpliceAnnot(object):
         assert set(accept_bt.Chromosome) == chroms
 
     def test_chrom_warning(self):
-        """ Make sure the function prints a warning if no splice donors or 
+        """ Make sure the function prints a warning if no splice donors or
             acceptors are found on the provided chromosome. """
+        test_dir = os.path.dirname(__file__)
 
-        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        sj_file = f"{test_dir}/input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr18"])
-        tmp_dir = "scratch/sj_reading_test/"
+        tmp_dir = f"{test_dir}/scratch/sj_reading_test/"
         os.system("mkdir -p " + tmp_dir)
 
         assert pytest.warns(Warning, TC.processSpliceAnnotation, sj_file,
@@ -67,10 +71,11 @@ class TestProcessSpliceAnnot(object):
 
     def test_splice_donors(self):
         """ Make sure that the correct positions got labeled as splice donors """
+        test_dir = os.path.dirname(__file__)
 
-        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        sj_file = f"{test_dir}/input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr1", "chr2"])
-        tmp_dir = "scratch/sj_reading_test/"
+        tmp_dir = f"{test_dir}/scratch/sj_reading_test/"
         os.system("mkdir -p " + tmp_dir)
 
         donor_bt, accept_bt, annot = TC.processSpliceAnnotation(sj_file, tmp_dir,
@@ -88,8 +93,9 @@ class TestProcessSpliceAnnot(object):
 
     def test_splice_acceptors(self):
         """ Make sure that the correct positions got labeled as splice acceptors """
+        test_dir = os.path.dirname(__file__)
 
-        sj_file = "input_files/toy_sjs_mixed_chroms.txt"
+        sj_file = f"{test_dir}/input_files/toy_sjs_mixed_chroms.txt"
         chroms = set(["chr1", "chr2"])
         tmp_dir = "scratch/sj_reading_test/"
         os.system("mkdir -p " + tmp_dir)

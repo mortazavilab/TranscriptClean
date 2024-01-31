@@ -1,18 +1,20 @@
 import pytest
 from pyfaidx import Fasta
 import sys
+import os
 sys.path.append("..")
-import transcript as t2
-import TranscriptClean as TC
+import transcriptclean.transcript as t2
+import transcriptclean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestComputeMD(object):
     def test_perfect_match_no_introns(self):
-        """ Compute the correct MD tag for a transcript that is a perfect 
+        """ Compute the correct MD tag for a transcript that is a perfect
             reference match with no introns. """
-        
-        sam = "input_files/sams/perfectReferenceMatch_noIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_noIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -26,9 +28,10 @@ class TestComputeMD(object):
     def test_perfect_match_with_introns(self):
         """ Compute the correct MD tag for a transcript that is a perfect
             reference match containing introns. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/perfectReferenceMatch_twoIntrons.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        sam = f"{test_dir}/input_files/sams/perfectReferenceMatch_twoIntrons.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -42,9 +45,10 @@ class TestComputeMD(object):
     def test_mismatch(self):
         """ Compute the correct MD tag for a spliced transcript that contains a
             mismatch. """
-        
-        sam = "input_files/sams/mismatch.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/mismatch.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -58,9 +62,10 @@ class TestComputeMD(object):
     def test_deletion(self):
         """ Compute the correct MD tag for a spliced transcript that contains a
             deletion. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/deletion.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        sam = f"{test_dir}/input_files/sams/deletion.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -74,9 +79,10 @@ class TestComputeMD(object):
     def test_insertion(self):
         """ Compute the correct MD tag for a spliced transcript that contains an
             insertion. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/insertion.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        sam = f"{test_dir}/input_files/sams/insertion.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -90,9 +96,10 @@ class TestComputeMD(object):
     def test_deletion_insertion_mismatch(self):
         """ Compute the correct MD tag for a spliced transcript that contains an
             insertion, deletion, and mismatch. """
+        test_dir = os.path.dirname(__file__)
 
-        sam = "input_files/sams/deletion_insertion_mismatch.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        sam = f"{test_dir}/input_files/sams/deletion_insertion_mismatch.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -104,12 +111,13 @@ class TestComputeMD(object):
         assert transcript.NM == correct_NM
 
     def test_insertion_deletion_mismatch_ncsj(self):
-        """ Compute the correct MD tag for a transcript that contains an 
-           insertion, deletion, mismatch, and noncanonical splice junction in 
+        """ Compute the correct MD tag for a transcript that contains an
+           insertion, deletion, mismatch, and noncanonical splice junction in
            it. """
- 
-        sam = "input_files/sams/deletion_insertion_mismatch_nc.sam"
-        genome = Fasta("input_files/hg38_chr1.fa")
+        test_dir = os.path.dirname(__file__)
+
+        sam = f"{test_dir}/input_files/sams/deletion_insertion_mismatch_nc.sam"
+        genome = Fasta(f"{test_dir}/input_files/hg38_chr1.fa")
 
         with open(sam, 'r') as f:
             sam_line = f.readline().strip().split('\t')
@@ -119,4 +127,3 @@ class TestComputeMD(object):
         correct_NM = "NM:i:5"
         assert transcript.MD == correct_MD
         assert transcript.NM == correct_NM
-        
