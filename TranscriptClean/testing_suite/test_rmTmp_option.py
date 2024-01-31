@@ -19,7 +19,9 @@ class TestRmOpt(object):
         outprefix = f"{test_dir}/scratch/option_deleteTmp/TC"
 
         try:
-            subprocess.call(["python", "../TranscriptClean.py", "--sam", sam,
+            # subprocess.call(["python", "../TranscriptClean.py", "--sam", sam,
+            #                  "--genome", genome, "--deleteTmp", "-o", outprefix])
+            subprocess.call(["transcriptclean", "--sam", sam,
                              "--genome", genome, "--deleteTmp", "-o", outprefix])
 
             assert os.path.exists(f"{test_dir}/scratch/option_deleteTmp/TC_tmp") == False
