@@ -63,8 +63,7 @@ def getIntronMotif(chrom, start, end, genome):
     else:
        return "20"
 
-if __name__ == "__main__":
-
+def main():
     junctions_seen = {}
 
     # Read input arguments
@@ -123,4 +122,10 @@ if __name__ == "__main__":
                         o.write(spliceJn + "\n")
                         junctions_seen[spliceJn] = 1
     o.close()
+
+
+if __name__ == '__main__':
+    main()
+
+
 #
