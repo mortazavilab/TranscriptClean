@@ -1,2 +1,4 @@
 scratch/*
 TC_tmp/*
+input_files/*.fa
+input_files/*.fai
