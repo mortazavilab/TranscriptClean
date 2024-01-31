@@ -46,6 +46,9 @@ class TestRmOpt(object):
         try:
             subprocess.call(["transcriptclean", "--sam", sam,
                              "--genome", genome, "-o", outprefix])
+            cmd = ' '.join(["transcriptclean", "--sam", sam,
+                             "--genome", genome, "-o", outprefix])
+            import pdb;pdb.set_trace()
 
             assert os.path.exists(f"{test_dir}/scratch/option_dont_deleteTmp/TC_tmp") == True
 
