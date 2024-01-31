@@ -25,5 +25,5 @@ setup(
   ],
   entry_points={
     "console_scripts": [
-        'transcriptclean=transcriptclean.TranscriptClean:main']}
+        'transcriptclean=TranscriptClean.TranscriptClean:main']}
 )
