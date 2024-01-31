@@ -14,9 +14,7 @@ setup(
       'pybedtools>0.8',
       'pyfaidx>0.5',
       'pytest>6',
-      'pyranges==0.0.129',
-      'bedtools',
-      'samtools',
+      'pyranges==0.0.129'
       ],
   classifiers=[ # choose from here: https://pypi.org/classifiers/
     'Development Status :: 3 - Alpha',
@@ -27,5 +25,6 @@ setup(
   ],
   entry_points={
     "console_scripts": [
-        'transcriptclean=TranscriptClean.TranscriptClean:main']}
+        'transcriptclean=TranscriptClean.TranscriptClean:main',
+        'transcriptclean_get_sjs=TranscriptClean.accessory_scripts.get_SJs_from_gtf:main']}
 )
