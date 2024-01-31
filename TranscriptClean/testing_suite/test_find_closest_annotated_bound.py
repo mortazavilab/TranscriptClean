@@ -4,7 +4,7 @@ sys.path.append("..")  # noqa
 
 from TranscriptClean.dstruct import Struct
 import TranscriptClean.TranscriptClean as TC
-import intronBound as ib
+import TranscriptClean.intronBound as ib
 import TranscriptClean.spliceJunction as sj
 import pytest
 from pyfaidx import Fasta

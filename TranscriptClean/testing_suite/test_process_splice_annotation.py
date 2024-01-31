@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")  # noqa
 import os
-import TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 import pytest
 import os
 import subprocess

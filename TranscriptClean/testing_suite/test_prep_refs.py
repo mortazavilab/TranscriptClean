@@ -4,7 +4,7 @@ import pybedtools
 import subprocess
 import os
 import pytest
-import TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 import dstruct as dstruct
 
 

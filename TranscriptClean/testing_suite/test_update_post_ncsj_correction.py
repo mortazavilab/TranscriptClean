@@ -3,10 +3,10 @@ from pyfaidx import Fasta
 import sys
 import os
 sys.path.append("..")
-import transcript as t2
+import TranscriptClean.transcript as t2
 import TranscriptClean.spliceJunction as sj
-import intronBound as ib
-import TranscriptClean as TC
+import TranscriptClean.intronBound as ib
+import TranscriptClean.TranscriptClean as TC
 
 class TestUpdatePostNCSJCorrection(object):
 

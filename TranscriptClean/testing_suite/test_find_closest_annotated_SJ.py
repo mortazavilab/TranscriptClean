@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.append("..")
 import TranscriptClean.spliceJunction as sj
-import intronBound as ib
+import TranscriptClean.intronBound as ib
 import TranscriptClean.TranscriptClean as TC
 from TranscriptClean.dstruct import Struct
 @pytest.mark.unit

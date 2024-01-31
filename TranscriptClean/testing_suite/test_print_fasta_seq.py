@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.append("..")
 import transcript as ts
-import TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 @pytest.mark.unit
 
 class TestPrintFaSeq(object):

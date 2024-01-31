@@ -5,7 +5,7 @@ import os
 import subprocess
 sys.path.append("..")
 import transcript as t2
-import TranscriptClean as TC
+import TranscriptClean.TranscriptClean as TC
 import dstruct as dstruct
 @pytest.mark.integration
 
